@@ -10,7 +10,7 @@ import {
   TooltipProps,
 } from 'recharts'
 import type { LabelProps } from 'recharts'
-import { GroupSeriesMeta, SeriesDataPoint } from '../dataCalculations'
+import { GroupSeriesMeta, SeriesDataPoint, customRound } from '../dataCalculations'
 
 const GROUP_COLORS = [
   '#3A8518', // green (1st segment)
@@ -58,7 +58,7 @@ const HorizontalValueLabel: React.FC<LabelProps> = ({ x, y, width, height, value
       </text>
     )
   }
-  const text = `${Math.round(numericValue)}%`
+  const text = `${customRound(numericValue)}%`
   // Position to the right of the bar
   return (
     <text
@@ -83,7 +83,7 @@ const VerticalValueLabel: React.FC<LabelProps> = ({ x, y, width, value }) => {
   if (!Number.isFinite(numericValue) || numericValue === 0) {
     return null
   }
-  const text = `${Math.round(numericValue)}%`
+  const text = `${customRound(numericValue)}%`
   return (
     <text
       x={originX + barWidth / 2}
@@ -160,7 +160,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
         {row.groupSummaries.map(summary => (
           <div key={summary.label} className="flex justify-between gap-4">
             <span>{summary.label}</span>
-            <span>{Math.round(summary.percent)}% ({summary.count}/{summary.denominator})</span>
+            <span>{customRound(summary.percent)}% ({summary.count}/{summary.denominator})</span>
           </div>
         ))}
       </div>

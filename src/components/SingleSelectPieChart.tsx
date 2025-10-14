@@ -1,6 +1,6 @@
 import React from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import { SeriesDataPoint, GroupSeriesMeta } from '../dataCalculations'
+import { SeriesDataPoint, GroupSeriesMeta, customRound } from '../dataCalculations'
 
 const PIE_COLORS = [
   '#3A8518',
@@ -61,7 +61,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({ data
               ))}
             </Pie>
             <Tooltip
-              formatter={(value: number) => `${value.toFixed(1)}%`}
+              formatter={(value: number) => `${customRound(value)}%`}
             />
           </PieChart>
         </ResponsiveContainer>

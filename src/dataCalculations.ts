@@ -1,5 +1,14 @@
 import { ParsedCSV, QuestionDef, SortOrder } from './types'
 
+// Custom rounding function that rounds up from 0.45 instead of 0.5
+// This matches the rounding behavior of the reference platform
+export function customRound(value: number): number {
+  const floor = Math.floor(value)
+  const decimal = value - floor
+  // Round up if decimal part is >= 0.45
+  return decimal >= 0.45 ? Math.ceil(value) : floor
+}
+
 export interface GroupSeriesMeta {
   label: string
   key: string
