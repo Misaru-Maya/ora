@@ -1,0 +1,9 @@
+Respondent Id,Audience,Gender,[Q1] (single) What is your age?,[Q2] (multi): Option A,[Q2] (multi): Option B,[Q2] (multi): Option C
+RESP001,Panel,Male,25-34,1,0,1
+RESP002,CRM,Female,35-44,0,1,0
+RESP003,Panel,Male,25-34,1,1,0
+RESP004,CRM,Male,18-24,0,0,1
+RESP005,Panel,Female,35-44,1,1,1
+RESP006,CRM,Female,25-34,0,1,0
+RESP007,Panel,Male,18-24,1,0,0
+RESP008,CRM,Male,35-44,0,1,1
