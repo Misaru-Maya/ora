@@ -256,7 +256,7 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
           if (value !== null && value !== undefined && value !== '') {
             const strValue = String(value).trim()
             // Check for binary values
-            if (strValue === '0' || strValue === '1' || strValue === 0 || strValue === 1) {
+            if (strValue === '0' || strValue === '1') {
               hasBinaryData = true
             } else if (strValue.length > 2) {
               // Has text data (either pipe-separated or single option text)
