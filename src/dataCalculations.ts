@@ -190,49 +190,14 @@ export function buildSeries({
       let denom = 0
 
       if (question.type === 'multi') {
-        // First, determine which respondents answered this question at all
-        const answeredRespondents = new Set<string>()
+        // For multi-select questions, denominator should be ALL unique respondents in the group
+        // This includes those who selected "None of these, skip" or "Not specified"
+        denom = info.uniqueRespondents.length
 
-        if (question.textSummaryColumn) {
-          // For text summary columns, anyone with non-empty text answered
-          for (const r of info.rows) {
-            const respondent = normalizeValue(r[respIdCol])
-            if (!respondent) continue
+        const seen = new Set<string>()
 
-            const textValue = r[question.textSummaryColumn]
-            if (textValue && textValue !== '') {
-              answeredRespondents.add(respondent)
-            }
-          }
-        } else {
-          // For binary columns, check if ANY option was selected
-          for (const r of info.rows) {
-            const respondent = normalizeValue(r[respIdCol])
-            if (!respondent) continue
-
-            // Check all columns for this question to see if respondent answered
-            for (const qCol of question.columns) {
-              const headersToCheck = [qCol.header, ...(qCol.alternateHeaders || [])]
-              for (const header of headersToCheck) {
-                const v = r[header]
-                if (v === 1 || v === true || v === '1' || v === 'true' || v === 'Y') {
-                  answeredRespondents.add(respondent)
-                  break
-                }
-              }
-              if (answeredRespondents.has(respondent)) break
-            }
-          }
-        }
-
-        // Denominator is number of respondents who answered this question
-        denom = answeredRespondents.size
-
-        if (denom) {
-          const seen = new Set<string>()
-
-          // Check if this question uses a text summary column (pipe-separated or single values)
-          if (question.textSummaryColumn && col.header.startsWith('__TEXT_MULTI__')) {
+        // Check if this question uses a text summary column (pipe-separated or single values)
+        if (question.textSummaryColumn && col.header.startsWith('__TEXT_MULTI__')) {
             // Parse values from text summary column (can be pipe-separated or single value)
             const optionLabelLower = optionLabel.toLowerCase()
             for (const r of info.rows) {
@@ -270,8 +235,7 @@ export function buildSeries({
               }
             }
           }
-          count = seen.size
-        }
+        count = seen.size
       } else if (question.singleSourceColumn) {
         const cleanedLabel = optionLabel.toLowerCase()
         const counts = info.singleCounts || {}
