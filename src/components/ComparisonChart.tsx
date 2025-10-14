@@ -160,7 +160,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
         {row.groupSummaries.map(summary => (
           <div key={summary.label} className="flex justify-between gap-4">
             <span>{summary.label}</span>
-            <span>{summary.percent.toFixed(0)}% ({summary.count}/{summary.denominator})</span>
+            <span>{Math.round(summary.percent)}% ({summary.count}/{summary.denominator})</span>
           </div>
         ))}
       </div>

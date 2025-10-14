@@ -15,8 +15,14 @@ export interface QuestionDef {
   columns: QuestionOptionColumn[]
   // For 'single' questions, the source column header holding the text value
   singleSourceColumn?: string
+  // For 'multi' questions, optional text summary column with pipe-separated values
+  textSummaryColumn?: string
+  // Whether to use total base (all respondents) instead of only those who answered
+  useTotalBase?: boolean
   // Heuristic: respondent-level vs row-level
   level: 'respondent' | 'row'
+  // Whether this is a likert scale question
+  isLikert?: boolean
 }
 
 export interface DatasetSummary {

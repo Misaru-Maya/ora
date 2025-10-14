@@ -94,21 +94,38 @@ export function buildSeries({
   if (question.type !== 'multi' && question.singleSourceColumn) {
     for (const [groupLabel, info] of groupInfo.entries()) {
       const counts: Record<string, number> = {}
-      const seen = new Map<string, string>()
-      for (const r of info.rows) {
-        const respondent = stripQuotes(String(r[respIdCol] ?? '').trim())
-        if (!respondent || seen.has(respondent)) continue
-        const value = stripQuotes(String(r[question.singleSourceColumn!] ?? '').trim())
-        if (!value) continue
-        seen.set(respondent, value)
+
+      // For product-level questions, count all responses (rows), not just unique respondents
+      if (question.level === 'row' || dataset.summary.isProductTest) {
+        // Count all rows with answers
+        for (const r of info.rows) {
+          const value = stripQuotes(String(r[question.singleSourceColumn!] ?? '').trim())
+          if (!value) continue
+          const normalized = value.toLowerCase()
+          counts[normalized] = (counts[normalized] || 0) + 1
+        }
+        // Denominator is total rows with answers
+        const totalAnswered = Object.values(counts).reduce((sum, count) => sum + count, 0)
+        info.singleCounts = counts
+        info.singleDenom = totalAnswered
+      } else {
+        // For respondent-level questions, count unique respondents
+        const seen = new Map<string, string>()
+        for (const r of info.rows) {
+          const respondent = stripQuotes(String(r[respIdCol] ?? '').trim())
+          if (!respondent || seen.has(respondent)) continue
+          const value = stripQuotes(String(r[question.singleSourceColumn!] ?? '').trim())
+          if (!value) continue
+          seen.set(respondent, value)
+        }
+        // Count case-insensitively by normalizing to lowercase
+        seen.forEach(value => {
+          const normalized = value.toLowerCase()
+          counts[normalized] = (counts[normalized] || 0) + 1
+        })
+        info.singleCounts = counts
+        info.singleDenom = seen.size
       }
-      // Count case-insensitively by normalizing to lowercase
-      seen.forEach(value => {
-        const normalized = value.toLowerCase()
-        counts[normalized] = (counts[normalized] || 0) + 1
-      })
-      info.singleCounts = counts
-      info.singleDenom = seen.size
     }
   }
 
@@ -164,21 +181,83 @@ export function buildSeries({
       let denom = 0
 
       if (question.type === 'multi') {
-        const respondents = info.uniqueRespondents
-        denom = respondents.length
-        if (denom) {
-          const seen = new Set<string>()
-          // Check both primary header and alternate headers (for case-insensitive duplicates)
-          const headersToCheck = [col.header, ...(col.alternateHeaders || [])]
+        // First, determine which respondents answered this question at all
+        const answeredRespondents = new Set<string>()
+
+        if (question.textSummaryColumn) {
+          // For text summary columns, anyone with non-empty text answered
           for (const r of info.rows) {
             const respondent = normalizeValue(r[respIdCol])
             if (!respondent) continue
-            // Check if any of the headers (primary or alternates) has a truthy value
-            for (const header of headersToCheck) {
-              const v = r[header]
-              if (v === 1 || v === true || v === '1' || v === 'true' || v === 'Y') {
+
+            const textValue = r[question.textSummaryColumn]
+            if (textValue && textValue !== '') {
+              answeredRespondents.add(respondent)
+            }
+          }
+        } else {
+          // For binary columns, check if ANY option was selected
+          for (const r of info.rows) {
+            const respondent = normalizeValue(r[respIdCol])
+            if (!respondent) continue
+
+            // Check all columns for this question to see if respondent answered
+            for (const qCol of question.columns) {
+              const headersToCheck = [qCol.header, ...(qCol.alternateHeaders || [])]
+              for (const header of headersToCheck) {
+                const v = r[header]
+                if (v === 1 || v === true || v === '1' || v === 'true' || v === 'Y') {
+                  answeredRespondents.add(respondent)
+                  break
+                }
+              }
+              if (answeredRespondents.has(respondent)) break
+            }
+          }
+        }
+
+        // Denominator is number of respondents who answered this question
+        denom = answeredRespondents.size
+
+        if (denom) {
+          const seen = new Set<string>()
+
+          // Check if this question uses a text summary column (pipe-separated or single values)
+          if (question.textSummaryColumn && col.header.startsWith('__TEXT_MULTI__')) {
+            // Parse values from text summary column (can be pipe-separated or single value)
+            const optionLabelLower = optionLabel.toLowerCase()
+            for (const r of info.rows) {
+              const respondent = normalizeValue(r[respIdCol])
+              if (!respondent) continue
+
+              const textValue = r[question.textSummaryColumn]
+              if (!textValue || textValue === '') continue
+
+              const cleanedValue = stripQuotes(String(textValue).trim())
+
+              // Split by pipe (or treat as single value if no pipe)
+              const options = cleanedValue.includes('|')
+                ? cleanedValue.split('|').map(opt => stripQuotes(opt.trim()).toLowerCase())
+                : [cleanedValue.toLowerCase()]
+
+              // Check if this option is present in the list
+              if (options.includes(optionLabelLower)) {
                 seen.add(respondent)
-                break // Don't double-count same respondent
+              }
+            }
+          } else {
+            // Check both primary header and alternate headers (for binary columns)
+            const headersToCheck = [col.header, ...(col.alternateHeaders || [])]
+            for (const r of info.rows) {
+              const respondent = normalizeValue(r[respIdCol])
+              if (!respondent) continue
+              // Check if any of the headers (primary or alternates) has a truthy value
+              for (const header of headersToCheck) {
+                const v = r[header]
+                if (v === 1 || v === true || v === '1' || v === 'true' || v === 'Y') {
+                  seen.add(respondent)
+                  break // Don't double-count same respondent
+                }
               }
             }
           }
@@ -191,12 +270,15 @@ export function buildSeries({
         count = counts[cleanedLabel] || 0
       }
 
-      row[meta.key] = denom ? (count / denom) * 100 : 0
+      // Calculate percentage with proper rounding to avoid floating point issues
+      // Round to 10 decimal places first to fix floating point precision issues
+      const percent = denom ? Math.round((count / denom) * 100 * 1e10) / 1e10 : 0
+      row[meta.key] = percent
       groupSummaries.push({
         label: meta.label,
         count,
         denominator: denom,
-        percent: row[meta.key] as number
+        percent
       })
     })
 

@@ -223,9 +223,10 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
 
     const { qid, rawType, questionText, option } = parsed
     const questionType = normalizeQuestionType(rawType)
+    const isLikert = rawType.toLowerCase().includes('scale')
 
-    // Create a unique key based on QID + question text to handle cases where
-    // the same QID is reused for different questions
+    // Use QID + question text as key to differentiate questions with same number but different text
+    // This handles cases where the same Q# is reused for different questions
     const questionKey = `${qid}::${questionText || qid}`
 
     if (!qMap.has(questionKey)) {
@@ -235,17 +236,59 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
         type: questionType,
         columns: [] as QuestionOptionColumn[],
         level: 'respondent' as const,
+        isLikert,
       })
     }
 
     const q = qMap.get(questionKey)!
 
     if (questionType === 'multi') {
-      // Skip if we don't have a valid option (prevents question text from appearing as option)
+      // Check if this is a text summary column (no option suffix, just the question)
       if (!option || option === questionText) {
-        console.warn(`Skipping multi-select column with no distinct option: ${col}`)
+        // Check if this column contains text data (pipe-separated or single values, not binary data)
+        // Sample a few rows to determine if it's a text summary column
+        let hasTextData = false
+        let hasBinaryData = false
+        let respondentCount = 0
+
+        for (let i = 0; i < Math.min(100, rows.length); i++) {
+          const value = rows[i][col]
+          if (value !== null && value !== undefined && value !== '') {
+            const strValue = String(value).trim()
+            // Check for binary values
+            if (strValue === '0' || strValue === '1' || strValue === 0 || strValue === 1) {
+              hasBinaryData = true
+            } else if (strValue.length > 2) {
+              // Has text data (either pipe-separated or single option text)
+              hasTextData = true
+              respondentCount++
+            }
+          }
+        }
+
+        // Only treat as text summary if it has text data (not binary)
+        if (hasTextData && !hasBinaryData) {
+          q.type = 'multi'
+          q.label = questionText || q.label || qid
+
+          // If there's already a text summary column, keep the one with more data
+          if (q.textSummaryColumn) {
+            console.log(`[DEBUG] Found another text summary column for ${qid}: ${col} (will evaluate which has more data)`)
+          } else {
+            q.textSummaryColumn = col
+            console.log(`[DEBUG] Found text summary column for ${qid}: ${col}`)
+          }
+
+          segmentCandidateSet.delete(col)
+          continue
+        }
+
+        // If it's not a text summary, skip this column (it's likely a duplicate header without options)
+        console.warn(`[DEBUG] Skipping multi-select column with no distinct option and no pipe-separated data: ${col}`)
+        segmentCandidateSet.delete(col)
         continue
       }
+
       const optionLabel = stripQuotes(option)
       const normalizedOption = optionLabel.toLowerCase()
 
@@ -287,7 +330,48 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
       optionLabel: displayLabel,
       alternateHeaders: headers.slice(1) // Store additional headers for data lookup
     }))
-    console.log(`[DEBUG] Question ${questionKey} has ${q.columns.length} options:`, q.columns.map(c => c.optionLabel))
+    console.log(`[DEBUG] Question ${questionKey} has ${q.columns.length} options from binary columns:`, q.columns.map(c => c.optionLabel))
+  }
+
+  // For multi-select questions with text summary columns, extract options from the pipe-separated values
+  for (const q of qMap.values()) {
+    if (q.type === 'multi' && q.textSummaryColumn) {
+      console.log(`[DEBUG] Processing text summary column for ${q.qid}: ${q.textSummaryColumn}`)
+      const optionSet = new Map<string, string>() // normalized -> display label
+
+      // Extract all unique options from the text summary column
+      for (const row of rows) {
+        const textValue = row[q.textSummaryColumn]
+        if (!textValue || textValue === '') continue
+
+        const cleanedValue = stripQuotes(String(textValue).trim())
+
+        // Split by pipe if present, otherwise treat as single option
+        const options = cleanedValue.includes('|')
+          ? cleanedValue.split('|').map(opt => stripQuotes(opt.trim())).filter(Boolean)
+          : [cleanedValue]
+
+        for (const opt of options) {
+          const normalized = opt.toLowerCase()
+          if (!optionSet.has(normalized)) {
+            optionSet.set(normalized, opt)
+          }
+        }
+      }
+
+      // Build columns from the text summary options
+      // Use the options from text summary only if there are no binary columns, or if text has more respondents
+      const textOptions = Array.from(optionSet.entries()).map(([normalized, displayLabel]) => ({
+        header: `__TEXT_MULTI__${q.qid}__${displayLabel}`,
+        optionLabel: displayLabel
+      }))
+
+      // Prefer text summary data if it exists and has options
+      if (textOptions.length > 0) {
+        q.columns = textOptions
+        console.log(`[DEBUG] Using ${textOptions.length} options from text summary for ${q.qid}:`, textOptions.map(c => c.optionLabel))
+      }
+    }
   }
 
   if (segmentCandidateSet.has(QUERY_PARAM_COLUMN)) {

@@ -18,8 +18,9 @@ const SORT_OPTIONS: CardSortOption[] = ['default', 'descending', 'ascending', 'a
 
 const formatQuestionTitle = (question: QuestionDef): string => {
   const base = question.label === 'When were you born?' ? 'How old are you?' : question.label
-  const typeLabel =
-    question.type === 'single'
+  const typeLabel = question.isLikert
+    ? 'likert'
+    : question.type === 'single'
       ? 'single select'
       : question.type === 'multi'
         ? 'multi select'
@@ -34,7 +35,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
   displayLabel,
   filterSignificantOnly = false
 }) => {
-  const [cardSort, setCardSort] = useState<CardSortOption>('default')
+  const [cardSort, setCardSort] = useState<CardSortOption>(question.isLikert ? 'alphabetical' : 'default')
   const [showFilter, setShowFilter] = useState(false)
   const [showSortMenu, setShowSortMenu] = useState(false)
   const [showOrientationMenu, setShowOrientationMenu] = useState(false)
@@ -53,9 +54,9 @@ const ChartCard: React.FC<ChartCardProps> = ({
   const statSigMenuRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    setCardSort('default')
+    setCardSort(question.isLikert ? 'alphabetical' : 'default')
     setSelectedOptions(series.data.map(d => d.option))
-  }, [series])
+  }, [series, question.isLikert])
 
   useEffect(() => {
     setChartOrientation(orientation)
