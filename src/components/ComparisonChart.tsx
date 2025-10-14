@@ -147,7 +147,7 @@ interface ComparisonChartProps {
   questionLabel?: string
 }
 
-const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload }) => {
+const CustomTooltip: React.FC<any> = ({ active, payload }) => {
   if (!active || !payload || payload.length === 0) return null
   const row = payload[0].payload as SeriesDataPoint
   return (
