@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/chartconfig.ts","./src/csvparser.ts","./src/datacalculations.ts","./src/main.tsx","./src/store.ts","./src/types.ts","./src/components/csvupload.tsx","./src/components/chartgallery.tsx","./src/components/comparisonchart.tsx","./src/components/singleselectpiechart.tsx"],"version":"5.9.3"}
