@@ -46,7 +46,6 @@ const ChartCard: React.FC<ChartCardProps> = ({
   const canUsePie = question.type === 'single'
     && series.groups.length === 1
     && question.columns.length <= 6
-    && series.groups[0]?.label === 'Overall'
   const [chartVariant, setChartVariant] = useState<'bar' | 'pie'>('bar')
   const orientationMenuRef = useRef<HTMLDivElement | null>(null)
   const sortMenuRef = useRef<HTMLDivElement | null>(null)
