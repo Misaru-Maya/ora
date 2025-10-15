@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useMemo } from 'react'
-import Papa from 'papaparse'
+import Papa, { ParseResult } from 'papaparse'
 import { parseCSVToDataset } from '../csvParser'
 import { useORAStore } from '../store'
 
@@ -27,7 +27,7 @@ export const CSVUpload: React.FC<CSVUploadProps> = ({ variant = 'compact' }) => 
       header: true,
       skipEmptyLines: true,
       dynamicTyping: true,
-      complete: (res) => {
+      complete: (res: ParseResult<any>) => {
         const rows = res.data as any[]
         try {
           const dataset = parseCSVToDataset(rows, file.name)
@@ -40,7 +40,7 @@ export const CSVUpload: React.FC<CSVUploadProps> = ({ variant = 'compact' }) => 
           setIsLoading(false)
         }
       },
-      error: (err) => {
+      error: (err: Error) => {
         setError('CSV parse error: ' + err.message)
         console.error('CSV parse error', err)
         setIsLoading(false)
