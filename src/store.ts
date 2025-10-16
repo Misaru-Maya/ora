@@ -14,7 +14,7 @@ export const useORAStore = create<ORAState>((set) => ({
     console.log('Setting dataset in store:', d)
     set({ dataset: d })
   },
-  selections: { groups: [], sortOrder: 'descending', productGroups: [], statSigFilter: 'all' },
+  selections: { groups: [], sortOrder: 'descending', productGroups: [], statSigFilter: 'all', hideAsterisks: false },
   setSelections: (s) => set((state) => ({
     selections: { ...state.selections, ...s }
   }))

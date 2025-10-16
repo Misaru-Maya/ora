@@ -32,3 +32,4 @@ gh-pages-deploy/
 
 # Backup files
 *\ 2.*
+.vercel

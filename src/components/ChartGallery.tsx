@@ -16,6 +16,7 @@ interface ChartCardProps {
   dataset: ParsedCSV
   segmentColumn?: string
   sortOrder: SortOrder
+  hideAsterisks?: boolean
 }
 
 const SORT_OPTIONS: CardSortOption[] = ['default', 'descending', 'ascending', 'alphabetical']
@@ -40,7 +41,8 @@ const ChartCard: React.FC<ChartCardProps> = ({
   filterSignificantOnly = false,
   dataset,
   segmentColumn,
-  sortOrder
+  sortOrder,
+  hideAsterisks = false
 }) => {
   const [cardSort, setCardSort] = useState<CardSortOption>(question.isLikert ? 'alphabetical' : 'default')
   const [showFilter, setShowFilter] = useState(false)
@@ -182,8 +184,15 @@ const ChartCard: React.FC<ChartCardProps> = ({
         break
     }
 
-    return sorted.map(item => item.data)
-  }, [series, selectedOptions, cardSort, statSigFilteredData, chartVariant, canUsePie, canUseStacked])
+    return sorted.map(item => {
+      const data = { ...item.data }
+      // Strip asterisk from optionDisplay if hideAsterisks is enabled
+      if (hideAsterisks && data.optionDisplay.endsWith('*')) {
+        data.optionDisplay = data.optionDisplay.slice(0, -1)
+      }
+      return data
+    })
+  }, [series, selectedOptions, cardSort, statSigFilteredData, chartVariant, canUsePie, canUseStacked, hideAsterisks])
 
   // Sorted options for filter dropdown - respects current cardSort (but doesn't filter by selection)
   const sortedOptionsForFilter = useMemo(() => {
@@ -213,8 +222,15 @@ const ChartCard: React.FC<ChartCardProps> = ({
         break
     }
 
-    return sorted.map(item => item.data)
-  }, [series, cardSort, statSigFilteredData, chartVariant, canUsePie])
+    return sorted.map(item => {
+      const data = { ...item.data }
+      // Strip asterisk from optionDisplay if hideAsterisks is enabled
+      if (hideAsterisks && data.optionDisplay.endsWith('*')) {
+        data.optionDisplay = data.optionDisplay.slice(0, -1)
+      }
+      return data
+    })
+  }, [series, cardSort, statSigFilteredData, chartVariant, canUsePie, hideAsterisks])
 
   const hasData = processedData.length > 0
   const hasBaseData = series.data.length > 0
@@ -530,7 +546,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
           </div>
           )}
           {/* Stat Sig Dropdown */}
-          {chartVariant !== 'heatmap' && (
+          {chartVariant !== 'heatmap' && !isOverallSegment && (
           <div className="relative" ref={statSigMenuRef}>
             <button
               onClick={(e) => {
@@ -664,7 +680,10 @@ const ChartCard: React.FC<ChartCardProps> = ({
                       borderRadius: '3px',
                       padding: '0 6px'
                     }}
-                    onClick={() => setChartVariant('stacked')}
+                    onClick={() => {
+                      setChartVariant('stacked')
+                      setChartOrientation('horizontal')
+                    }}
                   >
                     <span style={{ padding: '0 2px' }}>Stacked</span>
                   </button>
@@ -874,6 +893,7 @@ interface ChartGalleryProps {
   sortOrder: SortOrder
   selectedQuestionId?: string
   filterSignificantOnly?: boolean
+  hideAsterisks?: boolean
 }
 
 export const ChartGallery: React.FC<ChartGalleryProps> = ({
@@ -884,7 +904,8 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
   orientation,
   sortOrder,
   selectedQuestionId: _selectedQuestionId,
-  filterSignificantOnly = false
+  filterSignificantOnly = false,
+  hideAsterisks = false
 }) => {
   const renderableEntries = useMemo(() => {
     if (!segmentColumn || !groups.length) return []
@@ -922,6 +943,7 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
                 dataset={dataset}
                 segmentColumn={segmentColumn}
                 sortOrder={sortOrder}
+                hideAsterisks={hideAsterisks}
               />
             </div>
           )

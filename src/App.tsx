@@ -319,7 +319,13 @@ export default function App() {
   const handleSegmentColumnChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const nextSegment = event.target.value
     const defaults = autoDefaultGroups(rowsRaw, nextSegment)
-    setSelections({ segmentColumn: nextSegment, groups: defaults })
+
+    // If switching to "Overall" and stat sig is currently "statSigOnly", change to "all"
+    if (nextSegment === 'Overall' && selections.statSigFilter === 'statSigOnly') {
+      setSelections({ segmentColumn: nextSegment, groups: defaults, statSigFilter: 'all' })
+    } else {
+      setSelections({ segmentColumn: nextSegment, groups: defaults })
+    }
   }
 
   const handleSelectAllProducts = () => setSelections({ productGroups: [...productValues] })
@@ -502,6 +508,40 @@ export default function App() {
                   </div>
                 </section>
 
+                <section className="space-y-3 rounded-xl bg-white p-5 shadow-sm">
+                  <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Stat Sig</h4>
+                  <select
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-700 font-medium shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent hover:shadow-lg hover:border-gray-300 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md disabled:hover:border-gray-200"
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                      backgroundPosition: 'right 0.75rem center',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundSize: '1.25em 1.25em',
+                      paddingRight: '2.75rem'
+                    }}
+                    value={statSigFilter}
+                    onChange={(event) =>
+                      setSelections({ statSigFilter: event.target.value as 'all' | 'statSigOnly' })
+                    }
+                    disabled={selections.segmentColumn === 'Overall'}
+                  >
+                    <option value="all">All Results</option>
+                    <option value="statSigOnly">Stat Sig Only</option>
+                  </select>
+                </section>
+
+                <section className="space-y-3 rounded-xl bg-white p-5 shadow-sm">
+                  <label className="flex items-center cursor-pointer" style={{ gap: '4px' }}>
+                    <input
+                      type="checkbox"
+                      className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green"
+                      checked={selections.hideAsterisks || false}
+                      onChange={(e) => setSelections({ hideAsterisks: e.target.checked })}
+                    />
+                    <span className="text-sm font-semibold text-gray-700">Remove asterisks</span>
+                  </label>
+                </section>
+
                 {productColumn && productValues.length > 0 && (
                   <section className="space-y-3 rounded-xl bg-white p-5 shadow-sm">
                     <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Products</h4>
@@ -581,26 +621,6 @@ export default function App() {
                       <option value="default">Original</option>
                     </select>
                   </div>
-                  <div className="space-y-3.5">
-                    <label className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Stat Sig</label>
-                    <select
-                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-700 font-medium shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent hover:shadow-lg hover:border-gray-300 appearance-none cursor-pointer"
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                        backgroundPosition: 'right 0.75rem center',
-                        backgroundRepeat: 'no-repeat',
-                        backgroundSize: '1.25em 1.25em',
-                        paddingRight: '2.75rem'
-                      }}
-                      value={statSigFilter}
-                      onChange={(event) =>
-                        setSelections({ statSigFilter: event.target.value as 'all' | 'statSigOnly' })
-                      }
-                    >
-                      <option value="all">All Results</option>
-                      <option value="statSigOnly">Stat Sig Only</option>
-                    </select>
-                  </div>
                 </section>
               </div>
             </>
@@ -634,6 +654,7 @@ export default function App() {
                     sortOrder={selections.sortOrder}
                     selectedQuestionId={selections.question}
                     filterSignificantOnly={statSigFilter === 'statSigOnly'}
+                    hideAsterisks={selections.hideAsterisks || false}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-sm text-brand-gray/60">

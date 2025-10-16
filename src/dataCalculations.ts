@@ -58,7 +58,7 @@ function uniq<T>(arr: T[]): T[] {
 // Detect if a question is about money/income
 function isMoneyQuestion(question: QuestionDef): boolean {
   const label = question.label.toLowerCase()
-  const keywords = ['income', 'salary', 'earn', 'wage', 'pay', 'household income', 'annual income', 'revenue', '$']
+  const keywords = ['income', 'salary', 'earn', 'wage', 'pay', 'household income', 'annual income', 'revenue', '$', '£', '€', 'price', 'cost']
   return keywords.some(keyword => label.includes(keyword))
 }
 
@@ -69,13 +69,25 @@ function parseMoneyValue(text: string): number {
     return Number.MAX_SAFE_INTEGER
   }
 
-  // Extract first number with optional dollar sign
-  // Matches: $25,000 or $25000 or 25,000 or 25000
-  const match = text.match(/\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?)/i)
+  // Extract first number with optional currency symbols
+  // Matches: $25,000 or £25,000 or 25,000 or 25000
+  const match = text.match(/[\$£€]?\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?)/i)
 
   if (match) {
     // Remove commas and parse
-    return parseInt(match[1].replace(/,/g, ''), 10)
+    const baseValue = parseInt(match[1].replace(/,/g, ''), 10)
+
+    // Handle "Under" prefix - should sort before the value
+    if (/^under\s+/i.test(text)) {
+      return baseValue - 0.5
+    }
+
+    // Handle "Over" prefix - should sort after the value
+    if (/^over\s+/i.test(text)) {
+      return baseValue + 0.5
+    }
+
+    return baseValue
   }
 
   return 0

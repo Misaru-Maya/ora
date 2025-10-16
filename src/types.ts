@@ -53,4 +53,5 @@ export interface Selections {
   question?: string // qid
   sortOrder: SortOrder
   statSigFilter: StatSigFilter
+  hideAsterisks?: boolean
 }

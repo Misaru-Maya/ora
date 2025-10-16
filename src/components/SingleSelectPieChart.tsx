@@ -82,6 +82,9 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
     )
   }
 
+  // Reverse the pie data for rendering to match clockwise legend order
+  const reversedPieData = [...pieData].reverse()
+
   const legendContent = (
     <div className="flex flex-col items-start gap-3 text-xs font-semibold text-brand-gray" style={{ paddingBottom: '40px' }}>
       {pieData.map((entry, index) => (
@@ -116,7 +119,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
-                data={pieData}
+                data={reversedPieData}
                 dataKey="value"
                 nameKey="name"
                 cx="50%"
@@ -129,9 +132,13 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
                 startAngle={90}
                 endAngle={450}
               >
-                {pieData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                ))}
+                {reversedPieData.map((entry, index) => {
+                  // Use reversed index to get the correct color matching the legend
+                  const colorIndex = pieData.length - 1 - index
+                  return (
+                    <Cell key={`cell-${index}`} fill={PIE_COLORS[colorIndex % PIE_COLORS.length]} />
+                  )
+                })}
               </Pie>
               <Tooltip
                 formatter={(value: number) => `${Math.round(value)}%`}
