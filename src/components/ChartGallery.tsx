@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { ComparisonChart } from './ComparisonChart'
 import { SingleSelectPieChart } from './SingleSelectPieChart'
+import { HeatmapTable } from './HeatmapTable'
 import { BuildSeriesResult, buildSeries } from '../dataCalculations'
 import { ParsedCSV, QuestionDef, SortOrder } from '../types'
 
@@ -12,6 +13,9 @@ interface ChartCardProps {
   orientation: 'horizontal' | 'vertical'
   displayLabel: string
   filterSignificantOnly?: boolean
+  dataset: ParsedCSV
+  segmentColumn?: string
+  sortOrder: SortOrder
 }
 
 const SORT_OPTIONS: CardSortOption[] = ['default', 'descending', 'ascending', 'alphabetical']
@@ -33,7 +37,10 @@ const ChartCard: React.FC<ChartCardProps> = ({
   series,
   orientation,
   displayLabel,
-  filterSignificantOnly = false
+  filterSignificantOnly = false,
+  dataset,
+  segmentColumn,
+  sortOrder
 }) => {
   const [cardSort, setCardSort] = useState<CardSortOption>(question.isLikert ? 'alphabetical' : 'default')
   const [showFilter, setShowFilter] = useState(false)
@@ -43,14 +50,39 @@ const ChartCard: React.FC<ChartCardProps> = ({
   const [showStatSigMenu, setShowStatSigMenu] = useState(false)
   const [statSigFilter, setStatSigFilter] = useState<'all' | 'statSigOnly'>(filterSignificantOnly ? 'statSigOnly' : 'all')
   const [chartOrientation, setChartOrientation] = useState<'horizontal' | 'vertical'>(orientation)
-  const canUsePie = question.type === 'single'
-    && series.groups.length === 1
-    && question.columns.length <= 6
-  const [chartVariant, setChartVariant] = useState<'bar' | 'pie'>('bar')
+  const [pieLegendOrientation, setPieLegendOrientation] = useState<'horizontal' | 'vertical'>('horizontal')
+
+  // Can use alternate chart types for single select with < 7 visible options (after filtering)
+  const visibleOptionsCount = series.data.length
+  const canUseAlternateCharts = question.type === 'single' && visibleOptionsCount < 7
+  const canUsePie = canUseAlternateCharts && series.groups.length === 1
+  const canUseStacked = canUseAlternateCharts && series.groups.length > 1
+
+  // Can use heatmap for product-level questions, only when viewing "Overall" segment
+  const isOverallSegment = series.groups.length === 1 && series.groups[0]?.label === 'Overall'
+  const canUseHeatmap = question.level === 'row' && isOverallSegment
+
+  // Debug logging
+  console.log('Chart Debug:', {
+    qid: question.qid,
+    questionType: question.type,
+    groupsLength: series.groups.length,
+    rawColumnsLength: question.columns.length,
+    visibleOptionsCount,
+    canUsePie,
+    canUseStacked
+  })
+
+  const [chartVariant, setChartVariant] = useState<'bar' | 'pie' | 'stacked' | 'heatmap'>('bar')
+  const [heatmapFilters, setHeatmapFilters] = useState<{ products: string[], attributes: string[] }>({ products: [], attributes: [] })
+  const [showHeatmapProductFilter, setShowHeatmapProductFilter] = useState(false)
+  const [showHeatmapAttributeFilter, setShowHeatmapAttributeFilter] = useState(false)
   const orientationMenuRef = useRef<HTMLDivElement | null>(null)
   const sortMenuRef = useRef<HTMLDivElement | null>(null)
   const filterMenuRef = useRef<HTMLDivElement | null>(null)
   const statSigMenuRef = useRef<HTMLDivElement | null>(null)
+  const heatmapProductFilterRef = useRef<HTMLDivElement | null>(null)
+  const heatmapAttributeFilterRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     setCardSort(question.isLikert ? 'alphabetical' : 'default')
@@ -65,7 +97,13 @@ const ChartCard: React.FC<ChartCardProps> = ({
     if (!canUsePie && chartVariant === 'pie') {
       setChartVariant('bar')
     }
-  }, [canUsePie, chartVariant, question.qid])
+    if (!canUseStacked && chartVariant === 'stacked') {
+      setChartVariant('bar')
+    }
+    if (!canUseHeatmap && chartVariant === 'heatmap') {
+      setChartVariant('bar')
+    }
+  }, [canUsePie, canUseStacked, canUseHeatmap, chartVariant, question.qid])
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -125,12 +163,16 @@ const ChartCard: React.FC<ChartCardProps> = ({
     const filtered = annotated.filter(item => selectedOptions.includes(item.data.option))
 
     const sorted = [...filtered]
+    const isPieChart = chartVariant === 'pie' && canUsePie
+
     switch (cardSort) {
       case 'descending':
-        sorted.sort((a, b) => b.average - a.average)
+        // For pie charts, reverse the sort so largest appears at top going clockwise = descending visually
+        sorted.sort((a, b) => isPieChart ? a.average - b.average : b.average - a.average)
         break
       case 'ascending':
-        sorted.sort((a, b) => a.average - b.average)
+        // For pie charts, reverse the sort so smallest appears at top going clockwise = ascending visually
+        sorted.sort((a, b) => isPieChart ? b.average - a.average : a.average - b.average)
         break
       case 'alphabetical':
         sorted.sort((a, b) => a.data.optionDisplay.localeCompare(b.data.optionDisplay))
@@ -141,7 +183,38 @@ const ChartCard: React.FC<ChartCardProps> = ({
     }
 
     return sorted.map(item => item.data)
-  }, [series, selectedOptions, cardSort, statSigFilteredData])
+  }, [series, selectedOptions, cardSort, statSigFilteredData, chartVariant, canUsePie, canUseStacked])
+
+  // Sorted options for filter dropdown - respects current cardSort (but doesn't filter by selection)
+  const sortedOptionsForFilter = useMemo(() => {
+    const annotated = statSigFilteredData.map((d, index) => ({
+      data: d,
+      index,
+      average: series.groups.length
+        ? series.groups.reduce((sum, g) => sum + Number(d[g.key] ?? 0), 0) / series.groups.length
+        : 0
+    }))
+
+    const sorted = [...annotated]
+    const isPieChart = chartVariant === 'pie' && canUsePie
+
+    switch (cardSort) {
+      case 'descending':
+        sorted.sort((a, b) => isPieChart ? a.average - b.average : b.average - a.average)
+        break
+      case 'ascending':
+        sorted.sort((a, b) => isPieChart ? b.average - a.average : a.average - b.average)
+        break
+      case 'alphabetical':
+        sorted.sort((a, b) => a.data.optionDisplay.localeCompare(b.data.optionDisplay))
+        break
+      default:
+        sorted.sort((a, b) => a.index - b.index)
+        break
+    }
+
+    return sorted.map(item => item.data)
+  }, [series, cardSort, statSigFilteredData, chartVariant, canUsePie])
 
   const hasData = processedData.length > 0
   const hasBaseData = series.data.length > 0
@@ -154,9 +227,9 @@ const ChartCard: React.FC<ChartCardProps> = ({
   return (
     <div className="rounded-2xl bg-white p-5 shadow-md transition-shadow hover:shadow-lg space-y-4">
       <div className="flex items-center justify-between gap-2 pb-2">
-        <div className="flex items-center gap-2">
-          {/* Chart Orientation Dropdown */}
-          {chartVariant === 'bar' && (
+        <div className="flex items-center gap-2" style={{ paddingLeft: '40px' }}>
+          {/* Chart Orientation Dropdown - for bar charts and stacked charts */}
+          {chartVariant !== 'heatmap' && (chartVariant === 'bar' || chartVariant === 'stacked') && (
             <div className="relative" ref={orientationMenuRef}>
               <button
                 onClick={(e) => {
@@ -166,57 +239,165 @@ const ChartCard: React.FC<ChartCardProps> = ({
                   setShowFilter(false)
                   setShowStatSigMenu(false)
                 }}
-                className="flex h-8 w-8 items-center justify-center rounded-md bg-white text-brand-gray transition hover:bg-brand-pale-gray"
+                className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"
+                style={{ height: '30px', width: '30px', backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}
                 title="Chart orientation"
                 aria-label="Toggle chart orientation menu"
                 type="button"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="4" width="6" height="16" rx="1.5" />
-                  <rect x="15" y="4" width="6" height="10" rx="1.5" />
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7" />
+                  <rect x="14" y="3" width="7" height="7" />
+                  <rect x="14" y="14" width="7" height="7" />
+                  <rect x="3" y="14" width="7" height="7" />
                 </svg>
               </button>
               {showOrientationMenu && (
-                <div className="absolute left-0 top-10 z-10 w-40 rounded-md bg-white shadow-lg">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setChartOrientation('horizontal')
-                      setShowOrientationMenu(false)
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-brand-pale-gray"
-                  >
-                    <input
-                      type="checkbox"
-                      readOnly
-                      checked={chartOrientation === 'horizontal'}
-                      className="h-4 w-4 rounded text-brand-green focus:ring-brand-green"
-                    />
-                    <span>Horizontal</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setChartOrientation('vertical')
-                      setShowOrientationMenu(false)
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-brand-pale-gray"
-                  >
-                    <input
-                      type="checkbox"
-                      readOnly
-                      checked={chartOrientation === 'vertical'}
-                      className="h-4 w-4 rounded text-brand-green focus:ring-brand-green"
-                    />
-                    <span>Vertical</span>
-                  </button>
+                <div className="absolute left-0 top-10 z-10 w-56 shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', opacity: 1 }}>
+                  <div className="px-4 py-3" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setChartOrientation('horizontal')
+                        setShowOrientationMenu(false)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setChartOrientation('horizontal')
+                          setShowOrientationMenu(false)
+                        }
+                      }}
+                      className="flex w-full items-center cursor-pointer px-2 py-2 text-sm transition hover:bg-gray-100 rounded"
+                      style={{ backgroundColor: '#EEF2F6', gap: '2px' }}
+                    >
+                      <input
+                        type="checkbox"
+                        readOnly
+                        checked={chartOrientation === 'horizontal'}
+                        className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
+                      />
+                      <span className="text-gray-900 text-sm">Horizontal</span>
+                    </div>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setChartOrientation('vertical')
+                        setShowOrientationMenu(false)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setChartOrientation('vertical')
+                          setShowOrientationMenu(false)
+                        }
+                      }}
+                      className="flex w-full items-center cursor-pointer px-2 py-2 text-sm transition hover:bg-gray-100 rounded"
+                      style={{ backgroundColor: '#EEF2F6', gap: '2px' }}
+                    >
+                      <input
+                        type="checkbox"
+                        readOnly
+                        checked={chartOrientation === 'vertical'}
+                        className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
+                      />
+                      <span className="text-gray-900 text-sm">Vertical</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {/* Pie Legend Orientation Dropdown - for pie charts */}
+          {chartVariant !== 'heatmap' && chartVariant === 'pie' && canUsePie && (
+            <div className="relative" ref={orientationMenuRef}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowOrientationMenu(prev => !prev)
+                  setShowSortMenu(false)
+                  setShowFilter(false)
+                  setShowStatSigMenu(false)
+                }}
+                className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"
+                style={{ height: '30px', width: '30px', backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}
+                title="Legend orientation"
+                aria-label="Toggle legend orientation menu"
+                type="button"
+              >
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7" />
+                  <rect x="14" y="3" width="7" height="7" />
+                  <rect x="14" y="14" width="7" height="7" />
+                  <rect x="3" y="14" width="7" height="7" />
+                </svg>
+              </button>
+              {showOrientationMenu && (
+                <div className="absolute left-0 top-10 z-10 w-56 shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', opacity: 1 }}>
+                  <div className="px-4 py-3" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setPieLegendOrientation('horizontal')
+                        setShowOrientationMenu(false)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setPieLegendOrientation('horizontal')
+                          setShowOrientationMenu(false)
+                        }
+                      }}
+                      className="flex w-full items-center cursor-pointer px-2 py-2 text-sm transition hover:bg-gray-100 rounded"
+                      style={{ backgroundColor: '#EEF2F6', gap: '2px' }}
+                    >
+                      <input
+                        type="checkbox"
+                        readOnly
+                        checked={pieLegendOrientation === 'horizontal'}
+                        className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
+                      />
+                      <span className="text-gray-900 text-sm">Horizontal</span>
+                    </div>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setPieLegendOrientation('vertical')
+                        setShowOrientationMenu(false)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setPieLegendOrientation('vertical')
+                          setShowOrientationMenu(false)
+                        }
+                      }}
+                      className="flex w-full items-center cursor-pointer px-2 py-2 text-sm transition hover:bg-gray-100 rounded"
+                      style={{ backgroundColor: '#EEF2F6', gap: '2px' }}
+                    >
+                      <input
+                        type="checkbox"
+                        readOnly
+                        checked={pieLegendOrientation === 'vertical'}
+                        className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
+                      />
+                      <span className="text-gray-900 text-sm">Vertical</span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
           )}
           {/* Sort Icon Dropdown */}
+          {chartVariant !== 'heatmap' && (
           <div className="relative" ref={sortMenuRef}>
             <button
               onClick={(e) => {
@@ -224,40 +405,58 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 setShowSortMenu(!showSortMenu)
                 setShowFilter(false)
                 setShowOrientationMenu(false)
+                setShowStatSigMenu(false)
                 }}
-              className="flex h-8 w-8 items-center justify-center rounded-md bg-white text-brand-gray transition hover:bg-brand-pale-gray"
+              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"
+              style={{ height: '30px', width: '30px', backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}
               title="Sort"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 6h18M7 12h10M11 18h2" />
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m21 16-4 4-4-4" />
+                <path d="M17 20V4" />
+                <path d="m3 8 4-4 4 4" />
+                <path d="M7 4v16" />
               </svg>
             </button>
             {showSortMenu && (
-              <div className="absolute left-0 top-10 z-10 w-48 rounded-md bg-gray-50 shadow-lg py-2">
-                {SORT_OPTIONS.map(option => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setCardSort(option)
-                      setShowSortMenu(false)
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-brand-gray hover:bg-brand-pale-gray"
-                  >
-                    <input
-                      type="checkbox"
-                      readOnly
-                      checked={cardSort === option}
-                      className="h-4 w-4 rounded border-brand-light-gray text-brand-green focus:ring-brand-green"
-                    />
-                    <span className="capitalize">{option}</span>
-                  </button>
-                ))}
+              <div className="absolute left-0 top-10 z-10 w-64 shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', opacity: 1 }}>
+                <div className="px-4 py-3" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
+                  {SORT_OPTIONS.map((option) => (
+                    <div
+                      key={option}
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setCardSort(option)
+                        setShowSortMenu(false)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setCardSort(option)
+                          setShowSortMenu(false)
+                        }
+                      }}
+                      className="flex w-full items-center cursor-pointer px-2 py-2 text-sm transition hover:bg-gray-100 rounded"
+                      style={{ backgroundColor: '#EEF2F6', gap: '2px' }}
+                    >
+                      <input
+                        type="checkbox"
+                        readOnly
+                        checked={cardSort === option}
+                        className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
+                      />
+                      <span className="capitalize text-gray-900 text-sm">{option}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
+          )}
           {/* Filter Icon Dropdown */}
+          {chartVariant !== 'heatmap' && (
           <div className="relative" ref={filterMenuRef}>
             <button
               onClick={(e) => {
@@ -265,20 +464,25 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 setShowFilter(!showFilter)
                 setShowOrientationMenu(false)
                 setShowSortMenu(false)
+                setShowStatSigMenu(false)
               }}
-              className="flex h-8 w-8 items-center justify-center rounded-md bg-white text-brand-gray transition hover:bg-brand-pale-gray"
+              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"
+              style={{ height: '30px', width: '30px', backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}
               title="Filter Options"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6h18" />
+                <path d="M7 12h10" />
+                <path d="M10 18h4" />
               </svg>
             </button>
             {showFilter && (
-              <div className="absolute left-0 top-10 z-10 w-[32rem] rounded-md border border-brand-light-gray bg-white shadow-lg">
-                <div className="px-4 py-3">
-                  <div className="mb-2 flex gap-4 border-b border-brand-light-gray pb-2">
+              <div className="absolute left-0 top-10 z-50 w-[32rem] shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', opacity: 1 }}>
+                <div className="px-4 py-3" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
+                  <div className="mb-2 flex justify-end gap-4 border-b pb-2" style={{ borderColor: '#80BDFF' }}>
                     <button
                       className="text-xs text-brand-green underline hover:text-brand-green/80"
+                      style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none' }}
                       onClick={(e) => {
                         e.stopPropagation()
                         selectAllOptions()
@@ -288,6 +492,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
                     </button>
                     <button
                       className="text-xs text-brand-gray underline hover:text-brand-gray/80"
+                      style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none' }}
                       onClick={(e) => {
                         e.stopPropagation()
                         deselectAllOptions()
@@ -296,13 +501,14 @@ const ChartCard: React.FC<ChartCardProps> = ({
                       Clear
                     </button>
                   </div>
-                  <div className="max-h-60 overflow-y-auto rounded-md bg-white ring-1 ring-brand-light-gray/40">
-                    {series.data.map(option => (
+                  <div className="max-h-60 overflow-y-auto p-1.5" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
+                    {sortedOptionsForFilter.map(option => (
                       <label
                         key={option.option}
                         onMouseDown={(e) => e.stopPropagation()}
                         onClick={(e) => e.stopPropagation()}
-                        className="flex w-full items-center gap-2 cursor-pointer px-3 py-2 text-xs font-medium text-brand-gray transition bg-white hover:bg-brand-pale-gray/40"
+                        className="flex w-full items-center cursor-pointer px-2 py-2 text-sm font-medium transition hover:bg-gray-100 rounded"
+                        style={{ backgroundColor: '#EEF2F6', gap: '2px' }}
                       >
                         <input
                           type="checkbox"
@@ -312,9 +518,9 @@ const ChartCard: React.FC<ChartCardProps> = ({
                             e.stopPropagation()
                             toggleOption(option.option)
                           }}
-                          className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0"
+                          className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
                         />
-                        <span className="flex-1">{option.optionDisplay}</span>
+                        <span className="flex-1 text-gray-900 font-normal text-sm">{option.optionDisplay}</span>
                       </label>
                     ))}
                   </div>
@@ -322,7 +528,9 @@ const ChartCard: React.FC<ChartCardProps> = ({
               </div>
             )}
           </div>
+          )}
           {/* Stat Sig Dropdown */}
+          {chartVariant !== 'heatmap' && (
           <div className="relative" ref={statSigMenuRef}>
             <button
               onClick={(e) => {
@@ -332,85 +540,319 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 setShowSortMenu(false)
                 setShowOrientationMenu(false)
               }}
-              className={`flex h-8 w-8 items-center justify-center rounded-md transition text-xs font-semibold ${
+              className={`flex items-center justify-center transition-all duration-200 text-xs font-semibold shadow-sm active:scale-95 ${
                 filterSignificantOnly || statSigFilter === 'statSigOnly'
-                  ? 'bg-brand-green text-white'
-                  : 'bg-white text-brand-gray hover:bg-brand-pale-gray'
+                  ? 'bg-brand-green text-white hover:bg-green-600'
+                  : 'text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900'
               }`}
+              style={{
+                height: '30px',
+                width: '30px',
+                backgroundColor: filterSignificantOnly || statSigFilter === 'statSigOnly' ? undefined : '#EEF2F6',
+                border: filterSignificantOnly || statSigFilter === 'statSigOnly' ? '1px solid #10B981' : '1px solid #EEF2F6',
+                borderRadius: '3px'
+              }}
               title="Statistical Significance Filter"
               aria-label="Toggle stat significance filter menu"
               type="button"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 3l2.09 6.26H20.5l-5.17 3.76 1.98 6.27L12 15.77l-5.31 3.52 1.98-6.27L3.5 9.26h6.41L12 3z" />
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
               </svg>
             </button>
             {showStatSigMenu && (
-              <div className="absolute right-0 top-10 z-10 min-w-[132px] rounded-md bg-white shadow-lg">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setStatSigFilter('all')
-                    setShowStatSigMenu(false)
-                  }}
-                  className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-sm hover:bg-brand-pale-gray whitespace-nowrap"
-                >
-                  <input
-                    type="checkbox"
-                    readOnly
-                    checked={!filterSignificantOnly && statSigFilter === 'all'}
-                    className="h-4 w-4 rounded border-brand-light-gray text-brand-green focus:ring-brand-green"
-                  />
-                  <span className="whitespace-nowrap">All Results</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setStatSigFilter('statSigOnly')
-                    setShowStatSigMenu(false)
-                  }}
-                  className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-sm hover:bg-brand-pale-gray whitespace-nowrap"
-                >
-                  <input
-                    type="checkbox"
-                    readOnly
-                    checked={filterSignificantOnly || statSigFilter === 'statSigOnly'}
-                    className="h-4 w-4 rounded border-brand-light-gray text-brand-green focus:ring-brand-green"
-                  />
-                  <span className="whitespace-nowrap">Stat Sig Only</span>
-                </button>
+              <div className="absolute right-0 top-10 z-10 w-60 shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', opacity: 1 }}>
+                <div className="px-4 py-3" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setStatSigFilter('all')
+                      setShowStatSigMenu(false)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setStatSigFilter('all')
+                        setShowStatSigMenu(false)
+                      }
+                    }}
+                    className="flex w-full items-center cursor-pointer px-2 py-2 text-sm transition hover:bg-gray-100 whitespace-nowrap rounded"
+                    style={{ backgroundColor: '#EEF2F6', gap: '2px' }}
+                  >
+                    <input
+                      type="checkbox"
+                      readOnly
+                      checked={!filterSignificantOnly && statSigFilter === 'all'}
+                      className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
+                    />
+                    <span className="whitespace-nowrap text-gray-900 text-sm">All Results</span>
+                  </div>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setStatSigFilter('statSigOnly')
+                      setShowStatSigMenu(false)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setStatSigFilter('statSigOnly')
+                        setShowStatSigMenu(false)
+                      }
+                    }}
+                    className="flex w-full items-center cursor-pointer px-2 py-2 text-sm transition hover:bg-gray-100 whitespace-nowrap rounded"
+                    style={{ backgroundColor: '#EEF2F6', gap: '2px' }}
+                  >
+                    <input
+                      type="checkbox"
+                      readOnly
+                      checked={filterSignificantOnly || statSigFilter === 'statSigOnly'}
+                      className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
+                    />
+                    <span className="whitespace-nowrap text-gray-900 text-sm">Stat Sig Only</span>
+                  </div>
+                </div>
               </div>
             )}
           </div>
-          {canUsePie && (
-            <div className="flex items-center gap-1">
-              <button
-                className={`rounded-md px-2 py-1 text-xs font-semibold transition ${chartVariant === 'bar' ? 'bg-brand-green text-white shadow' : 'bg-white text-brand-gray hover:bg-brand-pale-gray'}`}
-                onClick={() => setChartVariant('bar')}
-              >
-                Bar
-              </button>
-              <button
-                className={`rounded-md px-2 py-1 text-xs font-semibold transition ${chartVariant === 'pie' ? 'bg-brand-green text-white shadow' : 'bg-white text-brand-gray hover:bg-brand-pale-gray'}`}
-                onClick={() => setChartVariant('pie')}
-              >
-                Pie
-              </button>
-            </div>
+          )}
+          {(canUsePie || canUseStacked || canUseHeatmap) && (
+            <>
+              <div className="flex items-center gap-0.5" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}>
+                <button
+                  className="text-base font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-200"
+                  style={{
+                    height: '30px',
+                    width: '30px',
+                    backgroundColor: '#EEF2F6',
+                    border: chartVariant === 'bar' ? '1px solid #80BDFF' : '1px solid #EEF2F6',
+                    borderRadius: '3px',
+                    padding: '0 2px'
+                  }}
+                  onClick={() => setChartVariant('bar')}
+                >
+                  <span style={{ padding: '0 2px' }}>Bar</span>
+                </button>
+                {canUsePie && (
+                  <button
+                    className="text-base font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-200"
+                    style={{
+                      height: '30px',
+                      width: '30px',
+                      backgroundColor: '#EEF2F6',
+                      border: chartVariant === 'pie' ? '1px solid #80BDFF' : '1px solid #EEF2F6',
+                      borderRadius: '3px',
+                      padding: '0 2px'
+                    }}
+                    onClick={() => setChartVariant('pie')}
+                  >
+                    <span style={{ padding: '0 2px' }}>Pie</span>
+                  </button>
+                )}
+                {canUseStacked && (
+                  <button
+                    className="text-base font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-200"
+                    style={{
+                      height: '30px',
+                      minWidth: '70px',
+                      backgroundColor: '#EEF2F6',
+                      border: chartVariant === 'stacked' ? '1px solid #80BDFF' : '1px solid #EEF2F6',
+                      borderRadius: '3px',
+                      padding: '0 6px'
+                    }}
+                    onClick={() => setChartVariant('stacked')}
+                  >
+                    <span style={{ padding: '0 2px' }}>Stacked</span>
+                  </button>
+                )}
+                {canUseHeatmap && (
+                  <button
+                    className="text-base font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-200"
+                    style={{
+                      height: '30px',
+                      width: '30px',
+                      backgroundColor: '#EEF2F6',
+                      border: chartVariant === 'heatmap' ? '1px solid #80BDFF' : '1px solid #EEF2F6',
+                      borderRadius: '3px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    onClick={() => setChartVariant('heatmap')}
+                  >
+                    Map
+                  </button>
+                )}
+              </div>
+              {chartVariant === 'heatmap' && (
+                <div id={`heatmap-filters-${question.qid}`}></div>
+              )}
+            </>
           )}
         </div>
       </div>
 
-      {hasData ? (
-        chartVariant === 'pie' && canUsePie ? (
-          <SingleSelectPieChart
-            data={processedData}
-            group={series.groups[0]}
-            questionLabel={displayLabel}
-          />
-        ) : (
+      {(() => {
+        console.log('Render Debug:', {
+          qid: question.qid,
+          hasData,
+          chartVariant,
+          canUsePie,
+          willRenderPie: chartVariant === 'pie' && canUsePie,
+          processedDataLength: processedData.length,
+          selectedOptionsLength: selectedOptions.length
+        })
+
+        if (!hasData) {
+          if (selectedOptions.length === 0) {
+            return <div className="py-10 text-center text-xs text-brand-gray/60">No options selected.</div>
+          } else if (shouldFilterByStatSig && !hasStatSigResults) {
+            return <div className="py-10 text-center text-xs text-brand-gray/60">No stat sig results :(</div>
+          } else {
+            return <div className="py-10 text-center text-xs text-brand-gray/60">No data available.</div>
+          }
+        }
+
+        if (chartVariant === 'pie' && canUsePie) {
+          console.log('Rendering pie chart with group:', series.groups[0])
+          return (
+            <SingleSelectPieChart
+              data={processedData}
+              group={series.groups[0]}
+              questionLabel={displayLabel}
+              legendOrientation={pieLegendOrientation}
+            />
+          )
+        }
+
+        if (chartVariant === 'stacked' && canUseStacked) {
+          console.log('Rendering stacked chart with orientation:', chartOrientation)
+
+          // Transform data: swap rows and columns
+          // Current: rows = answer options, columns = segments
+          // Needed: rows = segments, columns = answer options
+          const stackedData = series.groups.map(group => {
+            const row: any = {
+              optionDisplay: group.label,
+              option: group.key,
+              significance: [],
+              groupSummaries: []
+            }
+
+            // Each answer option becomes a column in the stacked bar
+            processedData.forEach(dataPoint => {
+              const value = dataPoint[group.key]
+              row[dataPoint.option] = typeof value === 'number' ? value : 0
+            })
+
+            return row
+          })
+
+          // Create new groups metadata for answer options
+          const stackedGroups = processedData.map(dataPoint => ({
+            label: dataPoint.optionDisplay,
+            key: dataPoint.option
+          }))
+
+          console.log('Stacked data:', stackedData)
+          console.log('Stacked groups:', stackedGroups)
+
+          return (
+            <ComparisonChart
+              data={stackedData}
+              groups={stackedGroups}
+              orientation={chartOrientation}
+              questionLabel={displayLabel}
+              stacked={true}
+            />
+          )
+        }
+
+        if (chartVariant === 'heatmap' && canUseHeatmap) {
+          console.log('Rendering heatmap')
+
+          // Detect sentiment from question label
+          const labelLower = question.label.toLowerCase()
+          const sentiment = labelLower.includes('(positive)') ? 'positive' :
+                          labelLower.includes('(negative)') ? 'negative' : 'positive'
+
+          // Find the Product Title column for heatmap grouping
+          // Look for "Product Title", "Product Name", "Style", etc.
+          const productColumn = dataset.summary.columns.find(col => {
+            const lower = col.toLowerCase()
+            return (
+              lower === 'product title' ||
+              lower === 'product name' ||
+              lower === 'style' ||
+              (lower.includes('product') && lower.includes('title'))
+            )
+          })
+
+          if (!productColumn) {
+            console.log('❌ No product column found for heatmap')
+            return (
+              <div className="py-10 text-center text-xs text-brand-gray/60">
+                Product column not found. Expected "Product Title" or similar column.
+              </div>
+            )
+          }
+
+          // Get all unique products from the dataset using the product column
+          const allProducts = Array.from(
+            new Set(dataset.rows.map(row => String(row[productColumn] ?? '')).filter(Boolean))
+          ).sort()
+
+          console.log('📊 Heatmap Debug:', {
+            productColumn,
+            allProductsCount: allProducts.length,
+            allProducts: allProducts.slice(0, 5),
+            questionQid: question.qid,
+            sentiment
+          })
+
+          if (allProducts.length === 0) {
+            console.log('❌ No products found in product column')
+            return (
+              <div className="py-10 text-center text-xs text-brand-gray/60">
+                No products found in {productColumn}.
+              </div>
+            )
+          }
+
+          // Rebuild series with all products using the product column as segmentColumn
+          const heatmapSeries = buildSeries({
+            dataset,
+            question,
+            segmentColumn: productColumn,
+            groups: allProducts,
+            sortOrder
+          })
+
+          console.log('📊 Heatmap Series Built:', {
+            dataLength: heatmapSeries.data.length,
+            groupsLength: heatmapSeries.groups.length,
+            groups: heatmapSeries.groups,
+            sampleData: heatmapSeries.data[0]
+          })
+
+          return (
+            <HeatmapTable
+              data={heatmapSeries.data}
+              groups={heatmapSeries.groups}
+              questionLabel={displayLabel}
+              sentiment={sentiment}
+              questionId={question.qid}
+              dataset={dataset}
+              productColumn={productColumn}
+            />
+          )
+        }
+
+        return (
           <ComparisonChart
             data={processedData}
             groups={series.groups}
@@ -418,13 +860,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
             questionLabel={displayLabel}
           />
         )
-      ) : selectedOptions.length === 0 ? (
-        <div className="py-10 text-center text-xs text-brand-gray/60">No options selected.</div>
-      ) : shouldFilterByStatSig && !hasStatSigResults ? (
-        <div className="py-10 text-center text-xs text-brand-gray/60">No stat sig results :(</div>
-      ) : (
-        <div className="py-10 text-center text-xs text-brand-gray/60">No data available.</div>
-      )}
+      })()}
     </div>
   )
 }
@@ -483,6 +919,9 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
                 orientation={orientation}
                 displayLabel={formatQuestionTitle(question)}
                 filterSignificantOnly={filterSignificantOnly}
+                dataset={dataset}
+                segmentColumn={segmentColumn}
+                sortOrder={sortOrder}
               />
             </div>
           )

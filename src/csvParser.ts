@@ -406,13 +406,13 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
     }
   }
 
-  // Heuristic: mark product-level questions if product id column exists (fallback row-level for calc if chosen)
+  // Heuristic: mark product-level questions if product id column exists
   const lowerCols = columns.map(norm)
   const hasProductId = lowerCols.some(c => c.includes('product') && c.includes('id')) || lowerCols.includes('style')
   if (hasProductId) {
     for (const q of qMap.values()) {
-      // leave respondent by default but hint at possible row-level
-      q.level = 'respondent'
+      // Mark as row-level for product tests
+      q.level = 'row'
     }
   }
 

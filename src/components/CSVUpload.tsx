@@ -61,6 +61,13 @@ export const CSVUpload: React.FC<CSVUploadProps> = ({ variant = 'compact' }) => 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     setIsDragOver(false)
+
+    // Block multiple file uploads
+    if (e.dataTransfer.files.length > 1) {
+      setError('Please upload only one CSV file at a time.')
+      return
+    }
+
     const file = e.dataTransfer.files[0]
     if (file) onFile(file)
   }, [onFile])
@@ -127,10 +134,23 @@ export const CSVUpload: React.FC<CSVUploadProps> = ({ variant = 'compact' }) => 
             ref={inputRef}
             type="file"
             accept=".csv"
+            multiple={false}
             className="hidden"
             onChange={(e) => {
-              const file = e.target.files?.[0]
+              const files = e.target.files
+              if (!files || files.length === 0) return
+
+              // Block multiple file uploads
+              if (files.length > 1) {
+                setError('Please upload only one CSV file at a time.')
+                return
+              }
+
+              const file = files[0]
               if (file) onFile(file)
+
+              // Reset input value to allow re-uploading the same file
+              e.target.value = ''
             }}
           />
           <div className={isLanding ? 'mt-6 text-sm font-semibold text-brand-green' : 'mt-3 text-xs font-semibold text-brand-green'}>

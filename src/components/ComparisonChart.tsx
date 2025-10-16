@@ -98,6 +98,108 @@ const VerticalValueLabel: React.FC<LabelProps> = ({ x, y, width, value }) => {
   )
 }
 
+// Value label renderer for stacked horizontal bars: position in center of each segment
+const StackedHorizontalValueLabel: React.FC<LabelProps & { fill?: string }> = ({ x, y, width, height, value, fill }) => {
+  const originX = parseCoordinate(x)
+  const originY = parseCoordinate(y)
+  const barWidth = parseCoordinate(width)
+  const barHeight = parseCoordinate(height)
+  const numericValue = typeof value === 'number' ? value : Number(value)
+
+  // Don't show labels for 0 or invalid values
+  if (!Number.isFinite(numericValue) || numericValue === 0) {
+    return null
+  }
+
+  const text = `${Math.round(numericValue)}%`
+  const isSmall = numericValue < 3
+
+  // Use white text for dark green (#3A8518) and gray (#717F90), black for everything else
+  // For small values shown outside, always use black
+  const textColor = isSmall ? '#111' : ((fill === '#3A8518' || fill === '#717F90') ? '#FFFFFF' : '#111')
+
+  if (isSmall) {
+    // Position small values above the segment
+    return (
+      <text
+        x={originX + barWidth / 2}
+        y={originY - 4}
+        textAnchor="middle"
+        fontSize={LABEL_FONT_SIZE}
+        fontWeight="600"
+        fill={textColor}
+      >
+        {text}
+      </text>
+    )
+  }
+
+  return (
+    <text
+      x={originX + barWidth / 2}
+      y={originY + barHeight / 2}
+      dy={3}
+      textAnchor="middle"
+      fontSize={LABEL_FONT_SIZE}
+      fontWeight="600"
+      fill={textColor}
+    >
+      {text}
+    </text>
+  )
+}
+
+// Value label renderer for stacked vertical bars: position in center of each segment
+const StackedVerticalValueLabel: React.FC<LabelProps & { fill?: string }> = ({ x, y, width, height, value, fill }) => {
+  const originX = parseCoordinate(x)
+  const originY = parseCoordinate(y)
+  const barWidth = parseCoordinate(width)
+  const barHeight = parseCoordinate(height)
+  const numericValue = typeof value === 'number' ? value : Number(value)
+
+  // Don't show labels for 0 or invalid values
+  if (!Number.isFinite(numericValue) || numericValue === 0) {
+    return null
+  }
+
+  const text = `${Math.round(numericValue)}%`
+  const isSmall = numericValue < 3
+
+  // Use white text for dark green (#3A8518) and gray (#717F90), black for everything else
+  // For small values shown outside, always use black
+  const textColor = isSmall ? '#111' : ((fill === '#3A8518' || fill === '#717F90') ? '#FFFFFF' : '#111')
+
+  if (isSmall) {
+    // Position small values outside (above the segment)
+    return (
+      <text
+        x={originX + barWidth / 2}
+        y={originY - 4}
+        textAnchor="middle"
+        fontSize={LABEL_FONT_SIZE}
+        fontWeight="600"
+        fill={textColor}
+      >
+        {text}
+      </text>
+    )
+  }
+
+  return (
+    <text
+      x={originX + barWidth / 2}
+      y={originY + barHeight / 2}
+      dy={3}
+      textAnchor="middle"
+      fontSize={LABEL_FONT_SIZE}
+      fontWeight="600"
+      fill={textColor}
+    >
+      {text}
+    </text>
+  )
+}
+
 // Custom X-axis tick with text wrapping (for vertical charts)
 const CustomXAxisTick: React.FC<any> = (props) => {
   const { x, y, payload } = props
@@ -145,6 +247,7 @@ interface ComparisonChartProps {
   groups: GroupSeriesMeta[]
   orientation?: 'horizontal' | 'vertical'
   questionLabel?: string
+  stacked?: boolean
 }
 
 const CustomTooltip: React.FC<any> = ({ active, payload }) => {
@@ -152,8 +255,8 @@ const CustomTooltip: React.FC<any> = ({ active, payload }) => {
   const row = payload[0].payload as SeriesDataPoint
   return (
     <div
-      className="rounded-md border border-brand-pale-gray bg-white px-3 py-2 text-xs text-brand-gray shadow-lg"
-      style={{ backgroundColor: '#FFFFFF', opacity: 1 }}
+      className="rounded-md border border-brand-pale-gray bg-white text-xs text-brand-gray shadow-lg"
+      style={{ backgroundColor: '#FFFFFF', opacity: 1, padding: '10px 14px' }}
     >
       <div className="mb-2 font-semibold">{row.optionDisplay}</div>
       <div className="space-y-1">
@@ -178,7 +281,7 @@ const CustomTooltip: React.FC<any> = ({ active, payload }) => {
   )
 }
 
-export const ComparisonChart: React.FC<ComparisonChartProps> = ({ data, groups, orientation = 'horizontal', questionLabel }) => {
+export const ComparisonChart: React.FC<ComparisonChartProps> = ({ data, groups, orientation = 'horizontal', questionLabel, stacked = false }) => {
   const isHorizontal = orientation === 'horizontal'
 
   // Dynamic chart dimensions based on number of answer options
@@ -204,30 +307,65 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({ data, groups, 
   return (
     <div className="w-full bg-white" style={{ paddingBottom: showLegend ? 12 : 0 }}>
       {questionLabel && (
-        <div className="mx-auto text-center" style={{ marginTop: '15px', marginBottom: '10px', maxWidth: '750px' }}>
+        <div className="text-center" style={{
+          marginTop: '15px',
+          marginBottom: '10px',
+          marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
+          marginRight: isHorizontal ? '60px' : '48px'
+        }}>
           <h3 className="text-sm font-semibold text-brand-gray">{questionLabel}</h3>
         </div>
       )}
       {showLegend && (
-        <div
-          className="flex flex-col items-start gap-3 text-xs font-semibold text-brand-gray"
-          style={{ paddingLeft: legendPaddingLeft, marginBottom: '10px' }}
-        >
-          {groups.map((group, index) => (
-            <span key={group.key} className="inline-flex items-center gap-3">
-              <span
-                className="inline-block h-3 w-10"
-                style={{
-                  backgroundColor: GROUP_COLORS[index % GROUP_COLORS.length],
-                  minWidth: '24px',
-                  minHeight: '12px',
-                  borderRadius: '3px'
-                }}
-              />
-              <span style={{ padding: '0 6px' }}>{group.label}</span>
-            </span>
-          ))}
-        </div>
+        stacked ? (
+          // Horizontal legend for stacked charts
+          <div
+            className="text-xs font-semibold text-brand-gray"
+            style={{
+              marginBottom: '15px',
+              marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
+              marginRight: isHorizontal ? '60px' : '48px'
+            }}
+          >
+            <div className="flex flex-wrap items-center gap-y-2" style={{ columnGap: '24px' }}>
+              {groups.map((group, index) => (
+                <span key={group.key} className="inline-flex items-center" style={{ gap: '5px' }}>
+                  <span
+                    className="inline-block h-3 w-10"
+                    style={{
+                      backgroundColor: GROUP_COLORS[index % GROUP_COLORS.length],
+                      minWidth: '24px',
+                      minHeight: '12px',
+                      borderRadius: '3px'
+                    }}
+                  />
+                  <span>{group.label}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          // Vertical legend for regular charts
+          <div
+            className="flex flex-col items-start gap-3 text-xs font-semibold text-brand-gray"
+            style={{ paddingLeft: legendPaddingLeft, marginBottom: '10px' }}
+          >
+            {groups.map((group, index) => (
+              <span key={group.key} className="inline-flex items-center gap-3">
+                <span
+                  className="inline-block h-3 w-10"
+                  style={{
+                    backgroundColor: GROUP_COLORS[index % GROUP_COLORS.length],
+                    minWidth: '24px',
+                    minHeight: '12px',
+                    borderRadius: '3px'
+                  }}
+                />
+                <span style={{ padding: '0 6px' }}>{group.label}</span>
+              </span>
+            ))}
+          </div>
+        )
       )}
       <ResponsiveContainer width="100%" height={chartHeight}>
         <BarChart
@@ -244,7 +382,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({ data, groups, 
             <>
               <XAxis
                 type="number"
-                domain={[0, 'dataMax + 10']}
+                domain={stacked ? [0, 100] : [0, 'dataMax + 10']}
                 tick={false}
                 axisLine={AXIS_LINE_STYLE}
                 tickLine={false}
@@ -271,7 +409,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({ data, groups, 
               />
               <YAxis
                 type="number"
-                domain={[0, 'dataMax + 10']}
+                domain={stacked ? [0, 100] : [0, 'dataMax + 10']}
                 tick={false}
                 axisLine={AXIS_LINE_STYLE}
                 tickLine={false}
@@ -279,21 +417,35 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({ data, groups, 
             </>
           )}
           <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(206, 214, 222, 0.2)' }} />
-          {groups.map((group, index) => (
-            <Bar
-              key={group.key}
-              dataKey={group.key}
-              name={group.label}
-              fill={GROUP_COLORS[index % GROUP_COLORS.length]}
-              radius={isHorizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]}
-              barSize={barSize}
-            >
-              <LabelList
+          {groups.map((group, index) => {
+            const color = GROUP_COLORS[index % GROUP_COLORS.length]
+            return (
+              <Bar
+                key={group.key}
                 dataKey={group.key}
-                content={isHorizontal ? <HorizontalValueLabel /> : <VerticalValueLabel />}
-              />
-            </Bar>
-          ))}
+                name={group.label}
+                fill={color}
+                radius={isHorizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]}
+                barSize={barSize}
+                stackId={stacked ? 'stack' : undefined}
+              >
+                {stacked ? (
+                  <LabelList
+                    dataKey={group.key}
+                    content={(props) => isHorizontal
+                      ? <StackedHorizontalValueLabel {...props} fill={color} />
+                      : <StackedVerticalValueLabel {...props} fill={color} />
+                    }
+                  />
+                ) : (
+                  <LabelList
+                    dataKey={group.key}
+                    content={isHorizontal ? <HorizontalValueLabel /> : <VerticalValueLabel />}
+                  />
+                )}
+              </Bar>
+            )
+          })}
         </BarChart>
       </ResponsiveContainer>
     </div>

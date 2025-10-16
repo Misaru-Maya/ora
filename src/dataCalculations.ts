@@ -1,12 +1,8 @@
 import { ParsedCSV, QuestionDef, SortOrder } from './types'
 
-// Custom rounding function that rounds up from 0.45 instead of 0.5
-// This matches the rounding behavior of the reference platform
+// Custom rounding function using standard rounding (>0.5)
 export function customRound(value: number): number {
-  const floor = Math.floor(value)
-  const decimal = value - floor
-  // Round up if decimal part is >= 0.45
-  return decimal >= 0.45 ? Math.ceil(value) : floor
+  return Math.round(value)
 }
 
 export interface GroupSeriesMeta {
@@ -57,6 +53,32 @@ const EXCLUDED_LABELS = ['other', 'not specified', 'none of the above', 'skip']
 
 function uniq<T>(arr: T[]): T[] {
   return Array.from(new Set(arr))
+}
+
+// Detect if a question is about money/income
+function isMoneyQuestion(question: QuestionDef): boolean {
+  const label = question.label.toLowerCase()
+  const keywords = ['income', 'salary', 'earn', 'wage', 'pay', 'household income', 'annual income', 'revenue', '$']
+  return keywords.some(keyword => label.includes(keyword))
+}
+
+// Parse monetary value from text for sorting
+function parseMoneyValue(text: string): number {
+  // Handle "Prefer not to say" and similar - put at end
+  if (/prefer not|rather not|decline|not say/i.test(text)) {
+    return Number.MAX_SAFE_INTEGER
+  }
+
+  // Extract first number with optional dollar sign
+  // Matches: $25,000 or $25000 or 25,000 or 25000
+  const match = text.match(/\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?)/i)
+
+  if (match) {
+    // Remove commas and parse
+    return parseInt(match[1].replace(/,/g, ''), 10)
+  }
+
+  return 0
 }
 
 function stripQuotes(value: string): string {
@@ -190,15 +212,67 @@ export function buildSeries({
       let denom = 0
 
       if (question.type === 'multi') {
-        // For multi-select questions, denominator should be ALL unique respondents in the group
-        // This includes those who selected "None of these, skip" or "Not specified"
-        denom = info.uniqueRespondents.length
+        const isRowLevel = question.level === 'row' || dataset.summary.isProductTest
 
-        const seen = new Set<string>()
+        if (isRowLevel) {
+          // COUNT AT ROW LEVEL: Each row (product) is counted separately
+          let rowsWithThisOption = 0
+          let totalRowsAnswered = 0
 
-        // Check if this question uses a text summary column (pipe-separated or single values)
-        if (question.textSummaryColumn && col.header.startsWith('__TEXT_MULTI__')) {
-            // Parse values from text summary column (can be pipe-separated or single value)
+          if (question.textSummaryColumn && col.header.startsWith('__TEXT_MULTI__')) {
+            const optionLabelLower = optionLabel.toLowerCase()
+            for (const r of info.rows) {
+              const textValue = r[question.textSummaryColumn]
+              if (!textValue || textValue === '') continue
+
+              totalRowsAnswered += 1
+
+              const cleanedValue = stripQuotes(String(textValue).trim())
+              const options = cleanedValue.includes('|')
+                ? cleanedValue.split('|').map(opt => stripQuotes(opt.trim()).toLowerCase())
+                : [cleanedValue.toLowerCase()]
+
+              if (options.includes(optionLabelLower)) {
+                rowsWithThisOption += 1
+              }
+            }
+          } else {
+            const headersToCheck = [col.header, ...(col.alternateHeaders || [])]
+            const allQuestionHeaders = question.columns.flatMap(qCol =>
+              [qCol.header, ...(qCol.alternateHeaders || [])]
+            )
+
+            for (const r of info.rows) {
+              let hasAnswerForThisRow = false
+              for (const h of allQuestionHeaders) {
+                const val = r[h]
+                if (val === 1 || val === true || val === '1' || val === 'true' || val === 'Y') {
+                  hasAnswerForThisRow = true
+                  break
+                }
+              }
+              if (!hasAnswerForThisRow) continue
+
+              totalRowsAnswered += 1
+
+              for (const header of headersToCheck) {
+                const v = r[header]
+                if (v === 1 || v === true || v === '1' || v === 'true' || v === 'Y') {
+                  rowsWithThisOption += 1
+                  break
+                }
+              }
+            }
+          }
+
+          count = rowsWithThisOption
+          denom = totalRowsAnswered
+        } else {
+          // COUNT AT RESPONDENT LEVEL: Each unique respondent is counted once
+          const seen = new Set<string>()
+          const answeredRespondents = new Set<string>()
+
+          if (question.textSummaryColumn && col.header.startsWith('__TEXT_MULTI__')) {
             const optionLabelLower = optionLabel.toLowerCase()
             for (const r of info.rows) {
               const respondent = normalizeValue(r[respIdCol])
@@ -207,35 +281,53 @@ export function buildSeries({
               const textValue = r[question.textSummaryColumn]
               if (!textValue || textValue === '') continue
 
-              const cleanedValue = stripQuotes(String(textValue).trim())
+              answeredRespondents.add(respondent)
 
-              // Split by pipe (or treat as single value if no pipe)
+              const cleanedValue = stripQuotes(String(textValue).trim())
               const options = cleanedValue.includes('|')
                 ? cleanedValue.split('|').map(opt => stripQuotes(opt.trim()).toLowerCase())
                 : [cleanedValue.toLowerCase()]
 
-              // Check if this option is present in the list
               if (options.includes(optionLabelLower)) {
                 seen.add(respondent)
               }
             }
           } else {
-            // Check both primary header and alternate headers (for binary columns)
+            for (const r of info.rows) {
+              const respondent = normalizeValue(r[respIdCol])
+              if (!respondent) continue
+
+              for (const qCol of question.columns) {
+                const checkHeaders = [qCol.header, ...(qCol.alternateHeaders || [])]
+                for (const h of checkHeaders) {
+                  const val = r[h]
+                  if (val === 1 || val === true || val === '1' || val === 'true' || val === 'Y') {
+                    answeredRespondents.add(respondent)
+                    break
+                  }
+                }
+                if (answeredRespondents.has(respondent)) break
+              }
+            }
+
             const headersToCheck = [col.header, ...(col.alternateHeaders || [])]
             for (const r of info.rows) {
               const respondent = normalizeValue(r[respIdCol])
               if (!respondent) continue
-              // Check if any of the headers (primary or alternates) has a truthy value
+
               for (const header of headersToCheck) {
                 const v = r[header]
                 if (v === 1 || v === true || v === '1' || v === 'true' || v === 'Y') {
                   seen.add(respondent)
-                  break // Don't double-count same respondent
+                  break
                 }
               }
             }
           }
-        count = seen.size
+
+          count = seen.size
+          denom = answeredRespondents.size
+        }
       } else if (question.singleSourceColumn) {
         const cleanedLabel = optionLabel.toLowerCase()
         const counts = info.singleCounts || {}
@@ -307,7 +399,21 @@ export function buildSeries({
     })
   }
 
-  if (sortOrder === 'ascending') {
+  const sortByMoney = () => {
+    return dataWithIndex.sort((a, b) => {
+      const aValue = parseMoneyValue(a.optionDisplay)
+      const bValue = parseMoneyValue(b.optionDisplay)
+      return aValue - bValue
+    })
+  }
+
+  // Check if this is a money question
+  const isMoney = isMoneyQuestion(question)
+
+  if (isMoney) {
+    // For money questions, always sort by monetary value (ascending)
+    sortByMoney()
+  } else if (sortOrder === 'ascending') {
     sortByAverage('asc')
   } else if (sortOrder === 'descending') {
     sortByAverage('desc')
