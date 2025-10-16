@@ -25,3 +25,10 @@ dist-ssr
 
 # TypeScript
 *.tsbuildinfo
+
+# Build artifacts
+assets/
+gh-pages-deploy/
+
+# Backup files
+*\ 2.*
