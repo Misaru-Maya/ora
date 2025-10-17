@@ -17,6 +17,7 @@ interface ChartCardProps {
   segmentColumn?: string
   sortOrder: SortOrder
   hideAsterisks?: boolean
+  chartColors: string[]
 }
 
 const SORT_OPTIONS: CardSortOption[] = ['default', 'descending', 'ascending', 'alphabetical']
@@ -42,7 +43,8 @@ const ChartCard: React.FC<ChartCardProps> = ({
   dataset,
   segmentColumn,
   sortOrder,
-  hideAsterisks = false
+  hideAsterisks = false,
+  chartColors
 }) => {
   const [cardSort, setCardSort] = useState<CardSortOption>(question.isLikert ? 'alphabetical' : 'default')
   const [showFilter, setShowFilter] = useState(false)
@@ -744,6 +746,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
               group={series.groups[0]}
               questionLabel={displayLabel}
               legendOrientation={pieLegendOrientation}
+              colors={chartColors}
             />
           )
         }
@@ -787,6 +790,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
               orientation={chartOrientation}
               questionLabel={displayLabel}
               stacked={true}
+              colors={chartColors}
             />
           )
         }
@@ -867,6 +871,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
               questionId={question.qid}
               dataset={dataset}
               productColumn={productColumn}
+              hideAsterisks={hideAsterisks}
             />
           )
         }
@@ -877,6 +882,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
             groups={series.groups}
             orientation={chartOrientation}
             questionLabel={displayLabel}
+            colors={chartColors}
           />
         )
       })()}
@@ -894,6 +900,7 @@ interface ChartGalleryProps {
   selectedQuestionId?: string
   filterSignificantOnly?: boolean
   hideAsterisks?: boolean
+  chartColors?: string[]
 }
 
 export const ChartGallery: React.FC<ChartGalleryProps> = ({
@@ -905,7 +912,8 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
   sortOrder,
   selectedQuestionId: _selectedQuestionId,
   filterSignificantOnly = false,
-  hideAsterisks = false
+  hideAsterisks = false,
+  chartColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
 }) => {
   const renderableEntries = useMemo(() => {
     if (!segmentColumn || !groups.length) return []
@@ -944,6 +952,7 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
                 segmentColumn={segmentColumn}
                 sortOrder={sortOrder}
                 hideAsterisks={hideAsterisks}
+                chartColors={chartColors}
               />
             </div>
           )

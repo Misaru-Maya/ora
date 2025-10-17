@@ -2,29 +2,65 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { SeriesDataPoint, GroupSeriesMeta, customRound } from '../dataCalculations'
 
+// Utility function to determine text color based on background luminance
+function getContrastTextColor(hexColor: string): string {
+  // Remove # if present
+  const hex = hexColor.replace('#', '')
+
+  // Convert hex to RGB
+  const r = parseInt(hex.substring(0, 2), 16) / 255
+  const g = parseInt(hex.substring(2, 4), 16) / 255
+  const b = parseInt(hex.substring(4, 6), 16) / 255
+
+  // Apply gamma correction
+  const rLinear = r <= 0.03928 ? r / 12.92 : Math.pow((r + 0.055) / 1.055, 2.4)
+  const gLinear = g <= 0.03928 ? g / 12.92 : Math.pow((g + 0.055) / 1.055, 2.4)
+  const bLinear = b <= 0.03928 ? b / 12.92 : Math.pow((b + 0.055) / 1.055, 2.4)
+
+  // Calculate relative luminance using WCAG formula
+  const luminance = 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear
+
+  // Return white for dark backgrounds, black for light backgrounds
+  return luminance > 0.5 ? '#111111' : '#FFFFFF'
+}
+
+// Utility function to strip quotation marks from text
+function stripQuotes(text: string): string {
+  if (!text) return text
+  let result = text.trim()
+  // Remove leading and trailing quotes (both straight and curly quotes)
+  if ((result.startsWith('"') && result.endsWith('"')) || (result.startsWith('"') && result.endsWith('"'))) {
+    result = result.slice(1, -1)
+  } else if (result.startsWith("'") && result.endsWith("'")) {
+    result = result.slice(1, -1)
+  }
+  return result.trim()
+}
+
 // Color palettes (ordered from darkest to lightest)
+// Note: text colors are now calculated dynamically based on luminance
 const GREEN_PALETTE = {
-  s40: { bg: '#3A8518', text: '#FFFFFF' }, // Darkest green for largest values
-  s30: { bg: '#5A8C40', text: '#FFFFFF' },
-  s20: { bg: '#6FA84D', text: '#111' },
-  s10: { bg: '#82BC62', text: '#111' },
-  t10: { bg: '#A5CF8E', text: '#111' },
-  t20: { bg: '#C8E2BA', text: '#111' },
-  t40: { bg: '#DAEBD1', text: '#111' },
-  t60: { bg: '#F5FFF5', text: '#111' },
-  t80: { bg: '#FFFFFF', text: '#111' }, // Lightest green/white for smallest values
+  s40: '#3A8518', // Darkest green for largest values
+  s30: '#5A8C40',
+  s20: '#6FA84D',
+  s10: '#82BC62',
+  t10: '#A5CF8E',
+  t20: '#C8E2BA',
+  t40: '#DAEBD1',
+  t60: '#F5FFF5',
+  t80: '#FFFFFF', // Lightest green/white for smallest values
 }
 
 const YELLOW_PALETTE = {
-  s40: { bg: '#D4BA33', text: '#111' }, // Darkest yellow for largest values
-  s30: { bg: '#C5B845', text: '#111' },
-  s20: { bg: '#D8C857', text: '#111' },
-  s10: { bg: '#ECD560', text: '#111' },
-  t10: { bg: '#F1E088', text: '#111' },
-  t20: { bg: '#F5EAAF', text: '#111' },
-  t40: { bg: '#FAF5D7', text: '#111' },
-  t60: { bg: '#FFFEF5', text: '#111' },
-  t80: { bg: '#FFFFFF', text: '#111' }, // Lightest yellow/white for smallest values
+  s40: '#D4BA33', // Darkest yellow for largest values
+  s30: '#C5B845',
+  s20: '#D8C857',
+  s10: '#ECD560',
+  t10: '#F1E088',
+  t20: '#F5EAAF',
+  t40: '#FAF5D7',
+  t60: '#FFFEF5',
+  t80: '#FFFFFF', // Lightest yellow/white for smallest values
 }
 
 import { ParsedCSV } from '../types'
@@ -37,6 +73,7 @@ interface HeatmapTableProps {
   questionId?: string
   dataset: ParsedCSV
   productColumn: string
+  hideAsterisks?: boolean
 }
 
 // Get color based on value and sentiment
@@ -49,18 +86,24 @@ const getColor = (value: number, sentiment: 'positive' | 'negative', minVal: num
 
   // Map to palette buckets (larger values = darker colors, smaller values = lighter colors)
   // Order from large to small: s40, s30, s20, s10/t10, t20, t40, t60, t80
-  if (normalized >= 87.5) return palette.s40  // Largest values - darkest
-  if (normalized >= 75) return palette.s30
-  if (normalized >= 62.5) return palette.s20
-  if (normalized >= 50) return palette.s10
-  if (normalized >= 37.5) return palette.t10
-  if (normalized >= 25) return palette.t20
-  if (normalized >= 12.5) return palette.t40
-  if (normalized >= 0) return palette.t60
-  return palette.t80  // Smallest values - lightest
+  let bgColor: string
+  if (normalized >= 87.5) bgColor = palette.s40  // Largest values - darkest
+  else if (normalized >= 75) bgColor = palette.s30
+  else if (normalized >= 62.5) bgColor = palette.s20
+  else if (normalized >= 50) bgColor = palette.s10
+  else if (normalized >= 37.5) bgColor = palette.t10
+  else if (normalized >= 25) bgColor = palette.t20
+  else if (normalized >= 12.5) bgColor = palette.t40
+  else if (normalized >= 0) bgColor = palette.t60
+  else bgColor = palette.t80  // Smallest values - lightest
+
+  // Calculate optimal text color based on background luminance
+  const textColor = getContrastTextColor(bgColor)
+
+  return { bg: bgColor, text: textColor }
 }
 
-export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn }) => {
+export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false }) => {
   console.log('🔥 HeatmapTable Received:', {
     dataLength: data.length,
     groupsLength: groups.length,
@@ -223,9 +266,14 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
     }
   }, [])
 
-  // Filter data
+  // Filter data and strip asterisks if needed
   const filteredGroups = groups.filter(g => selectedProducts.includes(g.key))
-  const filteredData = data.filter(d => selectedAttributes.includes(d.option))
+  const filteredData = data.filter(d => selectedAttributes.includes(d.option)).map(d => {
+    if (hideAsterisks && d.optionDisplay.endsWith('*')) {
+      return { ...d, optionDisplay: d.optionDisplay.slice(0, -1) }
+    }
+    return d
+  })
 
   // Sort ALL groups (products) by their sentiment scores (descending - highest score first)
   // This is used for the filter dropdown to show all products in sorted order
@@ -569,7 +617,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
                   fontWeight: 600,
                   verticalAlign: 'middle'
                 }}>
-                  {group.label}
+                  {stripQuotes(group.label)}
                 </th>
               ))}
             </tr>

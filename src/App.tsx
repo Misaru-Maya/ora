@@ -114,6 +114,8 @@ export default function App() {
   const { dataset, selections, setSelections } = useORAStore()
   const [chartOrientation, setChartOrientation] = useState<'horizontal' | 'vertical'>('vertical')
   const [sidebarVisible, setSidebarVisible] = useState(true)
+  const [sidebarWidth, setSidebarWidth] = useState(288)
+  const [isResizing, setIsResizing] = useState(false)
 
   const questions = useMemo(() => {
     if (!dataset) return []
@@ -331,6 +333,39 @@ export default function App() {
   const handleSelectAllProducts = () => setSelections({ productGroups: [...productValues] })
   const handleClearProducts = () => setSelections({ productGroups: [] })
 
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsResizing(true)
+  }
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return
+      const newWidth = e.clientX
+      if (newWidth >= 200 && newWidth <= 600) {
+        setSidebarWidth(newWidth)
+      }
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+    }
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [isResizing])
+
   if (!dataset) {
     return (
       <div className="min-h-screen bg-white">
@@ -423,22 +458,23 @@ export default function App() {
 
         {/* Fixed Left Sidebar Panel */}
         {sidebarVisible && (
-          <aside
-            className="overflow-y-auto border-r border-gray-200"
-            style={{
-              width: '288px',
-              minWidth: '288px',
-              height: 'calc(100vh - 72px)',
-              position: 'fixed',
-              left: 0,
-              top: '72px',
-              backgroundColor: '#FAFCFE',
-              paddingTop: '16px',
-              paddingBottom: '24px',
-              paddingLeft: '16px',
-              paddingRight: '16px'
-            }}
-          >
+          <>
+            <aside
+              className="overflow-y-auto border-r border-gray-200"
+              style={{
+                width: `${sidebarWidth}px`,
+                minWidth: `${sidebarWidth}px`,
+                height: 'calc(100vh - 72px)',
+                position: 'fixed',
+                left: 0,
+                top: '72px',
+                backgroundColor: '#FAFCFE',
+                paddingTop: '16px',
+                paddingBottom: '24px',
+                paddingLeft: '16px',
+                paddingRight: '16px'
+              }}
+            >
           {summary && (
             <>
               <div className="flex items-start gap-2" style={{ marginBottom: '25px', paddingLeft: '62px' }}>
@@ -582,7 +618,7 @@ export default function App() {
 
                 <section className="space-y-4 rounded-xl bg-white p-5 shadow-sm">
                   <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Display</h4>
-                  <div className="space-y-3.5">
+                  <div className="space-y-3.5" style={{ paddingBottom: '10px' }}>
                     <label className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Chart Type</label>
                     <select
                       className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-700 font-medium shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent hover:shadow-lg hover:border-gray-300 appearance-none cursor-pointer"
@@ -602,7 +638,7 @@ export default function App() {
                       <option value="vertical">Vertical</option>
                     </select>
                   </div>
-                  <div className="space-y-3.5">
+                  <div className="space-y-3.5" style={{ paddingBottom: '10px' }}>
                     <label className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Sort</label>
                     <select
                       className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-700 font-medium shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent hover:shadow-lg hover:border-gray-300 appearance-none cursor-pointer"
@@ -621,11 +657,87 @@ export default function App() {
                       <option value="default">Original</option>
                     </select>
                   </div>
+                  <div className="space-y-3.5">
+                    <label className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Color</label>
+                    <div className="flex items-center" style={{ gap: '10px' }}>
+                      {(selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088']).slice(0, 6).map((color, index) => (
+                        <label
+                          key={index}
+                          className="inline-block cursor-pointer"
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            minWidth: '32px',
+                            minHeight: '32px',
+                          }}
+                        >
+                          <input
+                            type="color"
+                            value={color}
+                            onChange={(e) => {
+                              const newColors = [...(selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'])]
+                              newColors[index] = e.target.value
+                              setSelections({ chartColors: newColors })
+                            }}
+                            style={{
+                              opacity: 0,
+                              position: 'absolute',
+                              pointerEvents: 'none',
+                              width: 0,
+                              height: 0
+                            }}
+                          />
+                          <span
+                            className="inline-block"
+                            style={{
+                              backgroundColor: color,
+                              width: '32px',
+                              height: '32px',
+                              minWidth: '32px',
+                              minHeight: '32px',
+                              borderRadius: '3px',
+                              border: '2px solid transparent',
+                              transition: 'border-color 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.borderColor = '#80BDFF'}
+                            onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <div style={{ marginTop: '10px' }}>
+                      <button
+                        onClick={() => setSelections({ chartColors: ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'] })}
+                        className="text-xs text-brand-green underline hover:text-brand-green/80 transition"
+                        style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none' }}
+                      >
+                        Reset to default
+                      </button>
+                    </div>
+                  </div>
                 </section>
               </div>
             </>
           )}
-          </aside>
+            </aside>
+            {/* Resize Handle */}
+            <div
+              onMouseDown={handleResizeMouseDown}
+              style={{
+                position: 'fixed',
+                left: `${sidebarWidth}px`,
+                top: '72px',
+                width: '4px',
+                height: 'calc(100vh - 72px)',
+                cursor: 'col-resize',
+                backgroundColor: 'transparent',
+                zIndex: 51,
+                transition: isResizing ? 'none' : 'left 0.3s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#80BDFF'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            />
+          </>
         )}
 
         {/* Scrollable Main Content Panel */}
@@ -634,8 +746,8 @@ export default function App() {
           style={{
             position: 'fixed',
             top: '72px',
-            left: sidebarVisible ? '288px' : '0',
-            width: sidebarVisible ? 'calc(100vw - 288px)' : '100vw',
+            left: sidebarVisible ? `${sidebarWidth}px` : '0',
+            width: sidebarVisible ? `calc(100vw - ${sidebarWidth}px)` : '100vw',
             height: 'calc(100vh - 72px)',
             backgroundColor: '#FFFFFF',
             transition: 'left 0.3s ease, width 0.3s ease'
@@ -655,6 +767,7 @@ export default function App() {
                     selectedQuestionId={selections.question}
                     filterSignificantOnly={statSigFilter === 'statSigOnly'}
                     hideAsterisks={selections.hideAsterisks || false}
+                    chartColors={selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-sm text-brand-gray/60">

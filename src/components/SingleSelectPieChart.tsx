@@ -20,13 +20,15 @@ interface SingleSelectPieChartProps {
   group: GroupSeriesMeta
   questionLabel?: string
   legendOrientation?: 'horizontal' | 'vertical'
+  colors?: string[]
 }
 
 export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
   data,
   group,
   questionLabel,
-  legendOrientation = 'horizontal'
+  legendOrientation = 'horizontal',
+  colors = PIE_COLORS
 }) => {
 
   console.log('SingleSelectPieChart received:', {
@@ -92,7 +94,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
           <span
             className="inline-block h-3 w-10"
             style={{
-              backgroundColor: PIE_COLORS[index % PIE_COLORS.length],
+              backgroundColor: colors[index % colors.length],
               minWidth: '24px',
               minHeight: '12px',
               borderRadius: '3px'
@@ -136,7 +138,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
                   // Use reversed index to get the correct color matching the legend
                   const colorIndex = pieData.length - 1 - index
                   return (
-                    <Cell key={`cell-${index}`} fill={PIE_COLORS[colorIndex % PIE_COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={colors[colorIndex % colors.length]} />
                   )
                 })}
               </Pie>

@@ -54,4 +54,5 @@ export interface Selections {
   sortOrder: SortOrder
   statSigFilter: StatSigFilter
   hideAsterisks?: boolean
+  chartColors?: string[]
 }

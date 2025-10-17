@@ -12,6 +12,28 @@ import {
 import type { LabelProps } from 'recharts'
 import { GroupSeriesMeta, SeriesDataPoint, customRound } from '../dataCalculations'
 
+// Utility function to determine text color based on background luminance
+function getContrastTextColor(hexColor: string): string {
+  // Remove # if present
+  const hex = hexColor.replace('#', '')
+
+  // Convert hex to RGB
+  const r = parseInt(hex.substring(0, 2), 16) / 255
+  const g = parseInt(hex.substring(2, 4), 16) / 255
+  const b = parseInt(hex.substring(4, 6), 16) / 255
+
+  // Apply gamma correction
+  const rLinear = r <= 0.03928 ? r / 12.92 : Math.pow((r + 0.055) / 1.055, 2.4)
+  const gLinear = g <= 0.03928 ? g / 12.92 : Math.pow((g + 0.055) / 1.055, 2.4)
+  const bLinear = b <= 0.03928 ? b / 12.92 : Math.pow((b + 0.055) / 1.055, 2.4)
+
+  // Calculate relative luminance using WCAG formula
+  const luminance = 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear
+
+  // Return white for dark backgrounds, black for light backgrounds
+  return luminance > 0.5 ? '#111111' : '#FFFFFF'
+}
+
 const GROUP_COLORS = [
   '#3A8518', // green (1st segment)
   '#CED6DE', // light gray (2nd segment)
@@ -114,9 +136,9 @@ const StackedHorizontalValueLabel: React.FC<LabelProps & { fill?: string }> = ({
   const text = `${Math.round(numericValue)}%`
   const isSmall = numericValue < 3
 
-  // Use white text for dark green (#3A8518) and gray (#717F90), black for everything else
   // For small values shown outside, always use black
-  const textColor = isSmall ? '#111' : ((fill === '#3A8518' || fill === '#717F90') ? '#FFFFFF' : '#111')
+  // For values shown inside, calculate optimal contrast color based on background
+  const textColor = isSmall ? '#111' : getContrastTextColor(fill || '#FFFFFF')
 
   if (isSmall) {
     // Position small values above the segment
@@ -165,9 +187,9 @@ const StackedVerticalValueLabel: React.FC<LabelProps & { fill?: string }> = ({ x
   const text = `${Math.round(numericValue)}%`
   const isSmall = numericValue < 3
 
-  // Use white text for dark green (#3A8518) and gray (#717F90), black for everything else
   // For small values shown outside, always use black
-  const textColor = isSmall ? '#111' : ((fill === '#3A8518' || fill === '#717F90') ? '#FFFFFF' : '#111')
+  // For values shown inside, calculate optimal contrast color based on background
+  const textColor = isSmall ? '#111' : getContrastTextColor(fill || '#FFFFFF')
 
   if (isSmall) {
     // Position small values outside (above the segment)
@@ -248,6 +270,7 @@ interface ComparisonChartProps {
   orientation?: 'horizontal' | 'vertical'
   questionLabel?: string
   stacked?: boolean
+  colors?: string[]
 }
 
 const CustomTooltip: React.FC<any> = ({ active, payload }) => {
@@ -281,7 +304,7 @@ const CustomTooltip: React.FC<any> = ({ active, payload }) => {
   )
 }
 
-export const ComparisonChart: React.FC<ComparisonChartProps> = ({ data, groups, orientation = 'horizontal', questionLabel, stacked = false }) => {
+export const ComparisonChart: React.FC<ComparisonChartProps> = ({ data, groups, orientation = 'horizontal', questionLabel, stacked = false, colors = GROUP_COLORS }) => {
   const isHorizontal = orientation === 'horizontal'
 
   // Dynamic chart dimensions based on number of answer options
@@ -333,7 +356,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({ data, groups, 
                   <span
                     className="inline-block h-3 w-10"
                     style={{
-                      backgroundColor: GROUP_COLORS[index % GROUP_COLORS.length],
+                      backgroundColor: colors[index % colors.length],
                       minWidth: '24px',
                       minHeight: '12px',
                       borderRadius: '3px'
@@ -355,7 +378,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({ data, groups, 
                 <span
                   className="inline-block h-3 w-10"
                   style={{
-                    backgroundColor: GROUP_COLORS[index % GROUP_COLORS.length],
+                    backgroundColor: colors[index % colors.length],
                     minWidth: '24px',
                     minHeight: '12px',
                     borderRadius: '3px'
@@ -418,7 +441,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({ data, groups, 
           )}
           <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(206, 214, 222, 0.2)' }} />
           {groups.map((group, index) => {
-            const color = GROUP_COLORS[index % GROUP_COLORS.length]
+            const color = colors[index % colors.length]
             return (
               <Bar
                 key={group.key}
