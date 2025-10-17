@@ -90,7 +90,12 @@ const ChartCard: React.FC<ChartCardProps> = ({
 
   useEffect(() => {
     setCardSort(question.isLikert ? 'alphabetical' : 'default')
-    setSelectedOptions(series.data.map(d => d.option))
+    // If more than 10 options, deselect the bottom 5 by default
+    const allOptions = series.data.map(d => d.option)
+    const selectedDefaults = allOptions.length > 10
+      ? allOptions.slice(0, allOptions.length - 5)
+      : allOptions
+    setSelectedOptions(selectedDefaults)
   }, [series, question.isLikert])
 
   useEffect(() => {

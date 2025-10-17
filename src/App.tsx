@@ -12,7 +12,7 @@ function isExcludedValue(value: string) {
   return EXCLUDED_VALUES.some(ex => normalized === ex || normalized.includes(ex))
 }
 
-function autoDefaultGroups(rows: any[], segCol?: string, maxDefaults = 3): string[] {
+function autoDefaultGroups(rows: any[], segCol?: string, maxDefaults = 2): string[] {
   if (!segCol) return []
   if (segCol === 'Overall') return ['Overall']
   const vals = Array.from(new Set(rows.map(r => String(r[segCol]))))
@@ -222,7 +222,8 @@ export default function App() {
     // Apply custom order if exists for this segment column
     if (segmentValueOrder[selections.segmentColumn]) {
       const customOrder = segmentValueOrder[selections.segmentColumn]
-      const orderedValues = customOrder.filter(v => sorted.includes(v))
+      // Filter out 'Overall' from customOrder when applying to segmentValues (it's shown separately)
+      const orderedValues = customOrder.filter(v => v !== 'Overall' && sorted.includes(v))
       const newValues = sorted.filter(v => !customOrder.includes(v))
       return [...orderedValues, ...newValues]
     }
@@ -233,10 +234,12 @@ export default function App() {
   useEffect(() => {
     if (!selections.segmentColumn) return
     const available = new Set(segmentValues)
-    const existing = selections.groups.filter(value => available.has(value))
+    // Preserve "Overall" in the groups even if it's not in segmentValues
+    const existing = selections.groups.filter(value => value === 'Overall' || available.has(value))
     if (existing.length !== selections.groups.length) {
       setSelections({ groups: existing })
     }
+    // Only reset to defaults if no groups are selected and there are no "Overall" selections
     if (existing.length === 0 && segmentValues.length) {
       setSelections({ groups: autoDefaultGroups(rows, selections.segmentColumn) })
     }
@@ -249,7 +252,7 @@ export default function App() {
     const customOrder = segmentValueOrder[selections.segmentColumn]
     const currentGroups = selections.groups
 
-    // Reorder groups based on custom order
+    // Reorder groups based on custom order (includes Overall if present)
     const orderedGroups = customOrder.filter(value => currentGroups.includes(value))
     const newGroups = currentGroups.filter(value => !customOrder.includes(value))
     const reorderedGroups = [...orderedGroups, ...newGroups]
@@ -290,9 +293,14 @@ export default function App() {
     e.preventDefault()
     if (draggedSegmentIndex === null || draggedSegmentIndex === index) return
 
-    const newOrder = [...segmentValues]
-    const [draggedItem] = newOrder.splice(draggedSegmentIndex, 1)
-    newOrder.splice(index, 0, draggedItem)
+    // Create combined list with Overall at index -1 (position 0) and regular values after
+    const allValues = ['Overall', ...segmentValues]
+    const draggedIdx = draggedSegmentIndex === -1 ? 0 : draggedSegmentIndex + 1
+    const targetIdx = index === -1 ? 0 : index + 1
+
+    const newOrder = [...allValues]
+    const [draggedItem] = newOrder.splice(draggedIdx, 1)
+    newOrder.splice(targetIdx, 0, draggedItem)
 
     if (selections.segmentColumn) {
       setSegmentValueOrder(prev => ({
@@ -504,6 +512,38 @@ export default function App() {
                     ))}
                   </select>
                   <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg bg-white px-3 py-2">
+                    {selections.segmentColumn !== 'Overall' && (
+                      <label
+                        key="Overall"
+                        draggable
+                        onDragStart={() => handleSegmentDragStart(-1)}
+                        onDragOver={(e) => handleSegmentDragOver(e, -1)}
+                        onDragEnd={handleSegmentDragEnd}
+                        className={`flex items-center text-sm text-brand-gray cursor-move rounded px-2 py-1 transition-colors ${
+                          draggedSegmentIndex === -1 ? 'opacity-50 bg-gray-100' : 'hover:bg-gray-50'
+                        }`}
+                        style={{ gap: '4px' }}
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          className="flex-shrink-0 text-gray-400"
+                        >
+                          <path d="M3 8h18M3 16h18" />
+                        </svg>
+                        <input
+                          type="checkbox"
+                          className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0"
+                          checked={selections.groups.includes('Overall')}
+                          onChange={() => toggleGroup('Overall')}
+                        />
+                        <span className="flex-1 font-semibold">Overall</span>
+                      </label>
+                    )}
                     {segmentValues.map((value, index) => (
                       <label
                         key={value}
