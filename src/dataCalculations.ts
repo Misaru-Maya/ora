@@ -134,7 +134,7 @@ export function buildSeries({
     // Handle "Overall" as a special case: include ALL rows
     const filtered = segment.value === 'Overall'
       ? rows
-      : rows.filter(r => String(r[segment.column]) === segment.value)
+      : rows.filter(r => stripQuotes(String(r[segment.column])) === stripQuotes(segment.value))
     const respondentIds = uniq(filtered.map(r => stripQuotes(String(r[respIdCol] ?? '').trim())).filter(Boolean))
     map.set(groupLabel, {
       rows: filtered,
