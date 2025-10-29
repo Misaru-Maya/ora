@@ -41,18 +41,41 @@ function sortSegmentValues(values: string[], column?: string) {
   if (!column) return values
   if (column.toLowerCase() === 'age') {
     const parseAgeToken = (token: string) => {
-      const match = token.match(/(\d+)/)
-      if (match) return parseInt(match[1], 10)
+      // Handle "under" prefix
       if (/under/i.test(token)) return -1
+
+      // Handle "<" prefix (e.g., "<25") - should sort before the number
+      if (/^<\s*(\d+)/.test(token)) {
+        const match = token.match(/^<\s*(\d+)/)
+        if (match) return parseInt(match[1], 10) - 0.5 // Subtract 0.5 to sort before the number
+      }
+
+      // Handle ">" or ">=" prefix
+      if (/^>=?\s*(\d+)/.test(token)) {
+        const match = token.match(/^>=?\s*(\d+)/)
+        if (match) return parseInt(match[1], 10) + 1000 // Add large number to sort at end
+      }
+
+      // Handle "+" suffix (e.g., "65+")
       if (/(\d+)\s*\+/.test(token)) {
         const plusMatch = token.match(/(\d+)\s*\+/)
-        if (plusMatch) return parseInt(plusMatch[1], 10)
+        if (plusMatch) return parseInt(plusMatch[1], 10) + 1000
       }
+
+      // Handle regular numbers (including ranges like "25-34")
+      const match = token.match(/(\d+)/)
+      if (match) return parseInt(match[1], 10)
+
       return Number.MAX_SAFE_INTEGER
     }
     return [...values].sort((a, b) => parseAgeToken(a) - parseAgeToken(b))
   }
   return values
+}
+
+// Generate the same key format as buildSeries in dataCalculations.ts
+function getGroupKey(label: string): string {
+  return label.toLowerCase().replace(/[^a-z0-9]+/g, '_')
 }
 
 function cleanFileName(fileName: string): string {
@@ -116,6 +139,15 @@ export default function App() {
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [sidebarWidth, setSidebarWidth] = useState(288)
   const [isResizing, setIsResizing] = useState(false)
+  const [editingLabel, setEditingLabel] = useState<string | null>(null)
+  const [labelInput, setLabelInput] = useState('')
+  const [expandedSegmentGroups, setExpandedSegmentGroups] = useState<Set<string>>(new Set())
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    new Set(['segmentation', 'statSig', 'products', 'display'])
+  )
+  const [expandedDisplayGroups, setExpandedDisplayGroups] = useState<Set<string>>(
+    new Set(['chartType', 'sort', 'color'])
+  )
 
   const questions = useMemo(() => {
     if (!dataset) return []
@@ -144,6 +176,11 @@ export default function App() {
       setSelections({ segmentColumn: defaultSeg, groups: defaultGroups })
     }
 
+    // Initialize segments with Overall by default if no segments are selected
+    if (!selections.segments || selections.segments.length === 0) {
+      setSelections({ segments: [{ column: 'Overall', value: 'Overall' }] })
+    }
+
     if (productColumn && !selections.productColumn) {
       const defaultProducts = autoDefaultProducts(rowsRaw, productColumn)
       setSelections({ productColumn, productGroups: defaultProducts })
@@ -165,6 +202,7 @@ export default function App() {
     selections.productColumn,
     selections.question,
     selections.segmentColumn,
+    selections.segments,
     setSelections,
   ])
 
@@ -196,19 +234,6 @@ export default function App() {
     return { ...dataset, rows }
   }, [dataset, rows])
 
-  const { data, groups } = useMemo(() => {
-    if (!filteredDataset || !currentQuestion || !selections.segmentColumn || !selections.groups.length) {
-      return { data: [], groups: [] }
-    }
-    return buildSeries({
-      dataset: filteredDataset,
-      question: currentQuestion,
-      segmentColumn: selections.segmentColumn,
-      groups: selections.groups,
-      sortOrder: selections.sortOrder
-    })
-  }, [filteredDataset, currentQuestion, selections])
-
   const [segmentValueOrder, setSegmentValueOrder] = useState<Record<string, string[]>>({})
   const [draggedSegmentIndex, setDraggedSegmentIndex] = useState<number | null>(null)
 
@@ -216,7 +241,7 @@ export default function App() {
     if (!selections.segmentColumn) return []
     if (selections.segmentColumn === 'Overall') return ['Overall']
     const values = Array.from(new Set(rows.map(r => String(r[selections.segmentColumn!]))))
-      .filter(v => v && v !== 'null' && v !== 'undefined' && !isExcludedValue(v))
+      .filter(v => v && v !== 'null' && v !== 'undefined')
     const sorted = sortSegmentValues(values, selections.segmentColumn)
 
     // Apply custom order if exists for this segment column
@@ -230,6 +255,53 @@ export default function App() {
 
     return sorted
   }, [rows, selections.segmentColumn, segmentValueOrder])
+
+  // Compute ordered groups based on sidebar display order, not click order
+  const orderedGroups = useMemo(() => {
+    if (!selections.segmentColumn || !selections.groups.length) return []
+
+    // Build full sidebar order: Overall (if not Overall segment) + segmentValues
+    const sidebarOrder = selections.segmentColumn === 'Overall'
+      ? ['Overall']
+      : ['Overall', ...segmentValues]
+
+    // Filter to only include selected groups, maintaining sidebar order
+    return sidebarOrder.filter(value => selections.groups.includes(value))
+  }, [selections.segmentColumn, selections.groups, segmentValues])
+
+  const { data, groups } = useMemo(() => {
+    if (!filteredDataset || !currentQuestion) {
+      return { data: [], groups: [] }
+    }
+
+    // Use new segments API if available, otherwise fall back to old API
+    const hasSegments = selections.segments && selections.segments.length > 0
+    const hasOldStyle = selections.segmentColumn && orderedGroups.length > 0
+
+    if (!hasSegments && !hasOldStyle) {
+      return { data: [], groups: [] }
+    }
+
+    const result = buildSeries({
+      dataset: filteredDataset,
+      question: currentQuestion,
+      ...(hasSegments
+        ? { segments: selections.segments }
+        : { segmentColumn: selections.segmentColumn, groups: orderedGroups }
+      ),
+      sortOrder: selections.sortOrder
+    })
+
+    // Apply custom labels to groups
+    if (selections.groupLabels) {
+      result.groups = result.groups.map(group => ({
+        ...group,
+        label: selections.groupLabels?.[group.key] || group.label
+      }))
+    }
+
+    return result
+  }, [filteredDataset, currentQuestion, selections.segmentColumn, selections.segments, orderedGroups, selections.sortOrder, selections.groupLabels])
 
   useEffect(() => {
     if (!selections.segmentColumn) return
@@ -285,6 +357,87 @@ export default function App() {
     setSelections({ groups: Array.from(current) })
   }
 
+  const toggleSegment = (column: string, value: string) => {
+    const currentSegments = selections.segments || []
+    const existingIndex = currentSegments.findIndex(
+      s => s.column === column && s.value === value
+    )
+
+    if (existingIndex >= 0) {
+      // Remove segment
+      const newSegments = [...currentSegments]
+      newSegments.splice(existingIndex, 1)
+
+      // If removing brings us below 2 segments and stat sig is on, turn it off
+      if (newSegments.length < 2 && selections.statSigFilter === 'statSigOnly') {
+        setSelections({ segments: newSegments, statSigFilter: 'all' })
+      } else {
+        setSelections({ segments: newSegments })
+      }
+    } else {
+      // Add segment
+      setSelections({ segments: [...currentSegments, { column, value }] })
+    }
+  }
+
+  const isSegmentSelected = (column: string, value: string) => {
+    return (selections.segments || []).some(
+      s => s.column === column && s.value === value
+    )
+  }
+
+  const handleSelectAllInColumn = (column: string, values: string[]) => {
+    const currentSegments = selections.segments || []
+    // Remove existing segments from this column
+    const otherSegments = currentSegments.filter(s => s.column !== column)
+    // Add all values from this column
+    const newSegments = [...otherSegments, ...values.map(value => ({ column, value }))]
+    setSelections({ segments: newSegments })
+  }
+
+  const handleClearColumn = (column: string) => {
+    const currentSegments = selections.segments || []
+    // Remove all segments from this column
+    const newSegments = currentSegments.filter(s => s.column !== column)
+
+    // If removing brings us below 2 segments and stat sig is on, turn it off
+    if (newSegments.length < 2 && selections.statSigFilter === 'statSigOnly') {
+      setSelections({ segments: newSegments, statSigFilter: 'all' })
+    } else {
+      setSelections({ segments: newSegments })
+    }
+  }
+
+  const toggleSegmentGroup = (column: string) => {
+    const newExpanded = new Set(expandedSegmentGroups)
+    if (newExpanded.has(column)) {
+      newExpanded.delete(column)
+    } else {
+      newExpanded.add(column)
+    }
+    setExpandedSegmentGroups(newExpanded)
+  }
+
+  const toggleSection = (sectionName: string) => {
+    const newExpanded = new Set(expandedSections)
+    if (newExpanded.has(sectionName)) {
+      newExpanded.delete(sectionName)
+    } else {
+      newExpanded.add(sectionName)
+    }
+    setExpandedSections(newExpanded)
+  }
+
+  const toggleDisplayGroup = (groupName: string) => {
+    const newExpanded = new Set(expandedDisplayGroups)
+    if (newExpanded.has(groupName)) {
+      newExpanded.delete(groupName)
+    } else {
+      newExpanded.add(groupName)
+    }
+    setExpandedDisplayGroups(newExpanded)
+  }
+
   const handleSegmentDragStart = (index: number) => {
     setDraggedSegmentIndex(index)
   }
@@ -336,6 +489,56 @@ export default function App() {
     } else {
       setSelections({ segmentColumn: nextSegment, groups: defaults })
     }
+  }
+
+  const handleSelectAllSegments = () => {
+    const allValues = selections.segmentColumn === 'Overall'
+      ? ['Overall']
+      : [...(selections.segmentColumn !== 'Overall' ? ['Overall'] : []), ...segmentValues]
+    setSelections({ groups: allValues })
+  }
+  const handleClearSegments = () => setSelections({ groups: [] })
+
+  const getGroupDisplayLabel = (groupValue: string) => {
+    const key = getGroupKey(groupValue)
+    return selections.groupLabels?.[key] || groupValue
+  }
+
+  const handleSaveLabel = (groupValue: string, newLabel: string) => {
+    if (!newLabel.trim()) return
+    const key = getGroupKey(groupValue)
+    setSelections({
+      groupLabels: {
+        ...selections.groupLabels,
+        [key]: newLabel.trim()
+      }
+    })
+    setEditingLabel(null)
+  }
+
+  const handleSaveOptionLabel = (qid: string, option: string, newLabel: string) => {
+    if (!newLabel.trim()) return
+    const currentOptionLabels = selections.optionLabels || {}
+    const questionOptionLabels = currentOptionLabels[qid] || {}
+    setSelections({
+      optionLabels: {
+        ...currentOptionLabels,
+        [qid]: {
+          ...questionOptionLabels,
+          [option]: newLabel.trim()
+        }
+      }
+    })
+  }
+
+  const handleSaveQuestionLabel = (qid: string, newLabel: string) => {
+    if (!newLabel.trim()) return
+    setSelections({
+      questionLabels: {
+        ...selections.questionLabels,
+        [qid]: newLabel.trim()
+      }
+    })
   }
 
   const handleSelectAllProducts = () => setSelections({ productGroups: [...productValues] })
@@ -417,7 +620,7 @@ export default function App() {
           <div className="w-[480px] flex-shrink-0" style={{ paddingRight: '30px' }}>
             <p className="text-gray-400" style={{ fontSize: '12px', lineHeight: '1.4', textAlign: 'right' }}>
               Open text, ranking, and demographic questions are excluded.<br />
-              Other, not specified, none of the above, and skip are also hidden.
+              Other, not specified, none of the above, and skip are deselected by default.
             </p>
           </div>
         </div>
@@ -492,121 +695,251 @@ export default function App() {
               </div>
               <div className="flex flex-col gap-[10px]">
                 <section className="space-y-3 rounded-xl bg-white p-5 shadow-sm">
-                  <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Segmentation</h4>
-                  <select
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-700 font-medium shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent hover:shadow-lg hover:border-gray-300 appearance-none cursor-pointer"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                      backgroundPosition: 'right 0.75rem center',
-                      backgroundRepeat: 'no-repeat',
-                      backgroundSize: '1.25em 1.25em',
-                      paddingRight: '2.75rem'
-                    }}
-                    value={selections.segmentColumn || ''}
-                    onChange={handleSegmentColumnChange}
+                  <div
+                    className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition"
+                    onClick={() => toggleSection('segmentation')}
                   >
-                    {segmentColumns.map(column => (
-                      <option key={column} value={column}>
-                        {column}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg bg-white px-3 py-2">
-                    {selections.segmentColumn !== 'Overall' && (
-                      <label
-                        key="Overall"
-                        draggable
-                        onDragStart={() => handleSegmentDragStart(-1)}
-                        onDragOver={(e) => handleSegmentDragOver(e, -1)}
-                        onDragEnd={handleSegmentDragEnd}
-                        className={`flex items-center text-sm text-brand-gray cursor-move rounded px-2 py-1 transition-colors ${
-                          draggedSegmentIndex === -1 ? 'opacity-50 bg-gray-100' : 'hover:bg-gray-50'
-                        }`}
-                        style={{ gap: '4px' }}
-                      >
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          className="flex-shrink-0 text-gray-400"
-                        >
-                          <path d="M3 8h18M3 16h18" />
-                        </svg>
-                        <input
-                          type="checkbox"
-                          className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0"
-                          checked={selections.groups.includes('Overall')}
-                          onChange={() => toggleGroup('Overall')}
-                        />
-                        <span className="flex-1 font-semibold">Overall</span>
-                      </label>
-                    )}
-                    {segmentValues.map((value, index) => (
-                      <label
-                        key={value}
-                        draggable
-                        onDragStart={() => handleSegmentDragStart(index)}
-                        onDragOver={(e) => handleSegmentDragOver(e, index)}
-                        onDragEnd={handleSegmentDragEnd}
-                        className={`flex items-center text-sm text-brand-gray cursor-move rounded px-2 py-1 transition-colors ${
-                          draggedSegmentIndex === index ? 'opacity-50 bg-gray-100' : 'hover:bg-gray-50'
-                        }`}
-                        style={{ gap: '4px' }}
-                      >
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          className="flex-shrink-0 text-gray-400"
-                        >
-                          <path d="M3 8h18M3 16h18" />
-                        </svg>
-                        <input
-                          type="checkbox"
-                          className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0"
-                          checked={selections.groups.includes(value)}
-                          onChange={() => toggleGroup(value)}
-                        />
-                        <span className="flex-1">{value}</span>
-                      </label>
-                    ))}
-                    {segmentValues.length === 0 && (
-                      <div className="text-xs text-brand-gray/60">
-                        No values detected for this segmentation.
-                      </div>
-                    )}
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      className="flex-shrink-0 transition-transform"
+                      style={{ transform: expandedSections.has('segmentation') ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                    >
+                      <path d="M9 18l6-6-6-6" />
+                    </svg>
+                    <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Segmentation</h4>
                   </div>
+                  {expandedSections.has('segmentation') && (
+                    <div className="pl-[10px]">
+                  <div className="max-h-96 space-y-5 overflow-y-auto rounded-lg bg-white px-2 py-2">
+                    {/* Overall option with Clear all button */}
+                    <div className="space-y-1 pl-[10px]">
+                      <div className="flex items-center justify-between gap-2" style={{ paddingBottom: '10px' }}>
+                      <label
+                        className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer flex-1"
+                        style={{ gap: '4px' }}
+                      >
+                          <input
+                            type="checkbox"
+                            className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0"
+                            checked={isSegmentSelected('Overall', 'Overall')}
+                            onChange={() => toggleSegment('Overall', 'Overall')}
+                          />
+                          {editingLabel === 'Overall' ? (
+                            <textarea
+                              value={labelInput}
+                              onChange={(e) => setLabelInput(e.target.value)}
+                              onBlur={() => handleSaveLabel('Overall', labelInput)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault()
+                                  handleSaveLabel('Overall', labelInput)
+                                }
+                                if (e.key === 'Escape') setEditingLabel(null)
+                              }}
+                              autoFocus
+                              className="flex-1 text-base border-2 border-brand-green rounded px-2 py-1 focus:outline-none font-semibold"
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ minHeight: '60px', resize: 'vertical', lineHeight: '1.4' }}
+                            />
+                          ) : (
+                            <span
+                              className="flex-1 font-semibold hover:text-brand-green transition"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setEditingLabel('Overall')
+                                setLabelInput(getGroupDisplayLabel('Overall'))
+                              }}
+                            >
+                              {getGroupDisplayLabel('Overall')}
+                            </span>
+                          )}
+                        </label>
+                        <button
+                          className="transition hover:bg-brand-pale-gray text-xs text-brand-gray/70"
+                          style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', textDecoration: 'underline', fontFamily: 'Space Grotesk, sans-serif', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          onClick={() => setSelections({ segments: [] })}
+                        >
+                          Clear all
+                        </button>
+                      </div>
+                    </div>
+                    {/* All segment columns */}
+                    {segmentColumns.filter(col => col !== 'Overall').map(column => {
+                      const rawValues = Array.from(new Set(rows.map(r => String(r[column]))))
+                        .filter(v => {
+                          if (!v || v === 'null' || v === 'undefined') return false
+
+                          // Check original value first (case-insensitive)
+                          const original = String(v).trim()
+                          if (original.toLowerCase() === 'overall') return false
+
+                          // More aggressive normalization to handle any whitespace or special characters
+                          const normalized = v.replace(/\s+/g, ' ').trim().toLowerCase()
+
+                          // Remove any value that contains "overall" in any form
+                          if (normalized.includes('overall')) return false
+                          if (normalized === 'not specified' || normalized === 'prefer not to say') return false
+                          return true
+                        })
+
+                      const values = sortSegmentValues(rawValues, column)
+
+                      // Hide segment groups with only one option
+                      if (values.length <= 1) return null
+
+                      const isExpanded = expandedSegmentGroups.has(column)
+
+                      return (
+                        <div key={column} className="space-y-2" style={{ paddingBottom: '5px' }}>
+                          <div className="flex items-center justify-between">
+                            <div
+                              className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition flex-1"
+                              onClick={() => toggleSegmentGroup(column)}
+                            >
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                className="flex-shrink-0 transition-transform"
+                                style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                              >
+                                <path d="M9 18l6-6-6-6" />
+                              </svg>
+                              <h5 className="text-2xl font-semibold text-brand-gray">{column}</h5>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-brand-gray/70">
+                              <button
+                                className="transition hover:bg-brand-pale-gray cursor-pointer"
+                                style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', textDecoration: 'underline', fontFamily: 'Space Grotesk, sans-serif' }}
+                                onClick={() => handleSelectAllInColumn(column, values)}
+                              >
+                                All
+                              </button>
+                              <button
+                                className="transition hover:bg-brand-pale-gray cursor-pointer"
+                                style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', textDecoration: 'underline', fontFamily: 'Space Grotesk, sans-serif' }}
+                                onClick={() => handleClearColumn(column)}
+                              >
+                                Clear
+                              </button>
+                            </div>
+                          </div>
+                          {isExpanded && (
+                            <div className="pl-[10px] space-y-1">
+                            {values.map(value => (
+                              <label
+                                key={value}
+                                className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer"
+                                style={{ gap: '4px' }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0"
+                                  checked={isSegmentSelected(column, value)}
+                                  onChange={() => toggleSegment(column, value)}
+                                />
+                                {editingLabel === value ? (
+                                  <textarea
+                                    value={labelInput}
+                                    onChange={(e) => setLabelInput(e.target.value)}
+                                    onBlur={() => handleSaveLabel(value, labelInput)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault()
+                                        handleSaveLabel(value, labelInput)
+                                      }
+                                      if (e.key === 'Escape') setEditingLabel(null)
+                                    }}
+                                    autoFocus
+                                    className="flex-1 text-base border-2 border-brand-green rounded px-2 py-1 focus:outline-none"
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{ minHeight: '60px', resize: 'vertical', lineHeight: '1.4' }}
+                                  />
+                                ) : (
+                                  <span
+                                    className="flex-1 hover:text-brand-green transition"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setEditingLabel(value)
+                                      setLabelInput(getGroupDisplayLabel(value))
+                                    }}
+                                  >
+                                    {getGroupDisplayLabel(value)}
+                                  </span>
+                                )}
+                              </label>
+                            ))}
+                          </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  </div>
+                  )}
                 </section>
 
                 <section className="space-y-3 rounded-xl bg-white p-5 shadow-sm">
-                  <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Stat Sig</h4>
-                  <select
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-700 font-medium shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent hover:shadow-lg hover:border-gray-300 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md disabled:hover:border-gray-200"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                      backgroundPosition: 'right 0.75rem center',
-                      backgroundRepeat: 'no-repeat',
-                      backgroundSize: '1.25em 1.25em',
-                      paddingRight: '2.75rem'
-                    }}
-                    value={statSigFilter}
-                    onChange={(event) =>
-                      setSelections({ statSigFilter: event.target.value as 'all' | 'statSigOnly' })
-                    }
-                    disabled={selections.segmentColumn === 'Overall'}
+                  <div
+                    className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition"
+                    onClick={() => toggleSection('statSig')}
                   >
-                    <option value="all">All Results</option>
-                    <option value="statSigOnly">Stat Sig Only</option>
-                  </select>
-                </section>
-
-                <section className="space-y-3 rounded-xl bg-white p-5 shadow-sm">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      className="flex-shrink-0 transition-transform"
+                      style={{ transform: expandedSections.has('statSig') ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                    >
+                      <path d="M9 18l6-6-6-6" />
+                    </svg>
+                    <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Stat Sig</h4>
+                  </div>
+                  {expandedSections.has('statSig') && (
+                  <div className="pl-[10px] space-y-2">
+                  <div className="space-y-1">
+                    <label className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px' }}>
+                      <input
+                        type="radio"
+                        name="statSigFilter"
+                        value="all"
+                        className="border-brand-light-gray text-brand-green focus:ring-brand-green"
+                        checked={statSigFilter === 'all'}
+                        onChange={(e) => setSelections({ statSigFilter: 'all' })}
+                      />
+                      <span>All Results</span>
+                    </label>
+                    <label
+                      className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer"
+                      style={{
+                        gap: '4px',
+                        opacity: (selections.segments && selections.segments.length < 2) || (!selections.segments && selections.groups.length < 2) ? 0.5 : 1,
+                        pointerEvents: (selections.segments && selections.segments.length < 2) || (!selections.segments && selections.groups.length < 2) ? 'none' : 'auto'
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="statSigFilter"
+                        value="statSigOnly"
+                        className="border-brand-light-gray text-brand-green focus:ring-brand-green"
+                        checked={statSigFilter === 'statSigOnly'}
+                        onChange={(e) => setSelections({ statSigFilter: 'statSigOnly' })}
+                        disabled={(selections.segments && selections.segments.length < 2) || (!selections.segments && selections.groups.length < 2)}
+                      />
+                      <span>Stat Sig Only</span>
+                    </label>
+                  </div>
                   <label className="flex items-center cursor-pointer" style={{ gap: '4px' }}>
                     <input
                       type="checkbox"
@@ -614,35 +947,56 @@ export default function App() {
                       checked={selections.hideAsterisks || false}
                       onChange={(e) => setSelections({ hideAsterisks: e.target.checked })}
                     />
-                    <span className="text-sm font-semibold text-gray-700">Remove asterisks</span>
+                    <span className="text-base font-semibold text-gray-700">Remove asterisks</span>
                   </label>
+                  </div>
+                  )}
                 </section>
 
                 {productColumn && productValues.length > 0 && (
                   <section className="space-y-3 rounded-xl bg-white p-5 shadow-sm">
-                    <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Products</h4>
+                    <div
+                      className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition"
+                      onClick={() => toggleSection('products')}
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className="flex-shrink-0 transition-transform"
+                        style={{ transform: expandedSections.has('products') ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                      >
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
+                      <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Products</h4>
+                    </div>
+                    {expandedSections.has('products') && (
+                    <div className="pl-[10px]">
                     <div className="flex items-center gap-3 text-xs text-brand-gray/70">
                       <button
                         className="transition hover:bg-brand-pale-gray"
-                        style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', textDecoration: 'underline' }}
+                        style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', textDecoration: 'underline', fontFamily: 'Space Grotesk, sans-serif' }}
                         onClick={handleSelectAllProducts}
                       >
                         Select all
                       </button>
                       <button
                         className="transition hover:bg-brand-pale-gray"
-                        style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', textDecoration: 'underline' }}
+                        style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', textDecoration: 'underline', fontFamily: 'Space Grotesk, sans-serif' }}
                         onClick={handleClearProducts}
                       >
                         Clear
                       </button>
                     </div>
-                    <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg bg-white px-3 py-2">
+                    <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg bg-white px-2 py-2">
                       {productValues.map(value => (
-                        <label key={value} className="flex items-center text-sm text-brand-gray" style={{ gap: '4px' }}>
+                        <label key={value} className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px' }}>
                           <input
                             type="checkbox"
-                            className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green"
+                            className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0"
                             checked={selections.productGroups.includes(value)}
                             onChange={() => toggleProductGroup(value)}
                           />
@@ -653,82 +1007,160 @@ export default function App() {
                         <div className="text-xs text-brand-gray/60">No product values detected.</div>
                       )}
                     </div>
+                    </div>
+                    )}
                   </section>
                 )}
 
                 <section className="space-y-4 rounded-xl bg-white p-5 shadow-sm">
-                  <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Display</h4>
-                  <div className="space-y-3.5" style={{ paddingBottom: '10px' }}>
-                    <label className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Chart Type</label>
-                    <select
-                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-700 font-medium shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent hover:shadow-lg hover:border-gray-300 appearance-none cursor-pointer"
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                        backgroundPosition: 'right 0.75rem center',
-                        backgroundRepeat: 'no-repeat',
-                        backgroundSize: '1.25em 1.25em',
-                        paddingRight: '2.75rem'
-                      }}
-                      value={chartOrientation}
-                      onChange={(event) =>
-                        setChartOrientation(event.target.value as 'horizontal' | 'vertical')
-                      }
+                  <div
+                    className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition"
+                    onClick={() => toggleSection('display')}
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      className="flex-shrink-0 transition-transform"
+                      style={{ transform: expandedSections.has('display') ? 'rotate(90deg)' : 'rotate(0deg)' }}
                     >
-                      <option value="horizontal">Horizontal</option>
-                      <option value="vertical">Vertical</option>
-                    </select>
+                      <path d="M9 18l6-6-6-6" />
+                    </svg>
+                    <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Display</h4>
                   </div>
-                  <div className="space-y-3.5" style={{ paddingBottom: '10px' }}>
-                    <label className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Sort</label>
-                    <select
-                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-700 font-medium shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent hover:shadow-lg hover:border-gray-300 appearance-none cursor-pointer"
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                        backgroundPosition: 'right 0.75rem center',
-                        backgroundRepeat: 'no-repeat',
-                        backgroundSize: '1.25em 1.25em',
-                        paddingRight: '2.75rem'
-                      }}
-                      value={selections.sortOrder}
-                      onChange={(event) => setSelections({ sortOrder: event.target.value as SortOrder })}
+                  {expandedSections.has('display') && (
+                  <div className="pl-[10px] space-y-5">
+                  <div className="space-y-2" style={{ paddingBottom: '5px' }}>
+                    <div
+                      className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition"
+                      onClick={() => toggleDisplayGroup('chartType')}
                     >
-                      <option value="descending">Descending</option>
-                      <option value="ascending">Ascending</option>
-                      <option value="default">Original</option>
-                    </select>
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className="flex-shrink-0 transition-transform"
+                        style={{ transform: expandedDisplayGroups.has('chartType') ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                      >
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
+                      <h5 className="text-2xl font-semibold text-brand-gray">Chart Type</h5>
+                    </div>
+                    {expandedDisplayGroups.has('chartType') && (
+                    <div className="pl-[10px] space-y-1">
+                      <label className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px' }}>
+                        <input
+                          type="radio"
+                          name="chartOrientation"
+                          value="horizontal"
+                          className="border-brand-light-gray text-brand-green focus:ring-brand-green"
+                          checked={chartOrientation === 'horizontal'}
+                          onChange={(e) => setChartOrientation('horizontal')}
+                        />
+                        <span>Horizontal</span>
+                      </label>
+                      <label className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px' }}>
+                        <input
+                          type="radio"
+                          name="chartOrientation"
+                          value="vertical"
+                          className="border-brand-light-gray text-brand-green focus:ring-brand-green"
+                          checked={chartOrientation === 'vertical'}
+                          onChange={(e) => setChartOrientation('vertical')}
+                        />
+                        <span>Vertical</span>
+                      </label>
+                    </div>
+                    )}
                   </div>
-                  <div className="space-y-3.5">
-                    <label className="text-xs font-semibold tracking-wide text-gray-500 uppercase">Color</label>
-                    <div className="flex items-center" style={{ gap: '10px' }}>
+                  <div className="space-y-2" style={{ paddingBottom: '5px' }}>
+                    <div
+                      className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition"
+                      onClick={() => toggleDisplayGroup('sort')}
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className="flex-shrink-0 transition-transform"
+                        style={{ transform: expandedDisplayGroups.has('sort') ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                      >
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
+                      <h5 className="text-2xl font-semibold text-brand-gray">Sort</h5>
+                    </div>
+                    {expandedDisplayGroups.has('sort') && (
+                    <div className="pl-[10px] space-y-1">
+                      <label className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px' }}>
+                        <input
+                          type="radio"
+                          name="sortOrder"
+                          value="descending"
+                          className="border-brand-light-gray text-brand-green focus:ring-brand-green"
+                          checked={selections.sortOrder === 'descending'}
+                          onChange={(e) => setSelections({ sortOrder: 'descending' })}
+                        />
+                        <span>Descending</span>
+                      </label>
+                      <label className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px' }}>
+                        <input
+                          type="radio"
+                          name="sortOrder"
+                          value="ascending"
+                          className="border-brand-light-gray text-brand-green focus:ring-brand-green"
+                          checked={selections.sortOrder === 'ascending'}
+                          onChange={(e) => setSelections({ sortOrder: 'ascending' })}
+                        />
+                        <span>Ascending</span>
+                      </label>
+                      <label className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px' }}>
+                        <input
+                          type="radio"
+                          name="sortOrder"
+                          value="default"
+                          className="border-brand-light-gray text-brand-green focus:ring-brand-green"
+                          checked={selections.sortOrder === 'default'}
+                          onChange={(e) => setSelections({ sortOrder: 'default' })}
+                        />
+                        <span>Original</span>
+                      </label>
+                    </div>
+                    )}
+                  </div>
+                  <div className="space-y-2" style={{ paddingBottom: '5px' }}>
+                    <div
+                      className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition"
+                      onClick={() => toggleDisplayGroup('color')}
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className="flex-shrink-0 transition-transform"
+                        style={{ transform: expandedDisplayGroups.has('color') ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                      >
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
+                      <h5 className="text-2xl font-semibold text-brand-gray">Color</h5>
+                    </div>
+                    {expandedDisplayGroups.has('color') && (
+                    <div className="pl-[10px]">
+                    <div className="flex flex-col" style={{ gap: '12px' }}>
                       {(selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088']).slice(0, 6).map((color, index) => (
-                        <label
-                          key={index}
-                          className="inline-block cursor-pointer"
-                          style={{
-                            width: '32px',
-                            height: '32px',
-                            minWidth: '32px',
-                            minHeight: '32px',
-                          }}
-                        >
-                          <input
-                            type="color"
-                            value={color}
-                            onChange={(e) => {
-                              const newColors = [...(selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'])]
-                              newColors[index] = e.target.value
-                              setSelections({ chartColors: newColors })
-                            }}
-                            style={{
-                              opacity: 0,
-                              position: 'absolute',
-                              pointerEvents: 'none',
-                              width: 0,
-                              height: 0
-                            }}
-                          />
-                          <span
-                            className="inline-block"
+                        <div key={index} className="flex items-center" style={{ gap: '8px' }}>
+                          <div
                             style={{
                               backgroundColor: color,
                               width: '32px',
@@ -736,13 +1168,58 @@ export default function App() {
                               minWidth: '32px',
                               minHeight: '32px',
                               borderRadius: '3px',
-                              border: '2px solid transparent',
-                              transition: 'border-color 0.2s'
+                              border: '2px solid #e5e7eb',
                             }}
-                            onMouseEnter={(e) => e.currentTarget.style.borderColor = '#80BDFF'}
-                            onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
                           />
-                        </label>
+                          <input
+                            type="text"
+                            value={color.toUpperCase()}
+                            onChange={(e) => {
+                              const value = e.target.value.trim()
+                              // Auto-add # if not present
+                              const hexValue = value.startsWith('#') ? value : `#${value}`
+                              // Validate hex code
+                              if (/^#[0-9A-Fa-f]{6}$/.test(hexValue)) {
+                                const newColors = [...(selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'])]
+                                newColors[index] = hexValue.toUpperCase()
+                                setSelections({ chartColors: newColors })
+                              }
+                            }}
+                            className="text-xs border border-gray-300 rounded px-2 py-1.5"
+                            style={{
+                              width: '90px',
+                              fontSize: '12px',
+                              fontFamily: 'monospace',
+                              textAlign: 'center'
+                            }}
+                            placeholder="#000000"
+                          />
+                          <label className="cursor-pointer flex items-center justify-center" style={{ width: '28px', height: '28px' }}>
+                            <input
+                              type="color"
+                              value={color}
+                              onChange={(e) => {
+                                const newColors = [...(selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'])]
+                                newColors[index] = e.target.value.toUpperCase()
+                                setSelections({ chartColors: newColors })
+                              }}
+                              style={{
+                                opacity: 0,
+                                position: 'absolute',
+                                pointerEvents: 'none',
+                                width: 0,
+                                height: 0
+                              }}
+                            />
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
+                              <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
+                              <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
+                              <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
+                              <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
+                              <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
+                            </svg>
+                          </label>
+                        </div>
                       ))}
                     </div>
                     <div style={{ marginTop: '10px' }}>
@@ -754,7 +1231,11 @@ export default function App() {
                         Reset to default
                       </button>
                     </div>
+                    </div>
+                    )}
                   </div>
+                  </div>
+                  )}
                 </section>
               </div>
             </>
@@ -796,18 +1277,24 @@ export default function App() {
           <div className="p-8">
             <div className="rounded-2xl bg-white p-6 shadow-sm min-h-[460px]">
               {dataset ? (
-                filteredDataset && selections.segmentColumn && selections.groups.length > 0 ? (
+                filteredDataset && ((selections.segments && selections.segments.length > 0) || (selections.segmentColumn && orderedGroups.length > 0)) ? (
                   <ChartGallery
                     questions={filteredQuestions}
                     dataset={filteredDataset!}
                     segmentColumn={selections.segmentColumn}
-                    groups={selections.groups}
+                    groups={orderedGroups}
+                    segments={selections.segments}
+                    groupLabels={selections.groupLabels || {}}
                     orientation={chartOrientation}
                     sortOrder={selections.sortOrder}
                     selectedQuestionId={selections.question}
                     filterSignificantOnly={statSigFilter === 'statSigOnly'}
                     hideAsterisks={selections.hideAsterisks || false}
                     chartColors={selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']}
+                    optionLabels={selections.optionLabels || {}}
+                    onSaveOptionLabel={handleSaveOptionLabel}
+                    questionLabels={selections.questionLabels || {}}
+                    onSaveQuestionLabel={handleSaveQuestionLabel}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-sm text-brand-gray/60">

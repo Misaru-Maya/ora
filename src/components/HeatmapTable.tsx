@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { SeriesDataPoint, GroupSeriesMeta, customRound } from '../dataCalculations'
 
@@ -74,6 +74,9 @@ interface HeatmapTableProps {
   dataset: ParsedCSV
   productColumn: string
   hideAsterisks?: boolean
+  optionLabels?: Record<string, string>
+  onSaveOptionLabel?: (option: string, newLabel: string) => void
+  onSaveQuestionLabel?: (newLabel: string) => void
 }
 
 // Get color based on value and sentiment
@@ -103,7 +106,12 @@ const getColor = (value: number, sentiment: 'positive' | 'negative', minVal: num
   return { bg: bgColor, text: textColor }
 }
 
-export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false }) => {
+export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false, optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel }) => {
+  const [editingOption, setEditingOption] = useState<string | null>(null)
+  const [editInput, setEditInput] = useState('')
+  const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
+  const [questionLabelInput, setQuestionLabelInput] = useState('')
+
   console.log('🔥 HeatmapTable Received:', {
     dataLength: data.length,
     groupsLength: groups.length,
@@ -188,6 +196,11 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
       return groups.map(g => g.key)
     }
 
+    // If fewer than 5 products, show all products by default
+    if (groups.length < 5) {
+      return groups.map(g => g.key)
+    }
+
     // Sort all groups by sentiment score
     const sortedByScore = [...groups].sort((a, b) => {
       const scoreA = calculateSentimentScore(a.key)
@@ -220,8 +233,8 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
 
   // State for column reordering
   const [customColumnOrder, setCustomColumnOrder] = useState<string[] | null>(null)
-  const [showColumnReorder, setShowColumnReorder] = useState(false)
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [draggedProductIndex, setDraggedProductIndex] = useState<number | null>(null)
+  const [draggedAttributeIndex, setDraggedAttributeIndex] = useState<number | null>(null)
 
   // State to track portal target availability
   const [portalReady, setPortalReady] = useState(false)
@@ -256,7 +269,6 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
       if (isOutsideDropdowns) {
         setShowProductFilter(false)
         setShowAttributeFilter(false)
-        setShowColumnReorder(false)
       }
     }
 
@@ -266,14 +278,73 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
     }
   }, [])
 
+  // Drag handlers for product filter
+  const handleProductDragStart = (index: number) => {
+    setDraggedProductIndex(index)
+  }
+
+  const handleProductDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (draggedProductIndex === null || draggedProductIndex === index) return
+
+    const currentOrder = customColumnOrder || allGroupsSorted.map(g => g.key)
+    const newOrder = [...currentOrder]
+    const [draggedItem] = newOrder.splice(draggedProductIndex, 1)
+    newOrder.splice(index, 0, draggedItem)
+
+    setCustomColumnOrder(newOrder)
+    setDraggedProductIndex(index)
+  }
+
+  const handleProductDragEnd = () => {
+    setDraggedProductIndex(null)
+  }
+
+  // Drag handlers for attribute filter
+  const [customAttributeOrder, setCustomAttributeOrder] = useState<string[] | null>(null)
+
+  const handleAttributeDragStart = (index: number) => {
+    setDraggedAttributeIndex(index)
+  }
+
+  const handleAttributeDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (draggedAttributeIndex === null || draggedAttributeIndex === index) return
+
+    const currentOrder = customAttributeOrder || data.map(d => d.option)
+    const newOrder = [...currentOrder]
+    const [draggedItem] = newOrder.splice(draggedAttributeIndex, 1)
+    newOrder.splice(index, 0, draggedItem)
+
+    setCustomAttributeOrder(newOrder)
+    setDraggedAttributeIndex(index)
+  }
+
+  const handleAttributeDragEnd = () => {
+    setDraggedAttributeIndex(null)
+  }
+
   // Filter data and strip asterisks if needed
   const filteredGroups = groups.filter(g => selectedProducts.includes(g.key))
-  const filteredData = data.filter(d => selectedAttributes.includes(d.option)).map(d => {
+  const baseFilteredData = data.filter(d => selectedAttributes.includes(d.option)).map(d => {
     if (hideAsterisks && d.optionDisplay.endsWith('*')) {
       return { ...d, optionDisplay: d.optionDisplay.slice(0, -1) }
     }
     return d
   })
+
+  // Apply custom attribute order if exists
+  const filteredData = useMemo(() => {
+    if (customAttributeOrder) {
+      const orderMap = new Map(baseFilteredData.map(d => [d.option, d]))
+      const ordered = customAttributeOrder
+        .filter(option => orderMap.has(option))
+        .map(option => orderMap.get(option)!)
+      const remaining = baseFilteredData.filter(d => !customAttributeOrder.includes(d.option))
+      return [...ordered, ...remaining]
+    }
+    return baseFilteredData
+  }, [baseFilteredData, customAttributeOrder])
 
   // Sort ALL groups (products) by their sentiment scores (descending - highest score first)
   // This is used for the filter dropdown to show all products in sorted order
@@ -417,8 +488,29 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
                   </button>
                 </div>
                 <div className="max-h-60 overflow-y-auto" style={{ backgroundColor: '#EEF2F6' }}>
-                  {allGroupsSorted.map(group => (
-                    <label key={group.key} className="flex items-center py-2 cursor-pointer hover:bg-gray-100" style={{ backgroundColor: '#EEF2F6', gap: '2px' }}>
+                  {allGroupsSorted.map((group, index) => (
+                    <label
+                      key={group.key}
+                      draggable
+                      onDragStart={() => handleProductDragStart(index)}
+                      onDragOver={(e) => handleProductDragOver(e, index)}
+                      onDragEnd={handleProductDragEnd}
+                      className={`flex items-center py-2 cursor-move hover:bg-gray-100 ${
+                        draggedProductIndex === index ? 'opacity-50 bg-gray-100' : ''
+                      }`}
+                      style={{ backgroundColor: draggedProductIndex === index ? '#e5e7eb' : '#EEF2F6', gap: '4px' }}
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className="flex-shrink-0 text-gray-400"
+                      >
+                        <path d="M3 8h18M3 16h18" />
+                      </svg>
                       <input
                         type="checkbox"
                         checked={selectedProducts.includes(group.key)}
@@ -477,8 +569,29 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
                   </button>
                 </div>
                 <div className="max-h-60 overflow-y-auto" style={{ backgroundColor: '#EEF2F6' }}>
-                  {data.map(item => (
-                    <label key={item.option} className="flex items-center py-2 cursor-pointer hover:bg-gray-100" style={{ backgroundColor: '#EEF2F6', gap: '2px' }}>
+                  {data.map((item, index) => (
+                    <label
+                      key={item.option}
+                      draggable
+                      onDragStart={() => handleAttributeDragStart(index)}
+                      onDragOver={(e) => handleAttributeDragOver(e, index)}
+                      onDragEnd={handleAttributeDragEnd}
+                      className={`flex items-center py-2 cursor-move hover:bg-gray-100 ${
+                        draggedAttributeIndex === index ? 'opacity-50 bg-gray-100' : ''
+                      }`}
+                      style={{ backgroundColor: draggedAttributeIndex === index ? '#e5e7eb' : '#EEF2F6', gap: '4px' }}
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className="flex-shrink-0 text-gray-400"
+                      >
+                        <path d="M3 8h18M3 16h18" />
+                      </svg>
                       <input
                         type="checkbox"
                         checked={selectedAttributes.includes(item.option)}
@@ -494,80 +607,6 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
                       <span className="text-sm">{item.optionDisplay}</span>
                     </label>
                   ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="relative heatmap-dropdown-container">
-          <button
-            onClick={() => {
-              setShowColumnReorder(!showColumnReorder)
-              setShowProductFilter(false)
-              setShowAttributeFilter(false)
-            }}
-            className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"
-            style={{ height: '30px', width: '30px', backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}
-            title="Reorder Columns"
-          >
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M16 3h5v5" />
-              <path d="M8 3H3v5" />
-              <path d="M21 8l-7-5-7 5" />
-              <path d="M3 16l7 5 7-5" />
-              <path d="M16 21h5v-5" />
-              <path d="M8 21H3v-5" />
-            </svg>
-          </button>
-          {showColumnReorder && (
-            <div className="absolute left-0 top-10 z-50 w-[20rem] shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}>
-              <div className="px-4 py-3" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
-                <div className="mb-2 flex justify-between items-center border-b pb-2" style={{ borderColor: '#80BDFF' }}>
-                  <span className="text-xs font-semibold text-brand-gray">Reorder Columns</span>
-                  <button
-                    className="text-xs text-brand-green underline hover:text-brand-green/80"
-                    style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', textDecoration: 'underline' }}
-                    onClick={() => setCustomColumnOrder(null)}
-                  >
-                    Reset to default
-                  </button>
-                </div>
-                <div className="max-h-60 overflow-y-auto" style={{ backgroundColor: '#EEF2F6' }}>
-                  {sortedGroups.map((group, index) => {
-                    const isDragging = draggedIndex === index
-                    return (
-                      <div
-                        key={group.key}
-                        draggable
-                        onDragStart={() => setDraggedIndex(index)}
-                        onDragOver={(e) => {
-                          e.preventDefault()
-                          if (draggedIndex !== null && draggedIndex !== index) {
-                            const newOrder = [...sortedGroups]
-                            const draggedItem = newOrder[draggedIndex]
-                            newOrder.splice(draggedIndex, 1)
-                            newOrder.splice(index, 0, draggedItem)
-                            setCustomColumnOrder(newOrder.map(g => g.key))
-                            setDraggedIndex(index)
-                          }
-                        }}
-                        onDragEnd={() => setDraggedIndex(null)}
-                        className={`flex items-center gap-2 py-2 px-2 cursor-move ${
-                          isDragging ? 'opacity-50' : 'hover:bg-gray-100'
-                        }`}
-                        style={{ backgroundColor: isDragging ? '#f3f4f6' : '#EEF2F6' }}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="3" y1="12" x2="21" y2="12"></line>
-                          <line x1="3" y1="6" x2="21" y2="6"></line>
-                          <line x1="3" y1="18" x2="21" y2="18"></line>
-                        </svg>
-                        <span className="text-sm flex-1">{group.label}</span>
-                        <span className="text-xs text-gray-500">{index + 1}</span>
-                      </div>
-                    )
-                  })}
                 </div>
               </div>
             </div>
@@ -590,7 +629,66 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
     <div className="w-full" style={{ minHeight: '400px', paddingLeft: '50px', paddingRight: '50px', paddingBottom: '50px' }}>
       {questionLabel && (
         <div className="text-center" style={{ marginTop: '15px', marginBottom: '10px' }}>
-          <h3 className="text-sm font-semibold text-brand-gray">{questionLabel}</h3>
+          {editingQuestionLabel ? (
+            <textarea
+              autoFocus
+              value={questionLabelInput}
+              onChange={(e) => setQuestionLabelInput(e.target.value)}
+              onBlur={() => {
+                if (questionLabelInput.trim() && onSaveQuestionLabel) {
+                  onSaveQuestionLabel(questionLabelInput.trim())
+                }
+                setEditingQuestionLabel(false)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  if (questionLabelInput.trim() && onSaveQuestionLabel) {
+                    onSaveQuestionLabel(questionLabelInput.trim())
+                  }
+                  setEditingQuestionLabel(false)
+                }
+                if (e.key === 'Escape') setEditingQuestionLabel(false)
+              }}
+              className="text-sm font-semibold text-brand-gray"
+              style={{
+                width: '100%',
+                fontSize: '16px',
+                padding: '6px 8px',
+                border: '2px solid #3A8518',
+                borderRadius: '3px',
+                outline: 'none',
+                backgroundColor: 'white',
+                minHeight: '60px',
+                resize: 'vertical',
+                fontFamily: 'Space Grotesk, sans-serif',
+                fontWeight: 600,
+                lineHeight: '1.4',
+                textAlign: 'center'
+              }}
+            />
+          ) : (
+            <h3
+              className="text-sm font-semibold text-brand-gray"
+              style={{ cursor: onSaveQuestionLabel ? 'pointer' : 'default' }}
+              onClick={() => {
+                if (onSaveQuestionLabel) {
+                  setEditingQuestionLabel(true)
+                  setQuestionLabelInput(questionLabel)
+                }
+              }}
+              onMouseEnter={(e) => {
+                if (onSaveQuestionLabel) {
+                  e.currentTarget.style.color = '#3A8518'
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = ''
+              }}
+            >
+              {questionLabel}
+            </h3>
+          )}
         </div>
       )}
 
@@ -623,7 +721,22 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
             </tr>
           </thead>
           <tbody>
-            {sortedData.map(row => (
+            {sortedData.map(row => {
+              const isEditing = editingOption === row.option
+              const hasAsterisk = row.optionDisplay.endsWith('*')
+              const displayWithoutAsterisk = hasAsterisk ? row.optionDisplay.slice(0, -1) : row.optionDisplay
+
+              const handleSave = () => {
+                if (editInput.trim() && onSaveOptionLabel) {
+                  const cleanedInput = editInput.trim().replace(/\*+$/, '')
+                  if (cleanedInput !== displayWithoutAsterisk) {
+                    onSaveOptionLabel(row.option, cleanedInput)
+                  }
+                }
+                setEditingOption(null)
+              }
+
+              return (
               <tr key={row.option}>
                 <td style={{
                   backgroundColor: '#FFFFFF',
@@ -633,9 +746,58 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
                   width: `${firstColumnWidth}px`,
                   wordWrap: 'break-word',
                   overflowWrap: 'break-word',
-                  verticalAlign: 'middle'
-                }}>
-                  {row.optionDisplay}
+                  verticalAlign: 'middle',
+                  cursor: onSaveOptionLabel ? 'pointer' : 'default'
+                }}
+                onClick={() => {
+                  if (onSaveOptionLabel && !isEditing) {
+                    setEditingOption(row.option)
+                    setEditInput(displayWithoutAsterisk)
+                  }
+                }}
+                onMouseEnter={(e) => {
+                  if (onSaveOptionLabel && !isEditing) {
+                    e.currentTarget.style.color = '#3A8518'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isEditing) {
+                    e.currentTarget.style.color = ''
+                  }
+                }}
+                >
+                  {isEditing ? (
+                    <textarea
+                      autoFocus
+                      value={editInput}
+                      onChange={(e) => setEditInput(e.target.value)}
+                      onBlur={handleSave}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          handleSave()
+                        }
+                        if (e.key === 'Escape') setEditingOption(null)
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        width: '100%',
+                        fontSize: '14px',
+                        padding: '4px 6px',
+                        border: '2px solid #3A8518',
+                        borderRadius: '3px',
+                        outline: 'none',
+                        backgroundColor: 'white',
+                        fontWeight: 600,
+                        minHeight: '60px',
+                        resize: 'vertical',
+                        fontFamily: 'inherit',
+                        lineHeight: '1.4'
+                      }}
+                    />
+                  ) : (
+                    row.optionDisplay
+                  )}
                 </td>
                 {sortedGroups.map(group => {
                   const value = typeof row[group.key] === 'number' ? (row[group.key] as number) : 0
@@ -658,7 +820,8 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
                   )
                 })}
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>

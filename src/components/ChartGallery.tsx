@@ -3,9 +3,16 @@ import { ComparisonChart } from './ComparisonChart'
 import { SingleSelectPieChart } from './SingleSelectPieChart'
 import { HeatmapTable } from './HeatmapTable'
 import { BuildSeriesResult, buildSeries } from '../dataCalculations'
-import { ParsedCSV, QuestionDef, SortOrder } from '../types'
+import { ParsedCSV, QuestionDef, SortOrder, SegmentDef } from '../types'
 
 type CardSortOption = 'default' | 'descending' | 'ascending' | 'alphabetical'
+
+const EXCLUDED_VALUES = ['other', 'not specified', 'none of the above', 'skip']
+
+function isExcludedValue(value: string) {
+  const normalized = value.trim().toLowerCase().replace(/["']/g, '')
+  return EXCLUDED_VALUES.some(ex => normalized === ex || normalized.includes(ex))
+}
 
 interface ChartCardProps {
   question: QuestionDef
@@ -18,6 +25,9 @@ interface ChartCardProps {
   sortOrder: SortOrder
   hideAsterisks?: boolean
   chartColors: string[]
+  optionLabels: Record<string, string>
+  onSaveOptionLabel: (option: string, newLabel: string) => void
+  onSaveQuestionLabel?: (newLabel: string) => void
 }
 
 const SORT_OPTIONS: CardSortOption[] = ['default', 'descending', 'ascending', 'alphabetical']
@@ -44,7 +54,10 @@ const ChartCard: React.FC<ChartCardProps> = ({
   segmentColumn,
   sortOrder,
   hideAsterisks = false,
-  chartColors
+  chartColors,
+  optionLabels,
+  onSaveOptionLabel,
+  onSaveQuestionLabel
 }) => {
   const [cardSort, setCardSort] = useState<CardSortOption>(question.isLikert ? 'alphabetical' : 'default')
   const [showFilter, setShowFilter] = useState(false)
@@ -55,6 +68,8 @@ const ChartCard: React.FC<ChartCardProps> = ({
   const [statSigFilter, setStatSigFilter] = useState<'all' | 'statSigOnly'>(filterSignificantOnly ? 'statSigOnly' : 'all')
   const [chartOrientation, setChartOrientation] = useState<'horizontal' | 'vertical'>(orientation)
   const [pieLegendOrientation, setPieLegendOrientation] = useState<'horizontal' | 'vertical'>('horizontal')
+  const [customOptionOrder, setCustomOptionOrder] = useState<string[]>([])
+  const [draggedOptionIndex, setDraggedOptionIndex] = useState<number | null>(null)
 
   // Can use alternate chart types for single select with < 7 visible options (after filtering)
   const visibleOptionsCount = series.data.length
@@ -90,12 +105,18 @@ const ChartCard: React.FC<ChartCardProps> = ({
 
   useEffect(() => {
     setCardSort(question.isLikert ? 'alphabetical' : 'default')
+    // Filter out excluded values from defaults
+    const allOptions = series.data.map(d => d.option).filter(option => {
+      const displayValue = series.data.find(d => d.option === option)?.optionDisplay || option
+      return !isExcludedValue(displayValue)
+    })
     // If more than 10 options, keep only the top 10 by default
-    const allOptions = series.data.map(d => d.option)
     const selectedDefaults = allOptions.length > 10
       ? allOptions.slice(0, 10)
       : allOptions
     setSelectedOptions(selectedDefaults)
+    // Reset custom order when question changes
+    setCustomOptionOrder([])
   }, [series, question.isLikert])
 
   useEffect(() => {
@@ -141,6 +162,11 @@ const ChartCard: React.FC<ChartCardProps> = ({
     setStatSigFilter(filterSignificantOnly ? 'statSigOnly' : 'all')
   }, [filterSignificantOnly])
 
+  // Reset custom order when sort changes
+  useEffect(() => {
+    setCustomOptionOrder([])
+  }, [cardSort])
+
   const toggleOption = (option: string) => {
     setSelectedOptions(prev =>
       prev.includes(option)
@@ -151,6 +177,30 @@ const ChartCard: React.FC<ChartCardProps> = ({
 
   const selectAllOptions = () => setSelectedOptions(series.data.map(d => d.option))
   const deselectAllOptions = () => setSelectedOptions([])
+
+  const handleOptionDragStart = (index: number) => {
+    setDraggedOptionIndex(index)
+  }
+
+  const handleOptionDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (draggedOptionIndex === null || draggedOptionIndex === index) return
+
+    const currentOrder = customOptionOrder.length > 0
+      ? customOptionOrder
+      : sortedOptionsForFilter.map(d => d.option)
+
+    const newOrder = [...currentOrder]
+    const [draggedItem] = newOrder.splice(draggedOptionIndex, 1)
+    newOrder.splice(index, 0, draggedItem)
+
+    setCustomOptionOrder(newOrder)
+    setDraggedOptionIndex(index)
+  }
+
+  const handleOptionDragEnd = () => {
+    setDraggedOptionIndex(null)
+  }
 
   const shouldFilterByStatSig = filterSignificantOnly || statSigFilter === 'statSigOnly'
 
@@ -229,7 +279,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
         break
     }
 
-    return sorted.map(item => {
+    const processed = sorted.map(item => {
       const data = { ...item.data }
       // Strip asterisk from optionDisplay if hideAsterisks is enabled
       if (hideAsterisks && data.optionDisplay.endsWith('*')) {
@@ -237,7 +287,23 @@ const ChartCard: React.FC<ChartCardProps> = ({
       }
       return data
     })
-  }, [series, cardSort, statSigFilteredData, chartVariant, canUsePie, hideAsterisks])
+
+    // Apply custom order if it exists
+    let finalOrder = processed
+    if (customOptionOrder.length > 0) {
+      const orderMap = new Map(processed.map(d => [d.option, d]))
+      const ordered = customOptionOrder
+        .filter(option => orderMap.has(option))
+        .map(option => orderMap.get(option)!)
+      const remaining = processed.filter(d => !customOptionOrder.includes(d.option))
+      finalOrder = [...ordered, ...remaining]
+    }
+
+    // Move excluded values to the bottom
+    const excludedItems = finalOrder.filter(d => isExcludedValue(d.optionDisplay))
+    const nonExcludedItems = finalOrder.filter(d => !isExcludedValue(d.optionDisplay))
+    return [...nonExcludedItems, ...excludedItems]
+  }, [series, cardSort, statSigFilteredData, chartVariant, canUsePie, hideAsterisks, customOptionOrder])
 
   const hasData = processedData.length > 0
   const hasBaseData = series.data.length > 0
@@ -525,14 +591,31 @@ const ChartCard: React.FC<ChartCardProps> = ({
                     </button>
                   </div>
                   <div className="max-h-60 overflow-y-auto p-1.5" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
-                    {sortedOptionsForFilter.map(option => (
+                    {sortedOptionsForFilter.map((option, index) => (
                       <label
                         key={option.option}
+                        draggable
+                        onDragStart={() => handleOptionDragStart(index)}
+                        onDragOver={(e) => handleOptionDragOver(e, index)}
+                        onDragEnd={handleOptionDragEnd}
                         onMouseDown={(e) => e.stopPropagation()}
                         onClick={(e) => e.stopPropagation()}
-                        className="flex w-full items-center cursor-pointer px-2 py-2 text-sm font-medium transition hover:bg-gray-100 rounded"
-                        style={{ backgroundColor: '#EEF2F6', gap: '2px' }}
+                        className={`flex w-full items-center cursor-move px-2 py-2 text-sm font-medium transition hover:bg-gray-100 rounded ${
+                          draggedOptionIndex === index ? 'opacity-50 bg-gray-100' : ''
+                        }`}
+                        style={{ backgroundColor: draggedOptionIndex === index ? '#e5e7eb' : '#EEF2F6', gap: '4px' }}
                       >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          className="flex-shrink-0 text-gray-400"
+                        >
+                          <path d="M3 8h18M3 16h18" />
+                        </svg>
                         <input
                           type="checkbox"
                           checked={selectedOptions.includes(option.option)}
@@ -752,6 +835,9 @@ const ChartCard: React.FC<ChartCardProps> = ({
               questionLabel={displayLabel}
               legendOrientation={pieLegendOrientation}
               colors={chartColors}
+              optionLabels={optionLabels}
+              onSaveOptionLabel={onSaveOptionLabel}
+              onSaveQuestionLabel={onSaveQuestionLabel}
             />
           )
         }
@@ -796,6 +882,9 @@ const ChartCard: React.FC<ChartCardProps> = ({
               questionLabel={displayLabel}
               stacked={true}
               colors={chartColors}
+              optionLabels={optionLabels}
+              onSaveOptionLabel={onSaveOptionLabel}
+              onSaveQuestionLabel={onSaveQuestionLabel}
             />
           )
         }
@@ -867,6 +956,14 @@ const ChartCard: React.FC<ChartCardProps> = ({
             sampleData: heatmapSeries.data[0]
           })
 
+          // Apply custom option labels to heatmap data and filter out excluded values
+          heatmapSeries.data = heatmapSeries.data
+            .map(dataPoint => ({
+              ...dataPoint,
+              optionDisplay: optionLabels[dataPoint.option] || dataPoint.optionDisplay
+            }))
+            .filter(dataPoint => !isExcludedValue(dataPoint.optionDisplay))
+
           return (
             <HeatmapTable
               data={heatmapSeries.data}
@@ -877,6 +974,9 @@ const ChartCard: React.FC<ChartCardProps> = ({
               dataset={dataset}
               productColumn={productColumn}
               hideAsterisks={hideAsterisks}
+              optionLabels={optionLabels}
+              onSaveOptionLabel={onSaveOptionLabel}
+              onSaveQuestionLabel={onSaveQuestionLabel}
             />
           )
         }
@@ -888,6 +988,9 @@ const ChartCard: React.FC<ChartCardProps> = ({
             orientation={chartOrientation}
             questionLabel={displayLabel}
             colors={chartColors}
+            optionLabels={optionLabels}
+            onSaveOptionLabel={onSaveOptionLabel}
+            onSaveQuestionLabel={onSaveQuestionLabel}
           />
         )
       })()}
@@ -899,13 +1002,19 @@ interface ChartGalleryProps {
   questions: QuestionDef[]
   dataset: ParsedCSV
   segmentColumn?: string
-  groups: string[]
+  groups?: string[]
+  segments?: SegmentDef[]
+  groupLabels?: Record<string, string>
   orientation: 'horizontal' | 'vertical'
   sortOrder: SortOrder
   selectedQuestionId?: string
   filterSignificantOnly?: boolean
   hideAsterisks?: boolean
   chartColors?: string[]
+  optionLabels?: Record<string, Record<string, string>>
+  onSaveOptionLabel?: (qid: string, option: string, newLabel: string) => void
+  questionLabels?: Record<string, string>
+  onSaveQuestionLabel?: (qid: string, newLabel: string) => void
 }
 
 export const ChartGallery: React.FC<ChartGalleryProps> = ({
@@ -913,29 +1022,54 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
   dataset,
   segmentColumn,
   groups,
+  segments,
+  groupLabels = {},
   orientation,
   sortOrder,
   selectedQuestionId: _selectedQuestionId,
   filterSignificantOnly = false,
   hideAsterisks = false,
-  chartColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
+  chartColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'],
+  optionLabels = {},
+  onSaveOptionLabel,
+  questionLabels = {},
+  onSaveQuestionLabel
 }) => {
   const renderableEntries = useMemo(() => {
-    if (!segmentColumn || !groups.length) return []
+    const hasSegments = segments && segments.length > 0
+    const hasOldStyle = segmentColumn && groups && groups.length > 0
+
+    if (!hasSegments && !hasOldStyle) return []
 
     return questions
       .map(question => {
         const series = buildSeries({
           dataset,
           question,
-          segmentColumn,
-          groups,
+          ...(hasSegments
+            ? { segments }
+            : { segmentColumn, groups }
+          ),
           sortOrder
         })
+
+        // Apply custom labels to series groups
+        series.groups = series.groups.map(group => ({
+          ...group,
+          label: groupLabels[group.key] || group.label
+        }))
+
+        // Apply custom labels to series data options
+        const questionOptionLabels = optionLabels[question.qid] || {}
+        series.data = series.data.map(dataPoint => ({
+          ...dataPoint,
+          optionDisplay: questionOptionLabels[dataPoint.option] || dataPoint.optionDisplay
+        }))
+
         return { question, series }
       })
       .filter(entry => entry.series.data.length > 0)
-  }, [dataset, questions, segmentColumn, groups, sortOrder])
+  }, [dataset, questions, segmentColumn, groups, segments, sortOrder, groupLabels, optionLabels])
 
   // Create a wrapper div with ref for each chart
   return (
@@ -951,13 +1085,16 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
                 question={question}
                 series={series}
                 orientation={orientation}
-                displayLabel={formatQuestionTitle(question)}
+                displayLabel={questionLabels[question.qid] || formatQuestionTitle(question)}
                 filterSignificantOnly={filterSignificantOnly}
                 dataset={dataset}
                 segmentColumn={segmentColumn}
                 sortOrder={sortOrder}
                 hideAsterisks={hideAsterisks}
                 chartColors={chartColors}
+                optionLabels={optionLabels[question.qid] || {}}
+                onSaveOptionLabel={(option, newLabel) => onSaveOptionLabel?.(question.qid, option, newLabel)}
+                onSaveQuestionLabel={(newLabel) => onSaveQuestionLabel?.(question.qid, newLabel)}
               />
             </div>
           )

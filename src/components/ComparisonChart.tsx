@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import {
   BarChart,
   Bar,
@@ -264,6 +264,263 @@ const CustomXAxisTick: React.FC<any> = (props) => {
   )
 }
 
+// Editable Y-axis tick for horizontal charts
+const EditableYAxisTick: React.FC<any & {
+  editingOption: string | null
+  setEditingOption: (option: string | null) => void
+  editInput: string
+  setEditInput: (value: string) => void
+  onSave: (option: string, newLabel: string) => void
+  data: SeriesDataPoint[]
+}> = (props) => {
+  const { x, y, payload, editingOption, setEditingOption, editInput, setEditInput, onSave, data } = props
+  const text = payload.value || ''
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Find the original option key for this label
+  const dataPoint = data.find(d => d.optionDisplay === text)
+  const option = dataPoint?.option || text
+
+  // Check if text has asterisk (statistical significance marker)
+  const hasAsterisk = text.endsWith('*')
+  const textWithoutAsterisk = hasAsterisk ? text.slice(0, -1) : text
+
+  const isEditing = editingOption === option
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditing])
+
+  const handleSave = () => {
+    if (editInput.trim()) {
+      // Remove any asterisks user might have added, then add back original asterisk if needed
+      const cleanedInput = editInput.trim().replace(/\*+$/, '')
+      const finalLabel = hasAsterisk ? `${cleanedInput}*` : cleanedInput
+      if (finalLabel !== text) {
+        onSave(option, cleanedInput) // Save without asterisk, it will be added by significance calculation
+      }
+    }
+    setEditingOption(null)
+  }
+
+  if (isEditing) {
+    return (
+      <foreignObject x={x - 190} y={y - 35} width={190} height={80}>
+        <textarea
+          ref={inputRef as any}
+          value={editInput}
+          onChange={(e) => setEditInput(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              handleSave()
+            }
+            if (e.key === 'Escape') setEditingOption(null)
+          }}
+          style={{
+            width: '100%',
+            fontSize: '14px',
+            padding: '6px 8px',
+            border: '2px solid #3A8518',
+            borderRadius: '3px',
+            outline: 'none',
+            backgroundColor: 'white',
+            boxSizing: 'border-box',
+            minHeight: '60px',
+            resize: 'vertical',
+            fontFamily: 'inherit',
+            lineHeight: '1.4'
+          }}
+        />
+      </foreignObject>
+    )
+  }
+
+  // Word wrapping for long labels
+  const maxWidth = 190
+  const lineHeight = 14
+  const words = text.split(' ')
+  const lines: string[] = []
+  let currentLine = ''
+
+  words.forEach((word: string) => {
+    const testLine = currentLine ? `${currentLine} ${word}` : word
+    // Rough estimate: 7 pixels per character
+    if (testLine.length * 7 > maxWidth && currentLine) {
+      lines.push(currentLine)
+      currentLine = word
+    } else {
+      currentLine = testLine
+    }
+  })
+  if (currentLine) lines.push(currentLine)
+
+  return (
+    <g
+      style={{ cursor: 'pointer' }}
+      onClick={() => {
+        setEditingOption(option)
+        setEditInput(textWithoutAsterisk) // Edit without asterisk
+      }}
+      onMouseEnter={(e) => {
+        const textElements = e.currentTarget.querySelectorAll('text')
+        textElements.forEach((el) => {
+          el.style.fill = '#3A8518'
+        })
+      }}
+      onMouseLeave={(e) => {
+        const textElements = e.currentTarget.querySelectorAll('text')
+        textElements.forEach((el) => {
+          el.style.fill = '#1f2833'
+        })
+      }}
+    >
+      {lines.map((line, i) => (
+        <text
+          key={i}
+          x={x}
+          y={y + (i - (lines.length - 1) / 2) * lineHeight}
+          textAnchor="end"
+          fontSize={14}
+          fill="#1f2833"
+        >
+          {line}
+        </text>
+      ))}
+    </g>
+  )
+}
+
+// Editable X-axis tick for vertical charts
+const EditableXAxisTick: React.FC<any & {
+  editingOption: string | null
+  setEditingOption: (option: string | null) => void
+  editInput: string
+  setEditInput: (value: string) => void
+  onSave: (option: string, newLabel: string) => void
+  data: SeriesDataPoint[]
+}> = (props) => {
+  const { x, y, payload, editingOption, setEditingOption, editInput, setEditInput, onSave, data } = props
+  const text = payload.value || ''
+  const maxWidth = 100
+  const lineHeight = 14
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Find the original option key for this label
+  const dataPoint = data.find(d => d.optionDisplay === text)
+  const option = dataPoint?.option || text
+
+  // Check if text has asterisk (statistical significance marker)
+  const hasAsterisk = text.endsWith('*')
+  const textWithoutAsterisk = hasAsterisk ? text.slice(0, -1) : text
+
+  const isEditing = editingOption === option
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditing])
+
+  const handleSave = () => {
+    if (editInput.trim()) {
+      // Remove any asterisks user might have added, then add back original asterisk if needed
+      const cleanedInput = editInput.trim().replace(/\*+$/, '')
+      const finalLabel = hasAsterisk ? `${cleanedInput}*` : cleanedInput
+      if (finalLabel !== text) {
+        onSave(option, cleanedInput) // Save without asterisk, it will be added by significance calculation
+      }
+    }
+    setEditingOption(null)
+  }
+
+  if (isEditing) {
+    return (
+      <foreignObject x={x - 75} y={y} width={150} height={100}>
+        <textarea
+          ref={inputRef as any}
+          value={editInput}
+          onChange={(e) => setEditInput(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              handleSave()
+            }
+            if (e.key === 'Escape') setEditingOption(null)
+          }}
+          style={{
+            width: '100%',
+            fontSize: '14px',
+            padding: '6px 8px',
+            border: '2px solid #3A8518',
+            borderRadius: '3px',
+            outline: 'none',
+            backgroundColor: 'white',
+            textAlign: 'center',
+            boxSizing: 'border-box',
+            minHeight: '80px',
+            resize: 'vertical',
+            fontFamily: 'inherit',
+            lineHeight: '1.4'
+          }}
+        />
+      </foreignObject>
+    )
+  }
+
+  // Simple word wrapping - display text with asterisk
+  const words = text.split(' ')
+  const lines: string[] = []
+  let currentLine = ''
+
+  words.forEach((word: string) => {
+    const testLine = currentLine ? `${currentLine} ${word}` : word
+    // Rough estimate: 7 pixels per character
+    if (testLine.length * 7 > maxWidth && currentLine) {
+      lines.push(currentLine)
+      currentLine = word
+    } else {
+      currentLine = testLine
+    }
+  })
+  if (currentLine) lines.push(currentLine)
+
+  return (
+    <g
+      onClick={() => {
+        setEditingOption(option)
+        setEditInput(textWithoutAsterisk) // Edit without asterisk
+      }}
+      style={{ cursor: 'pointer' }}
+    >
+      {lines.map((line, i) => (
+        <text
+          key={i}
+          x={x}
+          y={y + 8 + i * lineHeight}
+          textAnchor="middle"
+          fontSize={14}
+          fill="#1f2833"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.fill = '#3A8518'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.fill = '#1f2833'
+          }}
+        >
+          {line}
+        </text>
+      ))}
+    </g>
+  )
+}
+
 interface ComparisonChartProps {
   data: SeriesDataPoint[]
   groups: GroupSeriesMeta[]
@@ -271,6 +528,9 @@ interface ComparisonChartProps {
   questionLabel?: string
   stacked?: boolean
   colors?: string[]
+  optionLabels?: Record<string, string>
+  onSaveOptionLabel?: (option: string, newLabel: string) => void
+  onSaveQuestionLabel?: (newLabel: string) => void
 }
 
 const CustomTooltip: React.FC<any> = ({ active, payload }) => {
@@ -304,8 +564,24 @@ const CustomTooltip: React.FC<any> = ({ active, payload }) => {
   )
 }
 
-export const ComparisonChart: React.FC<ComparisonChartProps> = ({ data, groups, orientation = 'horizontal', questionLabel, stacked = false, colors = GROUP_COLORS }) => {
+export const ComparisonChart: React.FC<ComparisonChartProps> = ({
+  data,
+  groups,
+  orientation = 'horizontal',
+  questionLabel,
+  stacked = false,
+  colors = GROUP_COLORS,
+  optionLabels = {},
+  onSaveOptionLabel,
+  onSaveQuestionLabel
+}) => {
   const isHorizontal = orientation === 'horizontal'
+  const [editingOption, setEditingOption] = useState<string | null>(null)
+  const [editInput, setEditInput] = useState('')
+  const [editingLegend, setEditingLegend] = useState<string | null>(null)
+  const [legendEditInput, setLegendEditInput] = useState('')
+  const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
+  const [questionLabelInput, setQuestionLabelInput] = useState('')
 
   // Dynamic chart dimensions based on number of answer options
   const { chartHeight, barCategoryGap, barSize } = isHorizontal
@@ -336,12 +612,164 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({ data, groups, 
           marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
           marginRight: isHorizontal ? '60px' : '48px'
         }}>
-          <h3 className="text-sm font-semibold text-brand-gray">{questionLabel}</h3>
+          {editingQuestionLabel ? (
+            <textarea
+              autoFocus
+              value={questionLabelInput}
+              onChange={(e) => setQuestionLabelInput(e.target.value)}
+              onBlur={() => {
+                if (questionLabelInput.trim() && onSaveQuestionLabel) {
+                  onSaveQuestionLabel(questionLabelInput.trim())
+                }
+                setEditingQuestionLabel(false)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  if (questionLabelInput.trim() && onSaveQuestionLabel) {
+                    onSaveQuestionLabel(questionLabelInput.trim())
+                  }
+                  setEditingQuestionLabel(false)
+                }
+                if (e.key === 'Escape') setEditingQuestionLabel(false)
+              }}
+              className="text-sm font-semibold text-brand-gray"
+              style={{
+                width: '100%',
+                fontSize: '16px',
+                padding: '6px 8px',
+                border: '2px solid #3A8518',
+                borderRadius: '3px',
+                outline: 'none',
+                backgroundColor: 'white',
+                minHeight: '60px',
+                resize: 'vertical',
+                fontFamily: 'Space Grotesk, sans-serif',
+                fontWeight: 600,
+                lineHeight: '1.4',
+                textAlign: 'center'
+              }}
+            />
+          ) : (
+            <h3
+              className="text-sm font-semibold text-brand-gray"
+              style={{ cursor: onSaveQuestionLabel ? 'pointer' : 'default' }}
+              onClick={() => {
+                if (onSaveQuestionLabel) {
+                  setEditingQuestionLabel(true)
+                  setQuestionLabelInput(questionLabel)
+                }
+              }}
+              onMouseEnter={(e) => {
+                if (onSaveQuestionLabel) {
+                  e.currentTarget.style.color = '#3A8518'
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = ''
+              }}
+            >
+              {questionLabel}
+            </h3>
+          )}
         </div>
       )}
       {showLegend && (
         stacked ? (
           // Horizontal legend for stacked charts
+          <div
+            className="text-xs font-semibold text-brand-gray"
+            style={{
+              marginBottom: '15px',
+              marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
+              marginRight: isHorizontal ? '60px' : '48px'
+            }}
+          >
+            <div className="flex flex-wrap items-center gap-y-2" style={{ columnGap: '24px' }}>
+              {groups.map((group, index) => {
+                const isEditing = editingLegend === group.key
+                const hasAsterisk = group.label.endsWith('*')
+                const labelWithoutAsterisk = hasAsterisk ? group.label.slice(0, -1) : group.label
+
+                const handleSave = () => {
+                  if (legendEditInput.trim() && onSaveOptionLabel) {
+                    const cleanedInput = legendEditInput.trim().replace(/\*+$/, '')
+                    if (cleanedInput !== labelWithoutAsterisk) {
+                      onSaveOptionLabel(group.key, cleanedInput)
+                    }
+                  }
+                  setEditingLegend(null)
+                }
+
+                return (
+                <span key={group.key} className="inline-flex items-center" style={{ gap: '5px' }}>
+                  <span
+                    className="inline-block h-3 w-10"
+                    style={{
+                      backgroundColor: colors[index % colors.length],
+                      minWidth: '24px',
+                      minHeight: '12px',
+                      borderRadius: '3px'
+                    }}
+                  />
+                  {isEditing ? (
+                    <textarea
+                      autoFocus
+                      value={legendEditInput}
+                      onChange={(e) => setLegendEditInput(e.target.value)}
+                      onBlur={handleSave}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          handleSave()
+                        }
+                        if (e.key === 'Escape') setEditingLegend(null)
+                      }}
+                      style={{
+                        fontSize: '14px',
+                        padding: '4px 6px',
+                        border: '2px solid #3A8518',
+                        borderRadius: '3px',
+                        outline: 'none',
+                        backgroundColor: 'white',
+                        minWidth: '150px',
+                        fontWeight: 600,
+                        minHeight: '60px',
+                        resize: 'vertical',
+                        fontFamily: 'inherit',
+                        lineHeight: '1.4'
+                      }}
+                    />
+                  ) : (
+                    <span
+                      style={{
+                        cursor: onSaveOptionLabel ? 'pointer' : 'default'
+                      }}
+                      onClick={() => {
+                        if (onSaveOptionLabel) {
+                          setEditingLegend(group.key)
+                          setLegendEditInput(labelWithoutAsterisk)
+                        }
+                      }}
+                      onMouseEnter={(e) => {
+                        if (onSaveOptionLabel) {
+                          e.currentTarget.style.color = '#3A8518'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = ''
+                      }}
+                    >
+                      {group.label}
+                    </span>
+                  )}
+                </span>
+                )
+              })}
+            </div>
+          </div>
+        ) : (
+          // Horizontal legend for regular charts
           <div
             className="text-xs font-semibold text-brand-gray"
             style={{
@@ -367,27 +795,6 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({ data, groups, 
               ))}
             </div>
           </div>
-        ) : (
-          // Vertical legend for regular charts
-          <div
-            className="flex flex-col items-start gap-3 text-xs font-semibold text-brand-gray"
-            style={{ paddingLeft: legendPaddingLeft, marginBottom: '10px' }}
-          >
-            {groups.map((group, index) => (
-              <span key={group.key} className="inline-flex items-center gap-3">
-                <span
-                  className="inline-block h-3 w-10"
-                  style={{
-                    backgroundColor: colors[index % colors.length],
-                    minWidth: '24px',
-                    minHeight: '12px',
-                    borderRadius: '3px'
-                  }}
-                />
-                <span style={{ padding: '0 6px' }}>{group.label}</span>
-              </span>
-            ))}
-          </div>
         )
       )}
       <ResponsiveContainer width="100%" height={chartHeight}>
@@ -397,7 +804,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({ data, groups, 
           barCategoryGap={barCategoryGap}
           barGap={1}
           margin={isHorizontal
-            ? { top: 0, right: 60, bottom: 30, left: 0 }
+            ? { top: 25, right: 60, bottom: 30, left: 0 }
             : { top: 0, right: 48, bottom: 50, left: 0 }
           }
         >
@@ -414,7 +821,17 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({ data, groups, 
                 type="category"
                 dataKey="optionDisplay"
                 width={horizontalAxisWidth}
-                tick={{ fontSize: 14, fill: '#1f2833' }}
+                tick={(props) => (
+                  <EditableYAxisTick
+                    {...props}
+                    editingOption={editingOption}
+                    setEditingOption={setEditingOption}
+                    editInput={editInput}
+                    setEditInput={setEditInput}
+                    onSave={onSaveOptionLabel || (() => {})}
+                    data={data}
+                  />
+                )}
                 axisLine={AXIS_LINE_STYLE}
                 tickLine={TICK_LINE_STYLE}
               />
@@ -425,7 +842,17 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({ data, groups, 
                 type="category"
                 dataKey="optionDisplay"
                 height={100}
-                tick={<CustomXAxisTick />}
+                tick={(props) => (
+                  <EditableXAxisTick
+                    {...props}
+                    editingOption={editingOption}
+                    setEditingOption={setEditingOption}
+                    editInput={editInput}
+                    setEditInput={setEditInput}
+                    onSave={onSaveOptionLabel || (() => {})}
+                    data={data}
+                  />
+                )}
                 axisLine={AXIS_LINE_STYLE}
                 tickLine={false}
                 interval={0}

@@ -1,4 +1,4 @@
-import { ParsedCSV, QuestionDef, SortOrder } from './types'
+import { ParsedCSV, QuestionDef, SortOrder, SegmentDef } from './types'
 
 // Custom rounding function using standard rounding (>0.5)
 export function customRound(value: number): number {
@@ -39,8 +39,9 @@ export interface SeriesDataPoint {
 export interface BuildSeriesArgs {
   dataset: ParsedCSV
   question: QuestionDef
-  segmentColumn: string
-  groups: string[]
+  segmentColumn?: string
+  groups?: string[]
+  segments?: SegmentDef[]  // New: supports multiple columns
   sortOrder: SortOrder
 }
 
@@ -105,9 +106,16 @@ function stripQuotes(value: string): string {
 }
 
 export function buildSeries({
-  dataset, question, segmentColumn, groups, sortOrder
+  dataset, question, segmentColumn, groups, segments, sortOrder
 }: BuildSeriesArgs): BuildSeriesResult {
-  if (!groups.length) {
+  // Support both old API (segmentColumn + groups) and new API (segments)
+  const effectiveSegments: SegmentDef[] = segments || (
+    segmentColumn && groups
+      ? groups.map(value => ({ column: segmentColumn, value }))
+      : []
+  )
+
+  if (!effectiveSegments.length) {
     return { data: [], groups: [] }
   }
   const rows = dataset.rows
@@ -116,16 +124,17 @@ export function buildSeries({
     c => c.toLowerCase() === 'respondent id' || c.toLowerCase() === 'respondent_id'
   ) || dataset.summary.columns[0]
 
-  const groupInfo = groups.reduce<Map<string, {
+  const groupInfo = effectiveSegments.reduce<Map<string, {
     rows: Record<string, any>[]
     uniqueRespondents: string[]
     singleCounts?: Record<string, number>
     singleDenom?: number
-  }>>((map, groupLabel) => {
+  }>>((map, segment) => {
+    const groupLabel = segment.value
     // Handle "Overall" as a special case: include ALL rows
-    const filtered = groupLabel === 'Overall'
+    const filtered = segment.value === 'Overall'
       ? rows
-      : rows.filter(r => String(r[segmentColumn]) === groupLabel)
+      : rows.filter(r => String(r[segment.column]) === segment.value)
     const respondentIds = uniq(filtered.map(r => stripQuotes(String(r[respIdCol] ?? '').trim())).filter(Boolean))
     map.set(groupLabel, {
       rows: filtered,
@@ -196,14 +205,17 @@ export function buildSeries({
     return key
   }
 
-  groups.forEach((label, index) => {
-    const key = getKeyForGroup(label, index)
-    groupMeta.push({ label, key })
+  effectiveSegments.forEach((segment, index) => {
+    const key = getKeyForGroup(segment.value, index)
+    groupMeta.push({ label: segment.value, key })
   })
 
   const dataWithIndex = question.columns.map((col, originalIndex) => {
     const optionLabel = normalizeValue(col.optionLabel)
-    if (shouldExcludeLabel(optionLabel)) return null
+    // Skip empty/blank labels entirely
+    if (!optionLabel || optionLabel.trim() === '') {
+      return null
+    }
     const groupSummaries: SeriesDataPoint['groupSummaries'] = []
     const row: SeriesDataPoint & { __index: number } = {
       option: optionLabel,
@@ -433,7 +445,9 @@ export function buildSeries({
     dataWithIndex.sort((a, b) => a.__index - b.__index)
   }
 
-  const data: SeriesDataPoint[] = dataWithIndex.map(({ __index, ...rest }) => rest)
+  const data: SeriesDataPoint[] = dataWithIndex
+    .filter((item): item is SeriesDataPoint & { __index: number } => item !== null)
+    .map(({ __index, ...rest }) => rest)
 
   return {
     data,

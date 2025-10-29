@@ -45,9 +45,16 @@ export type SortOrder = 'default' | 'descending' | 'ascending'
 
 export type StatSigFilter = 'all' | 'statSigOnly'
 
+export interface SegmentDef {
+  column: string  // e.g., "Audience Type"
+  value: string   // e.g., "CRM"
+}
+
 export interface Selections {
   segmentColumn?: string
   groups: string[]
+  segments?: SegmentDef[]  // New: supports multiple columns
+  groupLabels?: Record<string, string> // Map of group key to custom label
   productColumn?: string
   productGroups: string[]
   question?: string // qid
@@ -55,4 +62,6 @@ export interface Selections {
   statSigFilter: StatSigFilter
   hideAsterisks?: boolean
   chartColors?: string[]
+  optionLabels?: Record<string, Record<string, string>> // Map of qid -> option -> custom label
+  questionLabels?: Record<string, string> // Map of qid -> custom question title
 }

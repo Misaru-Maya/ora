@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { SeriesDataPoint, GroupSeriesMeta, customRound } from '../dataCalculations'
 
@@ -21,6 +21,9 @@ interface SingleSelectPieChartProps {
   questionLabel?: string
   legendOrientation?: 'horizontal' | 'vertical'
   colors?: string[]
+  optionLabels?: Record<string, string>
+  onSaveOptionLabel?: (option: string, newLabel: string) => void
+  onSaveQuestionLabel?: (newLabel: string) => void
 }
 
 export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
@@ -28,8 +31,15 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
   group,
   questionLabel,
   legendOrientation = 'horizontal',
-  colors = PIE_COLORS
+  colors = PIE_COLORS,
+  optionLabels = {},
+  onSaveOptionLabel,
+  onSaveQuestionLabel
 }) => {
+  const [editingOption, setEditingOption] = useState<string | null>(null)
+  const [editInput, setEditInput] = useState('')
+  const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
+  const [questionLabelInput, setQuestionLabelInput] = useState('')
 
   console.log('SingleSelectPieChart received:', {
     dataLength: data.length,
@@ -89,20 +99,91 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
 
   const legendContent = (
     <div className="flex flex-col items-start gap-3 text-xs font-semibold text-brand-gray" style={{ paddingBottom: '40px' }}>
-      {pieData.map((entry, index) => (
-        <span key={entry.name} className="inline-flex items-center gap-3">
-          <span
-            className="inline-block h-3 w-10"
-            style={{
-              backgroundColor: colors[index % colors.length],
-              minWidth: '24px',
-              minHeight: '12px',
-              borderRadius: '3px'
-            }}
-          />
-          <span style={{ padding: '0 6px' }}>{entry.name}</span>
-        </span>
-      ))}
+      {pieData.map((entry, index) => {
+        // Find original option key from data
+        const dataPoint = data.find(d => d.optionDisplay === entry.name)
+        const option = dataPoint?.option || entry.name
+        const isEditing = editingOption === option
+
+        // Check if has asterisk
+        const hasAsterisk = entry.name.endsWith('*')
+        const nameWithoutAsterisk = hasAsterisk ? entry.name.slice(0, -1) : entry.name
+
+        const handleSave = () => {
+          if (editInput.trim() && onSaveOptionLabel) {
+            const cleanedInput = editInput.trim().replace(/\*+$/, '')
+            if (cleanedInput !== nameWithoutAsterisk) {
+              onSaveOptionLabel(option, cleanedInput)
+            }
+          }
+          setEditingOption(null)
+        }
+
+        return (
+          <span key={entry.name} className="inline-flex items-center gap-3">
+            <span
+              className="inline-block h-3 w-10"
+              style={{
+                backgroundColor: colors[index % colors.length],
+                minWidth: '24px',
+                minHeight: '12px',
+                borderRadius: '3px'
+              }}
+            />
+            {isEditing ? (
+              <textarea
+                autoFocus
+                value={editInput}
+                onChange={(e) => setEditInput(e.target.value)}
+                onBlur={handleSave}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleSave()
+                  }
+                  if (e.key === 'Escape') setEditingOption(null)
+                }}
+                style={{
+                  fontSize: '12px',
+                  padding: '4px 6px',
+                  border: '2px solid #3A8518',
+                  borderRadius: '3px',
+                  outline: 'none',
+                  backgroundColor: 'white',
+                  minWidth: '150px',
+                  minHeight: '60px',
+                  resize: 'vertical',
+                  fontFamily: 'inherit',
+                  lineHeight: '1.4'
+                }}
+              />
+            ) : (
+              <span
+                style={{
+                  padding: '0 6px',
+                  cursor: onSaveOptionLabel ? 'pointer' : 'default'
+                }}
+                onClick={() => {
+                  if (onSaveOptionLabel) {
+                    setEditingOption(option)
+                    setEditInput(nameWithoutAsterisk)
+                  }
+                }}
+                onMouseEnter={(e) => {
+                  if (onSaveOptionLabel) {
+                    e.currentTarget.style.color = '#3A8518'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = ''
+                }}
+              >
+                {entry.name}
+              </span>
+            )}
+          </span>
+        )
+      })}
     </div>
   )
 
@@ -110,7 +191,66 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
     <div className="w-full">
       {questionLabel && (
         <div className="mx-auto text-center" style={{ marginTop: '15px', marginBottom: '20px' }}>
-          <h3 className="text-sm font-semibold text-brand-gray">{questionLabel}</h3>
+          {editingQuestionLabel ? (
+            <textarea
+              autoFocus
+              value={questionLabelInput}
+              onChange={(e) => setQuestionLabelInput(e.target.value)}
+              onBlur={() => {
+                if (questionLabelInput.trim() && onSaveQuestionLabel) {
+                  onSaveQuestionLabel(questionLabelInput.trim())
+                }
+                setEditingQuestionLabel(false)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  if (questionLabelInput.trim() && onSaveQuestionLabel) {
+                    onSaveQuestionLabel(questionLabelInput.trim())
+                  }
+                  setEditingQuestionLabel(false)
+                }
+                if (e.key === 'Escape') setEditingQuestionLabel(false)
+              }}
+              className="text-sm font-semibold text-brand-gray"
+              style={{
+                width: '100%',
+                fontSize: '16px',
+                padding: '6px 8px',
+                border: '2px solid #3A8518',
+                borderRadius: '3px',
+                outline: 'none',
+                backgroundColor: 'white',
+                minHeight: '60px',
+                resize: 'vertical',
+                fontFamily: 'Space Grotesk, sans-serif',
+                fontWeight: 600,
+                lineHeight: '1.4',
+                textAlign: 'center'
+              }}
+            />
+          ) : (
+            <h3
+              className="text-sm font-semibold text-brand-gray"
+              style={{ cursor: onSaveQuestionLabel ? 'pointer' : 'default' }}
+              onClick={() => {
+                if (onSaveQuestionLabel) {
+                  setEditingQuestionLabel(true)
+                  setQuestionLabelInput(questionLabel)
+                }
+              }}
+              onMouseEnter={(e) => {
+                if (onSaveQuestionLabel) {
+                  e.currentTarget.style.color = '#3A8518'
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = ''
+              }}
+            >
+              {questionLabel}
+            </h3>
+          )}
           <p className="text-xs text-brand-gray/60">Segment: {group.label}</p>
         </div>
       )}
