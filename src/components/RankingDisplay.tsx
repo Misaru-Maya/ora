@@ -36,48 +36,61 @@ export const RankingDisplay: React.FC<RankingDisplayProps> = ({
       {/* Question Title */}
       <div className="text-center" style={{ paddingBottom: '20px', maxWidth: '500px', width: '100%' }}>
         {editingTitle ? (
-          <input
-            type="text"
+          <textarea
+            autoFocus
             value={titleInput}
             onChange={(e) => setTitleInput(e.target.value)}
             onBlur={handleSaveTitle}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
                 handleSaveTitle()
-              } else if (e.key === 'Escape') {
+              }
+              if (e.key === 'Escape') {
                 setTitleInput(questionLabel)
                 setEditingTitle(false)
               }
             }}
-            autoFocus
-            className="text-center text-lg font-semibold text-brand-gray"
+            className="text-sm font-semibold text-brand-gray"
             style={{
-              border: '1px solid #3A8518',
-              borderRadius: '3px',
-              padding: '4px 8px',
-              outline: 'none',
               width: '100%',
-              fontFamily: 'Space Grotesk, sans-serif'
+              fontSize: '16px',
+              padding: '6px 8px',
+              border: '2px solid #3A8518',
+              borderRadius: '3px',
+              outline: 'none',
+              backgroundColor: 'white',
+              fontWeight: 600,
+              minHeight: '60px',
+              resize: 'vertical',
+              fontFamily: 'Space Grotesk, sans-serif',
+              lineHeight: '1.4',
+              textAlign: 'center'
             }}
           />
         ) : (
           <h3
-            onClick={() => setEditingTitle(true)}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = '#3A8518'
-              e.currentTarget.style.cursor = 'pointer'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = ''
-              e.currentTarget.style.cursor = ''
-            }}
-            className="text-lg font-semibold text-brand-gray"
+            className="text-sm font-semibold text-brand-gray"
             style={{
+              cursor: onSaveQuestionLabel ? 'pointer' : 'default',
               fontFamily: 'Space Grotesk, sans-serif',
               wordWrap: 'break-word',
               whiteSpace: 'normal',
               lineHeight: '1.4'
+            }}
+            onClick={() => {
+              if (onSaveQuestionLabel) {
+                setEditingTitle(true)
+                setTitleInput(questionLabel)
+              }
+            }}
+            onMouseEnter={(e) => {
+              if (onSaveQuestionLabel) {
+                e.currentTarget.style.color = '#3A8518'
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = ''
             }}
           >
             {questionLabel}

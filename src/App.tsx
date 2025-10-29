@@ -731,8 +731,7 @@ export default function App() {
           </div>
           <div className="w-[480px] flex-shrink-0" style={{ paddingRight: '30px' }}>
             <p className="text-gray-400" style={{ fontSize: '12px', lineHeight: '1.4', textAlign: 'right' }}>
-              Open text and demographic questions are excluded.<br />
-              Other, not specified, none of the above, and skip are deselected by default.
+              Open text and demographic questions are excluded.
             </p>
           </div>
         </div>
