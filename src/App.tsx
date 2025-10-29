@@ -638,7 +638,7 @@ export default function App() {
         [column]: newLabel.trim()
       }
     })
-    setEditingLabel(null)
+    setEditingSegment(null)
   }
 
   const getSegmentColumnDisplayLabel = (column: string) => {
