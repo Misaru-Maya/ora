@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas'
 import { ComparisonChart } from './ComparisonChart'
 import { SingleSelectPieChart } from './SingleSelectPieChart'
 import { HeatmapTable } from './HeatmapTable'
+import { SentimentHeatmap } from './SentimentHeatmap'
 import { BuildSeriesResult, buildSeries } from '../dataCalculations'
 import { ParsedCSV, QuestionDef, SortOrder, SegmentDef } from '../types'
 
@@ -1074,11 +1075,6 @@ const ChartCard: React.FC<ChartCardProps> = ({
         if (chartVariant === 'heatmap' && canUseHeatmap) {
           console.log('Rendering heatmap')
 
-          // Detect sentiment from question label
-          const labelLower = question.label.toLowerCase()
-          const sentiment = labelLower.includes('(positive)') ? 'positive' :
-                          labelLower.includes('(negative)') ? 'negative' : 'positive'
-
           // Find the Product Title column for heatmap grouping
           // Look for "Product Title", "Product Name", "Style", etc.
           const productColumn = dataset.summary.columns.find(col => {
@@ -1105,14 +1101,6 @@ const ChartCard: React.FC<ChartCardProps> = ({
             new Set(dataset.rows.map(row => String(row[productColumn] ?? '')).filter(Boolean))
           ).sort()
 
-          console.log('📊 Heatmap Debug:', {
-            productColumn,
-            allProductsCount: allProducts.length,
-            allProducts: allProducts.slice(0, 5),
-            questionQid: question.qid,
-            sentiment
-          })
-
           if (allProducts.length === 0) {
             console.log('❌ No products found in product column')
             return (
@@ -1121,6 +1109,47 @@ const ChartCard: React.FC<ChartCardProps> = ({
               </div>
             )
           }
+
+          // Check if this is a sentiment question by checking the question's source column
+          const sentimentColumn = dataset.summary.columns.find(col =>
+            col.toLowerCase().includes('(sentiment)') && col.toLowerCase().includes('would you consider buying')
+          )
+
+          const isSentimentQuestion = sentimentColumn && (
+            // For single-select questions, check if the source column matches
+            (question.singleSourceColumn && question.singleSourceColumn === sentimentColumn) ||
+            // Or check if the question label contains sentiment-related text
+            question.label.toLowerCase().includes('would you consider buying') ||
+            question.label.toLowerCase().includes('(sentiment)')
+          )
+
+          console.log('📊 Heatmap Debug:', {
+            productColumn,
+            allProductsCount: allProducts.length,
+            allProducts: allProducts.slice(0, 5),
+            questionQid: question.qid,
+            isSentimentQuestion
+          })
+
+          // If this is the sentiment question, render the SentimentHeatmap
+          if (isSentimentQuestion) {
+            console.log('📊 Rendering SentimentHeatmap for sentiment question')
+            return (
+              <SentimentHeatmap
+                dataset={dataset}
+                productColumn={productColumn}
+                questionLabel={displayLabel}
+                questionId={question.qid}
+                hideAsterisks={hideAsterisks}
+                onSaveQuestionLabel={onSaveQuestionLabel}
+              />
+            )
+          }
+
+          // Otherwise, render the regular attribute heatmap
+          const labelLower = question.label.toLowerCase()
+          const sentiment = labelLower.includes('(positive)') ? 'positive' :
+                          labelLower.includes('(negative)') ? 'negative' : 'positive'
 
           // Rebuild series with all products using the product column as segmentColumn
           const heatmapSeries = buildSeries({
