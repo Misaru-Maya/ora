@@ -55,6 +55,7 @@ export interface Selections {
   groups: string[]
   segments?: SegmentDef[]  // New: supports multiple columns
   groupLabels?: Record<string, string> // Map of group key to custom label
+  segmentColumnLabels?: Record<string, string> // Map of segment column name to custom label
   productColumn?: string
   productGroups: string[]
   question?: string // qid

@@ -18,6 +18,7 @@ export const useORAStore = create<ORAState>((set) => ({
     groups: [],
     segments: [],
     groupLabels: {},
+    segmentColumnLabels: {},
     sortOrder: 'descending',
     productGroups: [],
     statSigFilter: 'all',

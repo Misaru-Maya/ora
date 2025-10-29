@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import html2canvas from 'html2canvas'
 import { ComparisonChart } from './ComparisonChart'
 import { SingleSelectPieChart } from './SingleSelectPieChart'
 import { HeatmapTable } from './HeatmapTable'
@@ -70,6 +71,26 @@ const ChartCard: React.FC<ChartCardProps> = ({
   const [pieLegendOrientation, setPieLegendOrientation] = useState<'horizontal' | 'vertical'>('horizontal')
   const [customOptionOrder, setCustomOptionOrder] = useState<string[]>([])
   const [draggedOptionIndex, setDraggedOptionIndex] = useState<number | null>(null)
+  const chartContentRef = useRef<HTMLDivElement | null>(null)
+
+  // Screenshot handler - captures only chart content without buttons
+  const handleScreenshot = async () => {
+    if (!chartContentRef.current) return
+    try {
+      const canvas = await html2canvas(chartContentRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+      })
+      const link = document.createElement('a')
+      const filename = displayLabel ? `${displayLabel}.png` : 'chart.png'
+      link.download = filename
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    } catch (error) {
+      console.error('Screenshot failed:', error)
+    }
+  }
 
   // Can use alternate chart types for single select with < 7 visible options (after filtering)
   const visibleOptionsCount = series.data.length
@@ -317,6 +338,26 @@ const ChartCard: React.FC<ChartCardProps> = ({
     <div className="rounded-2xl bg-white p-5 shadow-md transition-shadow hover:shadow-lg space-y-4">
       <div className="flex items-center justify-between gap-2 pb-2">
         <div className="flex items-center gap-2" style={{ paddingLeft: '40px' }}>
+          {/* Screenshot Button */}
+          <button
+            onClick={handleScreenshot}
+            className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"
+            style={{
+              height: '30px',
+              width: '30px',
+              backgroundColor: '#EEF2F6',
+              border: '1px solid #EEF2F6',
+              borderRadius: '3px'
+            }}
+            title="Save chart as PNG"
+            aria-label="Save chart as PNG"
+            type="button"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+          </button>
           {/* Chart Orientation Dropdown - for bar charts and stacked charts */}
           {chartVariant !== 'heatmap' && (chartVariant === 'bar' || chartVariant === 'stacked') && (
             <div className="relative" ref={orientationMenuRef}>
@@ -805,6 +846,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
         </div>
       </div>
 
+      <div ref={chartContentRef} style={{ display: 'inline-block', minWidth: '100%' }}>
       {(() => {
         console.log('Render Debug:', {
           qid: question.qid,
@@ -994,6 +1036,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
           />
         )
       })()}
+      </div>
     </div>
   )
 }

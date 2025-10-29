@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { CSVUpload } from './components/CSVUpload'
 import { useORAStore } from './store'
 import { QuestionDef, SortOrder } from './types'
@@ -12,10 +12,20 @@ function isExcludedValue(value: string) {
   return EXCLUDED_VALUES.some(ex => normalized === ex || normalized.includes(ex))
 }
 
+function stripQuotesFromValue(value: string): string {
+  let result = value.trim()
+  // Strip leading and trailing quotes (both single and double)
+  if ((result.startsWith('"') && result.endsWith('"')) ||
+      (result.startsWith("'") && result.endsWith("'"))) {
+    result = result.slice(1, -1)
+  }
+  return result
+}
+
 function autoDefaultGroups(rows: any[], segCol?: string, maxDefaults = 2): string[] {
   if (!segCol) return []
   if (segCol === 'Overall') return ['Overall']
-  const vals = Array.from(new Set(rows.map(r => String(r[segCol]))))
+  const vals = Array.from(new Set(rows.map(r => stripQuotesFromValue(String(r[segCol])))))
     .filter(v => v && v !== 'null' && v !== 'undefined' && !isExcludedValue(v))
 
   // For Gender, exclude "Prefer not to say" from defaults
@@ -39,6 +49,24 @@ function autoDefaultGroups(rows: any[], segCol?: string, maxDefaults = 2): strin
 
 function sortSegmentValues(values: string[], column?: string) {
   if (!column) return values
+
+  // Sort function that always puts N/A at the bottom
+  const sortWithNALast = (a: string, b: string, compareFunc?: (a: string, b: string) => number) => {
+    const aIsNA = a.toLowerCase() === 'n/a'
+    const bIsNA = b.toLowerCase() === 'n/a'
+
+    // If both are N/A, they're equal
+    if (aIsNA && bIsNA) return 0
+    // If only a is N/A, it goes to the end (return positive)
+    if (aIsNA) return 1
+    // If only b is N/A, it goes to the end (return negative)
+    if (bIsNA) return -1
+
+    // Neither is N/A, use the provided compare function or alphabetical
+    if (compareFunc) return compareFunc(a, b)
+    return a.localeCompare(b)
+  }
+
   if (column.toLowerCase() === 'age') {
     const parseAgeToken = (token: string) => {
       // Handle "under" prefix
@@ -68,9 +96,11 @@ function sortSegmentValues(values: string[], column?: string) {
 
       return Number.MAX_SAFE_INTEGER
     }
-    return [...values].sort((a, b) => parseAgeToken(a) - parseAgeToken(b))
+    return [...values].sort((a, b) => sortWithNALast(a, b, (x, y) => parseAgeToken(x) - parseAgeToken(y)))
   }
-  return values
+
+  // For non-age columns, just sort alphabetically with N/A at the end
+  return [...values].sort((a, b) => sortWithNALast(a, b))
 }
 
 // Generate the same key format as buildSeries in dataCalculations.ts
@@ -139,14 +169,22 @@ export default function App() {
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [sidebarWidth, setSidebarWidth] = useState(288)
   const [isResizing, setIsResizing] = useState(false)
-  const [editingLabel, setEditingLabel] = useState<string | null>(null)
-  const [labelInput, setLabelInput] = useState('')
+  const [editingSegment, setEditingSegment] = useState<string | null>(null)
+  const [segmentInput, setSegmentInput] = useState('')
+  const segmentInputRef = useRef<HTMLInputElement>(null)
   const [expandedSegmentGroups, setExpandedSegmentGroups] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (editingSegment && segmentInputRef.current) {
+      segmentInputRef.current.focus()
+      segmentInputRef.current.select()
+    }
+  }, [editingSegment])
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(['segmentation', 'statSig', 'products', 'display'])
+    new Set(['segmentation'])
   )
   const [expandedDisplayGroups, setExpandedDisplayGroups] = useState<Set<string>>(
-    new Set(['chartType', 'sort', 'color'])
+    new Set(['color'])
   )
 
   const questions = useMemo(() => {
@@ -219,9 +257,54 @@ export default function App() {
 
   const productValues = useMemo(() => {
     if (!dataset || !selections.productColumn) return []
-    return Array.from(new Set(rowsRaw.map(row => normalizeProductValue(row[selections.productColumn!]))))
+
+    const uniqueProducts = Array.from(new Set(rowsRaw.map(row => normalizeProductValue(row[selections.productColumn!]))))
       .filter(v => v && v !== 'null' && v !== 'undefined')
-      .sort()
+
+    // Find sentiment column (column with "(sentiment)" in header and "would you consider buying")
+    const sentimentColumn = dataset.summary.columns.find(col =>
+      col.toLowerCase().includes('(sentiment)') && col.toLowerCase().includes('would you consider buying')
+    )
+
+    if (!sentimentColumn) {
+      // If no sentiment column, fall back to alphabetical sort
+      return uniqueProducts.sort()
+    }
+
+    // Calculate sentiment score for each product
+    const calculateProductScore = (productLabel: string): number => {
+      const productRows = rowsRaw.filter(row => normalizeProductValue(row[selections.productColumn!]) === productLabel)
+
+      if (productRows.length === 0) return 0
+
+      let advocates = 0
+      let detractors = 0
+      let validResponses = 0
+
+      productRows.forEach(row => {
+        const rating = row[sentimentColumn]
+        const numericRating = typeof rating === 'number' ? rating : Number(rating)
+
+        if (Number.isFinite(numericRating)) {
+          validResponses++
+          if (numericRating >= 4) advocates++
+          else if (numericRating <= 2) detractors++
+        }
+      })
+
+      if (validResponses === 0) return 0
+
+      const advocatePercent = (advocates / validResponses) * 100
+      const detractorPercent = (detractors / validResponses) * 100
+      return (advocatePercent - detractorPercent + 100) / 2
+    }
+
+    // Sort by sentiment score descending (highest score first)
+    return uniqueProducts.sort((a, b) => {
+      const scoreA = calculateProductScore(a)
+      const scoreB = calculateProductScore(b)
+      return scoreB - scoreA
+    })
   }, [dataset, rowsRaw, selections.productColumn])
 
   const useAllProducts = !selections.productColumn || selections.productGroups.length === 0 || selections.productGroups.length === productValues.length
@@ -240,7 +323,7 @@ export default function App() {
   const segmentValues = useMemo(() => {
     if (!selections.segmentColumn) return []
     if (selections.segmentColumn === 'Overall') return ['Overall']
-    const values = Array.from(new Set(rows.map(r => String(r[selections.segmentColumn!]))))
+    const values = Array.from(new Set(rows.map(r => stripQuotesFromValue(String(r[selections.segmentColumn!])))))
       .filter(v => v && v !== 'null' && v !== 'undefined')
     const sorted = sortSegmentValues(values, selections.segmentColumn)
 
@@ -513,7 +596,13 @@ export default function App() {
         [key]: newLabel.trim()
       }
     })
-    setEditingLabel(null)
+  }
+
+  const handleSaveSegmentLabel = () => {
+    if (editingSegment && segmentInput.trim()) {
+      handleSaveLabel(editingSegment, segmentInput.trim())
+    }
+    setEditingSegment(null)
   }
 
   const handleSaveOptionLabel = (qid: string, option: string, newLabel: string) => {
@@ -539,6 +628,21 @@ export default function App() {
         [qid]: newLabel.trim()
       }
     })
+  }
+
+  const handleSaveSegmentColumnLabel = (column: string, newLabel: string) => {
+    if (!newLabel.trim()) return
+    setSelections({
+      segmentColumnLabels: {
+        ...selections.segmentColumnLabels,
+        [column]: newLabel.trim()
+      }
+    })
+    setEditingLabel(null)
+  }
+
+  const getSegmentColumnDisplayLabel = (column: string) => {
+    return selections.segmentColumnLabels?.[column] || column
   }
 
   const handleSelectAllProducts = () => setSelections({ productGroups: [...productValues] })
@@ -689,7 +793,7 @@ export default function App() {
           {summary && (
             <>
               <div className="flex items-start gap-2" style={{ marginBottom: '25px', paddingLeft: '62px' }}>
-                <h3 className="text-base font-semibold text-brand-gray break-words" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
+                <h3 className="font-semibold text-brand-gray break-words" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, fontSize: '12px' }}>
                   {cleanFileName(summary.fileName)}
                 </h3>
               </div>
@@ -718,59 +822,79 @@ export default function App() {
                   <div className="max-h-96 space-y-5 overflow-y-auto rounded-lg bg-white px-2 py-2">
                     {/* Overall option with Clear all button */}
                     <div className="space-y-1 pl-[10px]">
-                      <div className="flex items-center justify-between gap-2" style={{ paddingBottom: '10px' }}>
-                      <label
-                        className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer flex-1"
-                        style={{ gap: '4px' }}
-                      >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center" style={{ gap: '5px' }}>
                           <input
                             type="checkbox"
-                            className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0"
+                            className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0 cursor-pointer"
                             checked={isSegmentSelected('Overall', 'Overall')}
                             onChange={() => toggleSegment('Overall', 'Overall')}
                           />
-                          {editingLabel === 'Overall' ? (
+                          {editingSegment === 'Overall' ? (
                             <textarea
-                              value={labelInput}
-                              onChange={(e) => setLabelInput(e.target.value)}
-                              onBlur={() => handleSaveLabel('Overall', labelInput)}
+                              ref={segmentInputRef as any}
+                              value={segmentInput}
+                              onChange={(e) => setSegmentInput(e.target.value)}
+                              onBlur={handleSaveSegmentLabel}
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
+                                if (e.key === 'Enter' || e.key === 'Escape') {
                                   e.preventDefault()
-                                  handleSaveLabel('Overall', labelInput)
+                                  handleSaveSegmentLabel()
+                                  e.currentTarget.blur()
                                 }
-                                if (e.key === 'Escape') setEditingLabel(null)
                               }}
-                              autoFocus
-                              className="flex-1 text-base border-2 border-brand-green rounded px-2 py-1 focus:outline-none font-semibold"
-                              onClick={(e) => e.stopPropagation()}
-                              style={{ minHeight: '60px', resize: 'vertical', lineHeight: '1.4' }}
+                              style={{
+                                fontSize: '12px',
+                                fontFamily: 'Space Grotesk, sans-serif',
+                                fontWeight: '600',
+                                padding: '2px 4px',
+                                border: '1px solid #3A8518',
+                                borderRadius: '3px',
+                                outline: 'none',
+                                resize: 'none',
+                                lineHeight: '1.2',
+                                height: '22px',
+                                overflow: 'hidden',
+                                width: '100px'
+                              }}
                             />
                           ) : (
                             <span
-                              className="flex-1 font-semibold hover:text-brand-green transition"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setEditingLabel('Overall')
-                                setLabelInput(getGroupDisplayLabel('Overall'))
+                              onClick={() => {
+                                setEditingSegment('Overall')
+                                setSegmentInput(getGroupDisplayLabel('Overall'))
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.color = '#3A8518'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.color = ''
+                              }}
+                              style={{
+                                fontSize: '12px',
+                                fontFamily: 'Space Grotesk, sans-serif',
+                                fontWeight: '600',
+                                cursor: 'pointer'
                               }}
                             >
                               {getGroupDisplayLabel('Overall')}
                             </span>
                           )}
-                        </label>
-                        <button
-                          className="transition hover:bg-brand-pale-gray text-xs text-brand-gray/70"
-                          style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', textDecoration: 'underline', fontFamily: 'Space Grotesk, sans-serif', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                          onClick={() => setSelections({ segments: [] })}
-                        >
-                          Clear all
-                        </button>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-brand-gray/70">
+                          <button
+                            className="transition hover:bg-brand-pale-gray cursor-pointer"
+                            style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', textDecoration: 'underline', fontFamily: 'Space Grotesk, sans-serif' }}
+                            onClick={() => setSelections({ segments: [] })}
+                          >
+                            Clear
+                          </button>
+                        </div>
                       </div>
                     </div>
                     {/* All segment columns */}
                     {segmentColumns.filter(col => col !== 'Overall').map(column => {
-                      const rawValues = Array.from(new Set(rows.map(r => String(r[column]))))
+                      const rawValues = Array.from(new Set(rows.map(r => stripQuotesFromValue(String(r[column])))))
                         .filter(v => {
                           if (!v || v === 'null' || v === 'undefined') return false
 
@@ -798,7 +922,7 @@ export default function App() {
                         <div key={column} className="space-y-2" style={{ paddingBottom: '5px' }}>
                           <div className="flex items-center justify-between">
                             <div
-                              className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition flex-1"
+                              className="flex items-center gap-1 cursor-pointer transition flex-1 group"
                               onClick={() => toggleSegmentGroup(column)}
                             >
                               <svg
@@ -808,12 +932,12 @@ export default function App() {
                                 fill="none"
                                 stroke="currentColor"
                                 strokeWidth="2"
-                                className="flex-shrink-0 transition-transform"
+                                className="flex-shrink-0 transition-transform group-hover:text-brand-green"
                                 style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
                               >
                                 <path d="M9 18l6-6-6-6" />
                               </svg>
-                              <h5 className="text-2xl font-semibold text-brand-gray">{column}</h5>
+                              <h5 className="text-2xl font-semibold text-brand-gray group-hover:text-brand-green transition-colors">{column}</h5>
                             </div>
                             <div className="flex items-center gap-3 text-xs text-brand-gray/70">
                               <button
@@ -833,49 +957,64 @@ export default function App() {
                             </div>
                           </div>
                           {isExpanded && (
-                            <div className="pl-[10px] space-y-1">
+                            <div className="pl-[10px]">
                             {values.map(value => (
-                              <label
-                                key={value}
-                                className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer"
-                                style={{ gap: '4px' }}
-                              >
+                              <div key={value} className="flex items-center" style={{ gap: '5px' }}>
                                 <input
                                   type="checkbox"
-                                  className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0"
+                                  className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0 cursor-pointer"
                                   checked={isSegmentSelected(column, value)}
                                   onChange={() => toggleSegment(column, value)}
                                 />
-                                {editingLabel === value ? (
+                                {editingSegment === value ? (
                                   <textarea
-                                    value={labelInput}
-                                    onChange={(e) => setLabelInput(e.target.value)}
-                                    onBlur={() => handleSaveLabel(value, labelInput)}
+                                    ref={segmentInputRef as any}
+                                    value={segmentInput}
+                                    onChange={(e) => setSegmentInput(e.target.value)}
+                                    onBlur={handleSaveSegmentLabel}
                                     onKeyDown={(e) => {
-                                      if (e.key === 'Enter' && !e.shiftKey) {
+                                      if (e.key === 'Enter' || e.key === 'Escape') {
                                         e.preventDefault()
-                                        handleSaveLabel(value, labelInput)
+                                        handleSaveSegmentLabel()
+                                        e.currentTarget.blur()
                                       }
-                                      if (e.key === 'Escape') setEditingLabel(null)
                                     }}
-                                    autoFocus
-                                    className="flex-1 text-base border-2 border-brand-green rounded px-2 py-1 focus:outline-none"
-                                    onClick={(e) => e.stopPropagation()}
-                                    style={{ minHeight: '60px', resize: 'vertical', lineHeight: '1.4' }}
+                                    style={{
+                                      fontSize: '12px',
+                                      fontFamily: 'Space Grotesk, sans-serif',
+                                      padding: '2px 4px',
+                                      border: '1px solid #3A8518',
+                                      borderRadius: '3px',
+                                      outline: 'none',
+                                      resize: 'none',
+                                      lineHeight: '1.2',
+                                      height: '22px',
+                                      overflow: 'hidden',
+                                      width: '100px'
+                                    }}
                                   />
                                 ) : (
                                   <span
-                                    className="flex-1 hover:text-brand-green transition"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setEditingLabel(value)
-                                      setLabelInput(getGroupDisplayLabel(value))
+                                    onClick={() => {
+                                      setEditingSegment(value)
+                                      setSegmentInput(getGroupDisplayLabel(value))
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.color = '#3A8518'
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.color = ''
+                                    }}
+                                    style={{
+                                      fontSize: '12px',
+                                      fontFamily: 'Space Grotesk, sans-serif',
+                                      cursor: 'pointer'
                                     }}
                                   >
                                     {getGroupDisplayLabel(value)}
                                   </span>
                                 )}
-                              </label>
+                              </div>
                             ))}
                           </div>
                           )}
@@ -909,7 +1048,7 @@ export default function App() {
                   {expandedSections.has('statSig') && (
                   <div className="pl-[10px] space-y-2">
                   <div className="space-y-1">
-                    <label className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px' }}>
+                    <label className="flex items-center text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px', fontSize: '12px' }}>
                       <input
                         type="radio"
                         name="statSigFilter"
@@ -921,9 +1060,10 @@ export default function App() {
                       <span>All Results</span>
                     </label>
                     <label
-                      className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer"
+                      className="flex items-center text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer"
                       style={{
                         gap: '4px',
+                        fontSize: '12px',
                         opacity: (selections.segments && selections.segments.length < 2) || (!selections.segments && selections.groups.length < 2) ? 0.5 : 1,
                         pointerEvents: (selections.segments && selections.segments.length < 2) || (!selections.segments && selections.groups.length < 2) ? 'none' : 'auto'
                       }}
@@ -940,14 +1080,14 @@ export default function App() {
                       <span>Stat Sig Only</span>
                     </label>
                   </div>
-                  <label className="flex items-center cursor-pointer" style={{ gap: '4px' }}>
+                  <label className="flex items-center cursor-pointer" style={{ gap: '4px', fontSize: '12px' }}>
                     <input
                       type="checkbox"
                       className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green"
                       checked={selections.hideAsterisks || false}
                       onChange={(e) => setSelections({ hideAsterisks: e.target.checked })}
                     />
-                    <span className="text-base font-semibold text-gray-700">Remove asterisks</span>
+                    <span className="font-semibold text-gray-700">Remove asterisks</span>
                   </label>
                   </div>
                   )}
@@ -975,16 +1115,16 @@ export default function App() {
                     </div>
                     {expandedSections.has('products') && (
                     <div className="pl-[10px]">
-                    <div className="flex items-center gap-3 text-xs text-brand-gray/70">
+                    <div className="flex items-center justify-end gap-3 text-xs text-brand-gray/70" style={{ paddingBottom: '5px' }}>
                       <button
-                        className="transition hover:bg-brand-pale-gray"
+                        className="transition hover:bg-brand-pale-gray cursor-pointer"
                         style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', textDecoration: 'underline', fontFamily: 'Space Grotesk, sans-serif' }}
                         onClick={handleSelectAllProducts}
                       >
-                        Select all
+                        All
                       </button>
                       <button
-                        className="transition hover:bg-brand-pale-gray"
+                        className="transition hover:bg-brand-pale-gray cursor-pointer"
                         style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', textDecoration: 'underline', fontFamily: 'Space Grotesk, sans-serif' }}
                         onClick={handleClearProducts}
                       >
@@ -993,7 +1133,7 @@ export default function App() {
                     </div>
                     <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg bg-white px-2 py-2">
                       {productValues.map(value => (
-                        <label key={value} className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px' }}>
+                        <label key={value} className="flex items-center text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px', fontSize: '12px' }}>
                           <input
                             type="checkbox"
                             className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0"
@@ -1058,23 +1198,23 @@ export default function App() {
                         <input
                           type="radio"
                           name="chartOrientation"
-                          value="horizontal"
-                          className="border-brand-light-gray text-brand-green focus:ring-brand-green"
-                          checked={chartOrientation === 'horizontal'}
-                          onChange={(e) => setChartOrientation('horizontal')}
-                        />
-                        <span>Horizontal</span>
-                      </label>
-                      <label className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px' }}>
-                        <input
-                          type="radio"
-                          name="chartOrientation"
                           value="vertical"
                           className="border-brand-light-gray text-brand-green focus:ring-brand-green"
                           checked={chartOrientation === 'vertical'}
                           onChange={(e) => setChartOrientation('vertical')}
                         />
                         <span>Vertical</span>
+                      </label>
+                      <label className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px' }}>
+                        <input
+                          type="radio"
+                          name="chartOrientation"
+                          value="horizontal"
+                          className="border-brand-light-gray text-brand-green focus:ring-brand-green"
+                          checked={chartOrientation === 'horizontal'}
+                          onChange={(e) => setChartOrientation('horizontal')}
+                        />
+                        <span>Horizontal</span>
                       </label>
                     </div>
                     )}
@@ -1274,7 +1414,7 @@ export default function App() {
             transition: 'left 0.3s ease, width 0.3s ease'
           }}
         >
-          <div className="p-8">
+          <div className="pt-8 pr-8 pb-8 pl-24">
             <div className="rounded-2xl bg-white p-6 shadow-sm min-h-[460px]">
               {dataset ? (
                 filteredDataset && ((selections.segments && selections.segments.length > 0) || (selections.segmentColumn && orderedGroups.length > 0)) ? (
