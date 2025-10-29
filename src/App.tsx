@@ -132,34 +132,42 @@ function shouldIncludeQuestion(question: QuestionDef): boolean {
 
   // Filter out zipcode questions
   if (labelLower.includes('zip') || labelLower.includes('postal')) {
+    console.log(`[FILTER] ❌ Excluding ${question.qid} (${question.type}): zipcode`)
     return false
   }
 
-  // Filter out ranking questions (check for both "(ranking)" token and "rank" at start of label)
-  if (labelLower.includes('(ranking)') || labelLower.startsWith('rank ')) {
-    return false
+  // Always include multi, single, scale, and ranking questions even if their labels contain tokens
+  const labelHasTypeToken = ['(multi)', '(single)', '(scale)', '(ranking)'].some(token => labelLower.includes(token))
+  if (labelHasTypeToken) {
+    console.log(`[FILTER] ✅ Including ${question.qid} (${question.type}): type token in label`)
+    return true
   }
-
-  // Always include multi, single, and scale questions even if their labels contain tokens
-  const labelHasTypeToken = ['(multi)', '(single)', '(scale)'].some(token => labelLower.includes(token))
-  if (labelHasTypeToken) return true
 
   // Treat questions containing "(text)" in the label or column headers as free-text, exclude them
   if (labelLower.includes('(text)')) {
+    console.log(`[FILTER] ❌ Excluding ${question.qid} (${question.type}): text in label`)
     return false
   }
 
   const columnHasTextToken = question.columns.some(col => col.header.toLowerCase().includes('(text)') || col.optionLabel.toLowerCase().includes('(text)'))
   if (columnHasTextToken) {
+    console.log(`[FILTER] ❌ Excluding ${question.qid} (${question.type}): text in column`)
     return false
   }
 
   if (question.singleSourceColumn) {
     const singleLower = question.singleSourceColumn.toLowerCase()
-    if (singleLower.includes('(text)')) return false
-    if (['(multi)', '(single)', '(scale)'].some(token => singleLower.includes(token))) return true
+    if (singleLower.includes('(text)')) {
+      console.log(`[FILTER] ❌ Excluding ${question.qid} (${question.type}): text in source column`)
+      return false
+    }
+    if (['(multi)', '(single)', '(scale)', '(ranking)'].some(token => singleLower.includes(token))) {
+      console.log(`[FILTER] ✅ Including ${question.qid} (${question.type}): type token in source`)
+      return true
+    }
   }
 
+  console.log(`[FILTER] ✅ Including ${question.qid} (${question.type}): passed all checks`)
   return true
 }
 
@@ -723,7 +731,7 @@ export default function App() {
           </div>
           <div className="w-[480px] flex-shrink-0" style={{ paddingRight: '30px' }}>
             <p className="text-gray-400" style={{ fontSize: '12px', lineHeight: '1.4', textAlign: 'right' }}>
-              Open text, ranking, and demographic questions are excluded.<br />
+              Open text and demographic questions are excluded.<br />
               Other, not specified, none of the above, and skip are deselected by default.
             </p>
           </div>

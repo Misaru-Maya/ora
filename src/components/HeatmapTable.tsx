@@ -750,7 +750,8 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
                   verticalAlign: 'middle',
                   cursor: onSaveOptionLabel ? 'pointer' : 'default',
                   whiteSpace: 'pre-wrap',
-                  textAlign: 'right'
+                  textAlign: 'right',
+                  color: '#4A5568'
                 }}
                 onClick={() => {
                   if (onSaveOptionLabel && !isEditing) {
@@ -765,7 +766,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
                 }}
                 onMouseLeave={(e) => {
                   if (!isEditing) {
-                    e.currentTarget.style.color = ''
+                    e.currentTarget.style.color = '#4A5568'
                   }
                 }}
                 >

@@ -352,6 +352,38 @@ export function buildSeries({
           count = seen.size
           denom = answeredRespondents.size
         }
+      } else if (question.type === 'ranking') {
+        // For ranking questions, calculate average ranking score
+        const headersToCheck = [col.header, ...(col.alternateHeaders || [])]
+        const rankings: number[] = []
+
+        // Collect all ranking values for this option
+        for (const r of info.rows) {
+          for (const header of headersToCheck) {
+            const value = r[header]
+            if (value !== null && value !== undefined && value !== '') {
+              const numValue = typeof value === 'number' ? value : parseFloat(String(value))
+              if (!isNaN(numValue) && numValue > 0) {
+                rankings.push(numValue)
+                break
+              }
+            }
+          }
+        }
+
+        // Calculate average ranking (lower is better)
+        const avgRanking = rankings.length > 0
+          ? rankings.reduce((sum, val) => sum + val, 0) / rankings.length
+          : 0
+
+        // Store the average ranking as the value
+        row[meta.key] = Math.round(avgRanking * 10) / 10 // Round to 1 decimal place
+        groupSummaries.push({
+          label: meta.label,
+          count: rankings.length,
+          denominator: info.rows.length,
+          percent: avgRanking // Store avg ranking in percent field for display
+        })
       } else if (question.singleSourceColumn) {
         const cleanedLabel = optionLabel.toLowerCase()
         const counts = info.singleCounts || {}
@@ -362,13 +394,19 @@ export function buildSeries({
       // Calculate percentage with proper rounding to avoid floating point issues
       // Round to 10 decimal places first to fix floating point precision issues
       const percent = denom ? Math.round((count / denom) * 100 * 1e10) / 1e10 : 0
-      row[meta.key] = percent
-      groupSummaries.push({
-        label: meta.label,
-        count,
-        denominator: denom,
-        percent
-      })
+
+      // For ranking questions, store the ranking value directly instead of percentage
+      if (question.type === 'ranking') {
+        // row[meta.key] is already set above, don't overwrite it
+      } else {
+        row[meta.key] = percent
+        groupSummaries.push({
+          label: meta.label,
+          count,
+          denominator: denom,
+          percent
+        })
+      }
     })
 
     // Compute chi-square significance for each pair of groups

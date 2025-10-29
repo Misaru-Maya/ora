@@ -4,6 +4,7 @@ import { ComparisonChart } from './ComparisonChart'
 import { SingleSelectPieChart } from './SingleSelectPieChart'
 import { HeatmapTable } from './HeatmapTable'
 import { SentimentHeatmap } from './SentimentHeatmap'
+import { RankingDisplay } from './RankingDisplay'
 import { BuildSeriesResult, buildSeries } from '../dataCalculations'
 import { ParsedCSV, QuestionDef, SortOrder, SegmentDef } from '../types'
 
@@ -42,7 +43,9 @@ const formatQuestionTitle = (question: QuestionDef): string => {
       ? 'single select'
       : question.type === 'multi'
         ? 'multi select'
-        : question.type
+        : question.type === 'ranking'
+          ? 'ranking'
+          : question.type
   return `${base} (${typeLabel})`
 }
 
@@ -103,6 +106,16 @@ const ChartCard: React.FC<ChartCardProps> = ({
   const isOverallSegment = series.groups.length === 1 && series.groups[0]?.label === 'Overall'
   const canUseHeatmap = question.level === 'row' && isOverallSegment
 
+  // Check if this is a sentiment question
+  const sentimentColumn = dataset.summary.columns.find(col =>
+    col.toLowerCase().includes('(sentiment)') && col.toLowerCase().includes('would you consider buying')
+  )
+  const isSentimentQuestion = canUseHeatmap && sentimentColumn && (
+    (question.singleSourceColumn && question.singleSourceColumn === sentimentColumn) ||
+    question.label.toLowerCase().includes('would you consider buying') ||
+    question.label.toLowerCase().includes('(sentiment)')
+  )
+
   // Debug logging
   console.log('Chart Debug:', {
     qid: question.qid,
@@ -111,10 +124,13 @@ const ChartCard: React.FC<ChartCardProps> = ({
     rawColumnsLength: question.columns.length,
     visibleOptionsCount,
     canUsePie,
-    canUseStacked
+    canUseStacked,
+    isSentimentQuestion
   })
 
-  const [chartVariant, setChartVariant] = useState<'bar' | 'pie' | 'stacked' | 'heatmap'>('bar')
+  // Set initial chart variant - use heatmap for sentiment questions, bar for others
+  const initialChartVariant: 'bar' | 'pie' | 'stacked' | 'heatmap' = isSentimentQuestion ? 'heatmap' : 'bar'
+  const [chartVariant, setChartVariant] = useState<'bar' | 'pie' | 'stacked' | 'heatmap'>(initialChartVariant)
   const [heatmapFilters, setHeatmapFilters] = useState<{ products: string[], attributes: string[] }>({ products: [], attributes: [] })
   const [showHeatmapProductFilter, setShowHeatmapProductFilter] = useState(false)
   const [showHeatmapAttributeFilter, setShowHeatmapAttributeFilter] = useState(false)
@@ -126,7 +142,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
   const heatmapAttributeFilterRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    setCardSort(question.isLikert ? 'alphabetical' : 'default')
+    setCardSort(question.isLikert || isSentimentQuestion ? 'alphabetical' : 'default')
     // Filter out excluded values from defaults
     const allOptions = series.data.map(d => d.option).filter(option => {
       const displayValue = series.data.find(d => d.option === option)?.optionDisplay || option
@@ -139,11 +155,20 @@ const ChartCard: React.FC<ChartCardProps> = ({
     setSelectedOptions(selectedDefaults)
     // Reset custom order when question changes
     setCustomOptionOrder([])
-  }, [series, question.isLikert])
+  }, [series, question.isLikert, isSentimentQuestion])
 
   useEffect(() => {
     setChartOrientation(orientation)
   }, [orientation])
+
+  useEffect(() => {
+    // Set default chart variant when question changes
+    if (isSentimentQuestion) {
+      setChartVariant('heatmap')
+    } else {
+      setChartVariant('bar')
+    }
+  }, [question.qid, isSentimentQuestion])
 
   useEffect(() => {
     if (!canUsePie && chartVariant === 'pie') {
@@ -1007,6 +1032,19 @@ const ChartCard: React.FC<ChartCardProps> = ({
           } else {
             return <div className="py-10 text-center text-xs text-brand-gray/60">No data available.</div>
           }
+        }
+
+        // Render ranking questions with RankingDisplay component
+        if (question.type === 'ranking') {
+          console.log('Rendering ranking display for question:', question.qid)
+          return (
+            <RankingDisplay
+              data={processedData}
+              group={series.groups[0]}
+              questionLabel={displayLabel}
+              onSaveQuestionLabel={onSaveQuestionLabel}
+            />
+          )
         }
 
         if (chartVariant === 'pie' && canUsePie) {

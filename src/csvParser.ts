@@ -45,7 +45,7 @@ function extractBaseAndOption(header: string): { base: string, option?: string }
   let base = header
   let option: string | undefined
   const lower = header.toLowerCase()
-  const isLikelyMulti = lower.includes('(multi')
+  const isLikelyMulti = lower.includes('(multi') || lower.includes('(ranking')
 
   if (isLikelyMulti) {
     const quotedOptionRegex = /":\s*"([^"]+)"\s*$/
@@ -72,9 +72,10 @@ function extractBaseAndOption(header: string): { base: string, option?: string }
   return { base: base.trim(), option: option ? stripQuotes(option) : option }
 }
 
-function normalizeQuestionType(rawType: string): 'single' | 'multi' {
+function normalizeQuestionType(rawType: string): 'single' | 'multi' | 'ranking' {
   const normalized = rawType.trim().toLowerCase()
   if (normalized.includes('multi')) return 'multi'
+  if (normalized.includes('ranking')) return 'ranking'
   return 'single'
 }
 
@@ -97,10 +98,12 @@ function parseQuestionHeader(header: string): {
 }
 
 export function parseCSVToDataset(rows: Record<string, any>[], fileName: string): ParsedCSV {
+  console.log('[CSV Parser] Starting CSV parse...')
   if (!rows.length) throw new Error('No rows found in CSV file.')
-  
+
   let columns = Object.keys(rows[0])
   if (!columns.length) throw new Error('No columns found in CSV file.')
+  console.log(`[CSV Parser] Found ${columns.length} columns, ${rows.length} rows`)
   
   // Check for required respondent ID column
   const hasRespondentId = columns.some(c => 
@@ -242,9 +245,18 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
 
     const q = qMap.get(questionKey)!
 
-    if (questionType === 'multi') {
+    if (questionType === 'multi' || questionType === 'ranking') {
       // Check if this is a text summary column (no option suffix, just the question)
       if (!option || option === questionText) {
+        // For RANKING questions, skip the text summary column completely
+        // We need the individual numeric columns, not the pipe-separated ordered text
+        if (questionType === 'ranking') {
+          console.log(`[RANKING DEBUG] Skipping BASE column for ${qid}: "${col.substring(0, 80)}..."`)
+          segmentCandidateSet.delete(col)
+          continue
+        }
+
+        // For MULTI questions, check if this is a text summary column
         // Check if this column contains text data (pipe-separated or single values, not binary data)
         // Sample a few rows to determine if it's a text summary column
         let hasTextData = false
@@ -268,7 +280,7 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
 
         // Only treat as text summary if it has text data (not binary)
         if (hasTextData && !hasBinaryData) {
-          q.type = 'multi'
+          q.type = questionType
           q.label = questionText || q.label || qid
 
           // If there's already a text summary column, keep the one with more data
@@ -292,9 +304,14 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
       const optionLabel = stripQuotes(option)
       const normalizedOption = optionLabel.toLowerCase()
 
-      q.type = 'multi'
+      q.type = questionType
       if (questionText) {
         q.label = questionText
+      }
+
+      // Log ranking option processing
+      if (questionType === 'ranking') {
+        console.log(`[RANKING DEBUG] Processing option for ${qid}: "${optionLabel}"`)
       }
 
       // Track this option case-insensitively
@@ -322,7 +339,7 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
     segmentCandidateSet.delete(col)
   }
 
-  // Now build the columns array for multi-select questions from the deduplicated map
+  // Now build the columns array for multi-select and ranking questions from the deduplicated map
   for (const [questionKey, optionsMap] of multiOptionMap.entries()) {
     const q = qMap.get(questionKey)!
     q.columns = Array.from(optionsMap.entries()).map(([normalized, { displayLabel, headers }]) => ({
@@ -330,10 +347,12 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
       optionLabel: displayLabel,
       alternateHeaders: headers.slice(1) // Store additional headers for data lookup
     }))
-    console.log(`[DEBUG] Question ${questionKey} has ${q.columns.length} options from binary columns:`, q.columns.map(c => c.optionLabel))
+    const logType = q.type === 'ranking' ? '[RANKING DEBUG]' : '[DEBUG]'
+    console.log(`${logType} Question ${questionKey} has ${q.columns.length} options:`, q.columns.map(c => c.optionLabel))
   }
 
   // For multi-select questions with text summary columns, extract options from the pipe-separated values
+  // Note: Ranking questions should NOT use text summary columns
   for (const q of qMap.values()) {
     if (q.type === 'multi' && q.textSummaryColumn) {
       console.log(`[DEBUG] Processing text summary column for ${q.qid}: ${q.textSummaryColumn}`)
@@ -422,7 +441,7 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
     if (POSSIBLE_ID_COLUMNS.has(n)) segmentCandidateSet.delete(col)
   }
   for (const q of qMap.values()) {
-    if (q.type === 'multi') {
+    if (q.type === 'multi' || q.type === 'ranking') {
       for (const c of q.columns) {
         segmentCandidateSet.delete(c.header)
         // Also delete alternate headers from segment candidates
@@ -519,6 +538,15 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
   if (questions.length === 0) {
     throw new Error('No questions detected in CSV. Expected headers like "[Q1] (single) Question Text" or "[Q1] (multi): Option A".')
   }
+
+  // Log summary of all questions
+  console.log(`[CSV Parser] Parsed ${questions.length} questions:`)
+  questions.forEach(q => {
+    const optionCount = q.columns?.length || 0
+    console.log(`  ${q.qid} (${q.type}): "${q.label.substring(0, 60)}..." - ${optionCount} options`)
+  })
+  const rankingCount = questions.filter(q => q.type === 'ranking').length
+  console.log(`[CSV Parser] Found ${rankingCount} ranking questions`)
 
   // Detect if this is a product test (has product/style ID columns)
   const isProductTest = lowerCols.some(c => 

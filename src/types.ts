@@ -1,4 +1,4 @@
-export type QuestionType = 'single' | 'multi'
+export type QuestionType = 'single' | 'multi' | 'ranking'
 
 export interface QuestionOptionColumn {
   header: string // column name for multi; synthetic key for single option
