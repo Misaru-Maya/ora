@@ -448,7 +448,6 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
             onClick={() => {
               setShowProductFilter(!showProductFilter)
               setShowAttributeFilter(false)
-              setShowColumnReorder(false)
             }}
             className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"
             style={{ height: '30px', width: '30px', backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}
@@ -537,7 +536,6 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
             onClick={() => {
               setShowAttributeFilter(!showAttributeFilter)
               setShowProductFilter(false)
-              setShowColumnReorder(false)
             }}
             className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"
             style={{ height: '30px', width: '30px', backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}

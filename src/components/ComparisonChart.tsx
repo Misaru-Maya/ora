@@ -278,7 +278,7 @@ const EditableYAxisTick: React.FC<any & {
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Find the original option key for this label
-  const dataPoint = data.find(d => d.optionDisplay === text)
+  const dataPoint = data.find((d: SeriesDataPoint) => d.optionDisplay === text)
   const option = dataPoint?.option || text
 
   // Check if text has asterisk (statistical significance marker)
@@ -411,7 +411,7 @@ const EditableXAxisTick: React.FC<any & {
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Find the original option key for this label
-  const dataPoint = data.find(d => d.optionDisplay === text)
+  const dataPoint = data.find((d: SeriesDataPoint) => d.optionDisplay === text)
   const option = dataPoint?.option || text
 
   // Check if text has asterisk (statistical significance marker)
