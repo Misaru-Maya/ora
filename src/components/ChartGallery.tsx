@@ -8,7 +8,7 @@ import { ParsedCSV, QuestionDef, SortOrder, SegmentDef } from '../types'
 
 type CardSortOption = 'default' | 'descending' | 'ascending' | 'alphabetical'
 
-const EXCLUDED_VALUES = ['other', 'not specified', 'none of the above', 'skip']
+const EXCLUDED_VALUES = ['other', 'not specified', 'none of the above', 'skip', 'no preference', 'prefer not to say']
 
 function isExcludedValue(value: string) {
   const normalized = value.trim().toLowerCase().replace(/["']/g, '')
@@ -233,16 +233,36 @@ const ChartCard: React.FC<ChartCardProps> = ({
   }, [series, shouldFilterByStatSig])
 
   const processedData = useMemo(() => {
-    const annotated = statSigFilteredData.map((d, index) => ({
-      data: d,
-      index,
-      average: series.groups.length
-        ? series.groups.reduce((sum, g) => sum + Number(d[g.key] ?? 0), 0) / series.groups.length
-        : 0
-    }))
+    // Find the "Overall" group if it exists
+    const overallGroup = series.groups.find(g => g.label === 'Overall')
+
+    const annotated = statSigFilteredData.map((d, index) => {
+      // Use Overall value if available, otherwise use average across all groups
+      const sortValue = overallGroup
+        ? Number(d[overallGroup.key] ?? 0)
+        : series.groups.length
+          ? series.groups.reduce((sum, g) => sum + Number(d[g.key] ?? 0), 0) / series.groups.length
+          : 0
+
+      return {
+        data: d,
+        index,
+        average: sortValue
+      }
+    })
     const filtered = annotated.filter(item => selectedOptions.includes(item.data.option))
 
-    const sorted = [...filtered]
+    // Filter out options where any group has 0 or 1% values
+    const filteredWithoutLowValues = filtered.filter(item => {
+      // Check if any group has a value <= 1%
+      const hasLowValue = series.groups.some(group => {
+        const value = Number(item.data[group.key] ?? 0)
+        return value <= 1
+      })
+      return !hasLowValue
+    })
+
+    const sorted = [...filteredWithoutLowValues]
     const isPieChart = chartVariant === 'pie' && canUsePie
 
     switch (cardSort) {
@@ -255,7 +275,62 @@ const ChartCard: React.FC<ChartCardProps> = ({
         sorted.sort((a, b) => isPieChart ? b.average - a.average : a.average - b.average)
         break
       case 'alphabetical':
-        sorted.sort((a, b) => a.data.optionDisplay.localeCompare(b.data.optionDisplay))
+        sorted.sort((a, b) => {
+          const aText = a.data.optionDisplay
+          const bText = b.data.optionDisplay
+
+          // Extract numeric values for "Less than" / "<" and "More than" / ">" patterns
+          const extractNumericValue = (text: string): { value: number | null, isLessThan: boolean, isMoreThan: boolean } => {
+            const lessThanMatch = text.match(/(?:less\s+than|<)\s*\$?\s*([\d,]+)/i)
+            const moreThanMatch = text.match(/(?:more\s+than|>)\s*\$?\s*([\d,]+)/i)
+
+            if (lessThanMatch) {
+              const num = parseFloat(lessThanMatch[1].replace(/,/g, ''))
+              return { value: num, isLessThan: true, isMoreThan: false }
+            }
+            if (moreThanMatch) {
+              const num = parseFloat(moreThanMatch[1].replace(/,/g, ''))
+              return { value: num, isLessThan: false, isMoreThan: true }
+            }
+
+            // Try to extract any number from the text for range comparison
+            const numMatch = text.match(/\$?\s*([\d,]+)/)
+            if (numMatch) {
+              const num = parseFloat(numMatch[1].replace(/,/g, ''))
+              return { value: num, isLessThan: false, isMoreThan: false }
+            }
+
+            return { value: null, isLessThan: false, isMoreThan: false }
+          }
+
+          const aParsed = extractNumericValue(aText)
+          const bParsed = extractNumericValue(bText)
+
+          // If both have numeric values, sort numerically with special handling
+          if (aParsed.value !== null && bParsed.value !== null) {
+            // "Less than X" comes before ranges starting with X
+            if (aParsed.isLessThan && !bParsed.isLessThan && aParsed.value <= bParsed.value) {
+              return -1
+            }
+            if (bParsed.isLessThan && !aParsed.isLessThan && bParsed.value <= aParsed.value) {
+              return 1
+            }
+
+            // "More than X" comes after ranges ending with X
+            if (aParsed.isMoreThan && !bParsed.isMoreThan && aParsed.value >= bParsed.value) {
+              return 1
+            }
+            if (bParsed.isMoreThan && !aParsed.isMoreThan && bParsed.value >= aParsed.value) {
+              return -1
+            }
+
+            // Otherwise sort by numeric value
+            return aParsed.value - bParsed.value
+          }
+
+          // Fall back to string comparison
+          return aText.localeCompare(bText)
+        })
         break
       default:
         sorted.sort((a, b) => a.index - b.index)
@@ -274,13 +349,23 @@ const ChartCard: React.FC<ChartCardProps> = ({
 
   // Sorted options for filter dropdown - respects current cardSort (but doesn't filter by selection)
   const sortedOptionsForFilter = useMemo(() => {
-    const annotated = statSigFilteredData.map((d, index) => ({
-      data: d,
-      index,
-      average: series.groups.length
-        ? series.groups.reduce((sum, g) => sum + Number(d[g.key] ?? 0), 0) / series.groups.length
-        : 0
-    }))
+    // Find the "Overall" group if it exists
+    const overallGroup = series.groups.find(g => g.label === 'Overall')
+
+    const annotated = statSigFilteredData.map((d, index) => {
+      // Use Overall value if available, otherwise use average across all groups
+      const sortValue = overallGroup
+        ? Number(d[overallGroup.key] ?? 0)
+        : series.groups.length
+          ? series.groups.reduce((sum, g) => sum + Number(d[g.key] ?? 0), 0) / series.groups.length
+          : 0
+
+      return {
+        data: d,
+        index,
+        average: sortValue
+      }
+    })
 
     const sorted = [...annotated]
     const isPieChart = chartVariant === 'pie' && canUsePie
@@ -293,7 +378,62 @@ const ChartCard: React.FC<ChartCardProps> = ({
         sorted.sort((a, b) => isPieChart ? b.average - a.average : a.average - b.average)
         break
       case 'alphabetical':
-        sorted.sort((a, b) => a.data.optionDisplay.localeCompare(b.data.optionDisplay))
+        sorted.sort((a, b) => {
+          const aText = a.data.optionDisplay
+          const bText = b.data.optionDisplay
+
+          // Extract numeric values for "Less than" / "<" and "More than" / ">" patterns
+          const extractNumericValue = (text: string): { value: number | null, isLessThan: boolean, isMoreThan: boolean } => {
+            const lessThanMatch = text.match(/(?:less\s+than|<)\s*\$?\s*([\d,]+)/i)
+            const moreThanMatch = text.match(/(?:more\s+than|>)\s*\$?\s*([\d,]+)/i)
+
+            if (lessThanMatch) {
+              const num = parseFloat(lessThanMatch[1].replace(/,/g, ''))
+              return { value: num, isLessThan: true, isMoreThan: false }
+            }
+            if (moreThanMatch) {
+              const num = parseFloat(moreThanMatch[1].replace(/,/g, ''))
+              return { value: num, isLessThan: false, isMoreThan: true }
+            }
+
+            // Try to extract any number from the text for range comparison
+            const numMatch = text.match(/\$?\s*([\d,]+)/)
+            if (numMatch) {
+              const num = parseFloat(numMatch[1].replace(/,/g, ''))
+              return { value: num, isLessThan: false, isMoreThan: false }
+            }
+
+            return { value: null, isLessThan: false, isMoreThan: false }
+          }
+
+          const aParsed = extractNumericValue(aText)
+          const bParsed = extractNumericValue(bText)
+
+          // If both have numeric values, sort numerically with special handling
+          if (aParsed.value !== null && bParsed.value !== null) {
+            // "Less than X" comes before ranges starting with X
+            if (aParsed.isLessThan && !bParsed.isLessThan && aParsed.value <= bParsed.value) {
+              return -1
+            }
+            if (bParsed.isLessThan && !aParsed.isLessThan && bParsed.value <= aParsed.value) {
+              return 1
+            }
+
+            // "More than X" comes after ranges ending with X
+            if (aParsed.isMoreThan && !bParsed.isMoreThan && aParsed.value >= bParsed.value) {
+              return 1
+            }
+            if (bParsed.isMoreThan && !aParsed.isMoreThan && bParsed.value >= aParsed.value) {
+              return -1
+            }
+
+            // Otherwise sort by numeric value
+            return aParsed.value - bParsed.value
+          }
+
+          // Fall back to string comparison
+          return aText.localeCompare(bText)
+        })
         break
       default:
         sorted.sort((a, b) => a.index - b.index)
@@ -341,7 +481,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
           {/* Screenshot Button */}
           <button
             onClick={handleScreenshot}
-            className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"
+            className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
             style={{
               height: '30px',
               width: '30px',
@@ -369,7 +509,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
                   setShowFilter(false)
                   setShowStatSigMenu(false)
                 }}
-                className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"
+                className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
                 style={{ height: '30px', width: '30px', backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}
                 title="Chart orientation"
                 aria-label="Toggle chart orientation menu"
@@ -453,7 +593,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
                   setShowFilter(false)
                   setShowStatSigMenu(false)
                 }}
-                className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"
+                className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
                 style={{ height: '30px', width: '30px', backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}
                 title="Legend orientation"
                 aria-label="Toggle legend orientation menu"
@@ -537,7 +677,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 setShowOrientationMenu(false)
                 setShowStatSigMenu(false)
                 }}
-              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"
+              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
               style={{ height: '30px', width: '30px', backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}
               title="Sort"
             >
@@ -596,7 +736,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 setShowSortMenu(false)
                 setShowStatSigMenu(false)
               }}
-              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"
+              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
               style={{ height: '30px', width: '30px', backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}
               title="Filter Options"
             >
@@ -687,7 +827,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 setShowSortMenu(false)
                 setShowOrientationMenu(false)
               }}
-              className={`flex items-center justify-center transition-all duration-200 text-xs font-semibold shadow-sm active:scale-95 ${
+              className={`flex items-center justify-center transition-all duration-200 text-xs font-semibold shadow-sm active:scale-95 cursor-pointer ${
                 filterSignificantOnly || statSigFilter === 'statSigOnly'
                   ? 'bg-brand-green text-white hover:bg-green-600'
                   : 'text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900'
@@ -771,7 +911,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
             <>
               <div className="flex items-center gap-0.5" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}>
                 <button
-                  className="text-base font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-200"
+                  className="text-base font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
                   style={{
                     height: '30px',
                     width: '30px',
@@ -786,7 +926,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 </button>
                 {canUsePie && (
                   <button
-                    className="text-base font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-200"
+                    className="text-base font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
                     style={{
                       height: '30px',
                       width: '30px',
@@ -802,7 +942,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 )}
                 {canUseStacked && (
                   <button
-                    className="text-base font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-200"
+                    className="text-base font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
                     style={{
                       height: '30px',
                       minWidth: '70px',
@@ -821,7 +961,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 )}
                 {canUseHeatmap && (
                   <button
-                    className="text-base font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-200"
+                    className="text-base font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
                     style={{
                       height: '30px',
                       width: '30px',

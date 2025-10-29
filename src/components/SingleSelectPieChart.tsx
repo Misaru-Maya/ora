@@ -161,7 +161,8 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
               <span
                 style={{
                   padding: '0 6px',
-                  cursor: onSaveOptionLabel ? 'pointer' : 'default'
+                  cursor: onSaveOptionLabel ? 'pointer' : 'default',
+                  whiteSpace: 'pre-wrap'
                 }}
                 onClick={() => {
                   if (onSaveOptionLabel) {

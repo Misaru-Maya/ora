@@ -443,6 +443,42 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
     segmentColumns.push(COUNTRY_COLUMN)
   }
 
+  // Add Product Preference segment based on sentiment question (before Gender)
+  const PRODUCT_PREFERENCE_COLUMN = 'Product Preference'
+  const sentimentColumn = columns.find(col =>
+    col.toLowerCase().includes('(sentiment)') && col.toLowerCase().includes('would you consider buying')
+  )
+
+  if (sentimentColumn) {
+    // Add synthetic Product Preference column to each row
+    rows.forEach(row => {
+      const rating = row[sentimentColumn]
+      const numericRating = typeof rating === 'number' ? rating : Number(rating)
+
+      if (Number.isFinite(numericRating)) {
+        if (numericRating >= 4) {
+          row[PRODUCT_PREFERENCE_COLUMN] = 'Advocates'
+        } else if (numericRating <= 3) {
+          row[PRODUCT_PREFERENCE_COLUMN] = 'Detractors'
+        } else {
+          row[PRODUCT_PREFERENCE_COLUMN] = ''
+        }
+      } else {
+        row[PRODUCT_PREFERENCE_COLUMN] = ''
+      }
+    })
+
+    // Add Product Preference to segment columns
+    segmentColumns.push(PRODUCT_PREFERENCE_COLUMN)
+
+    // Add to columns list
+    if (!columns.includes(PRODUCT_PREFERENCE_COLUMN)) {
+      columns = [...columns, PRODUCT_PREFERENCE_COLUMN]
+    }
+
+    console.log('[CSV Parser] Product Preference segment created from:', sentimentColumn)
+  }
+
   // Add Gender if it was found or derived
   if (genderSource || hasDirectGenderColumn) {
     segmentColumns.push(GENDER_COLUMN)

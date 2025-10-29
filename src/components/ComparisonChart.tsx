@@ -340,24 +340,30 @@ const EditableYAxisTick: React.FC<any & {
     )
   }
 
-  // Word wrapping for long labels
+  // Word wrapping for long labels, respecting manual line breaks
   const maxWidth = 190
   const lineHeight = 14
-  const words = text.split(' ')
   const lines: string[] = []
-  let currentLine = ''
 
-  words.forEach((word: string) => {
-    const testLine = currentLine ? `${currentLine} ${word}` : word
-    // Rough estimate: 7 pixels per character
-    if (testLine.length * 7 > maxWidth && currentLine) {
-      lines.push(currentLine)
-      currentLine = word
-    } else {
-      currentLine = testLine
-    }
+  // First split by newlines to preserve user's manual line breaks
+  const manualLines = text.split('\n')
+
+  manualLines.forEach((manualLine: string) => {
+    const words = manualLine.split(' ')
+    let currentLine = ''
+
+    words.forEach((word: string) => {
+      const testLine = currentLine ? `${currentLine} ${word}` : word
+      // Rough estimate: 7 pixels per character
+      if (testLine.length * 7 > maxWidth && currentLine) {
+        lines.push(currentLine)
+        currentLine = word
+      } else {
+        currentLine = testLine
+      }
+    })
+    if (currentLine) lines.push(currentLine)
   })
-  if (currentLine) lines.push(currentLine)
 
   return (
     <g
@@ -474,22 +480,28 @@ const EditableXAxisTick: React.FC<any & {
     )
   }
 
-  // Simple word wrapping - display text with asterisk
-  const words = text.split(' ')
+  // Simple word wrapping - display text with asterisk, respecting manual line breaks
   const lines: string[] = []
-  let currentLine = ''
 
-  words.forEach((word: string) => {
-    const testLine = currentLine ? `${currentLine} ${word}` : word
-    // Rough estimate: 7 pixels per character
-    if (testLine.length * 7 > maxWidth && currentLine) {
-      lines.push(currentLine)
-      currentLine = word
-    } else {
-      currentLine = testLine
-    }
+  // First split by newlines to preserve user's manual line breaks
+  const manualLines = text.split('\n')
+
+  manualLines.forEach((manualLine: string) => {
+    const words = manualLine.split(' ')
+    let currentLine = ''
+
+    words.forEach((word: string) => {
+      const testLine = currentLine ? `${currentLine} ${word}` : word
+      // Rough estimate: 7 pixels per character
+      if (testLine.length * 7 > maxWidth && currentLine) {
+        lines.push(currentLine)
+        currentLine = word
+      } else {
+        currentLine = testLine
+      }
+    })
+    if (currentLine) lines.push(currentLine)
   })
-  if (currentLine) lines.push(currentLine)
 
   return (
     <g
@@ -547,7 +559,7 @@ const CustomTooltip: React.FC<any> = ({ active, payload }) => {
       className="rounded-md border border-brand-pale-gray bg-white text-xs text-brand-gray shadow-lg"
       style={{ backgroundColor: '#FFFFFF', opacity: 1, padding: '10px 14px' }}
     >
-      <div className="mb-2 font-semibold">{row.optionDisplay}</div>
+      <div className="mb-2 font-semibold" style={{ whiteSpace: 'pre-wrap' }}>{row.optionDisplay}</div>
       <div className="space-y-1">
         {row.groupSummaries.map(summary => (
           <div key={summary.label} className="flex justify-between gap-4">
@@ -602,7 +614,8 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
         barSize: VERTICAL_BAR_SIZE,
       }
 
-  const showLegend = groups.length > 1 || (groups.length === 1 && groups[0]?.label === 'Overall')
+  // Always show legend when there are groups to display
+  const showLegend = groups.length > 0
   const horizontalAxisWidth = 200
   const legendOffset = 40
   const horizontalLegendAdjustment = 70
@@ -659,7 +672,10 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           ) : (
             <h3
               className="text-sm font-semibold text-brand-gray"
-              style={{ cursor: onSaveQuestionLabel ? 'pointer' : 'default' }}
+              style={{
+                cursor: onSaveQuestionLabel ? 'pointer' : 'default',
+                whiteSpace: 'pre-wrap'
+              }}
               onClick={() => {
                 if (onSaveQuestionLabel) {
                   setEditingQuestionLabel(true)

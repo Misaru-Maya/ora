@@ -196,8 +196,8 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
       return groups.map(g => g.key)
     }
 
-    // If fewer than 5 products, show all products by default
-    if (groups.length < 5) {
+    // If fewer than 8 products, show all products by default
+    if (groups.length < 8) {
       return groups.map(g => g.key)
     }
 
@@ -668,7 +668,10 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
           ) : (
             <h3
               className="text-sm font-semibold text-brand-gray"
-              style={{ cursor: onSaveQuestionLabel ? 'pointer' : 'default' }}
+              style={{
+                cursor: onSaveQuestionLabel ? 'pointer' : 'default',
+                whiteSpace: 'pre-wrap'
+              }}
               onClick={() => {
                 if (onSaveQuestionLabel) {
                   setEditingQuestionLabel(true)
@@ -745,7 +748,9 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
                   wordWrap: 'break-word',
                   overflowWrap: 'break-word',
                   verticalAlign: 'middle',
-                  cursor: onSaveOptionLabel ? 'pointer' : 'default'
+                  cursor: onSaveOptionLabel ? 'pointer' : 'default',
+                  whiteSpace: 'pre-wrap',
+                  textAlign: 'right'
                 }}
                 onClick={() => {
                   if (onSaveOptionLabel && !isEditing) {
@@ -790,7 +795,8 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
                         minHeight: '60px',
                         resize: 'vertical',
                         fontFamily: 'inherit',
-                        lineHeight: '1.4'
+                        lineHeight: '1.4',
+                        textAlign: 'right'
                       }}
                     />
                   ) : (

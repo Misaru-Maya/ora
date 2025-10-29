@@ -821,7 +821,7 @@ export default function App() {
                     <div className="pl-[10px]">
                   <div className="max-h-96 space-y-5 overflow-y-auto rounded-lg bg-white px-2 py-2">
                     {/* Overall option with Clear all button */}
-                    <div className="space-y-1 pl-[10px]">
+                    <div className="space-y-1 pl-[10px]" style={{ paddingBottom: '10px' }}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center" style={{ gap: '5px' }}>
                           <input
@@ -893,7 +893,7 @@ export default function App() {
                       </div>
                     </div>
                     {/* All segment columns */}
-                    {segmentColumns.filter(col => col !== 'Overall').map(column => {
+                    {segmentColumns.filter(col => col !== 'Overall').map((column, index) => {
                       const rawValues = Array.from(new Set(rows.map(r => stripQuotesFromValue(String(r[column])))))
                         .filter(v => {
                           if (!v || v === 'null' || v === 'undefined') return false
