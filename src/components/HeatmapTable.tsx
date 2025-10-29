@@ -624,7 +624,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
   return (
     <>
       {filterPortalTarget && createPortal(filterButtons, filterPortalTarget)}
-    <div className="w-full" style={{ minHeight: '400px', paddingLeft: '50px', paddingRight: '50px', paddingBottom: '50px' }}>
+    <div className="w-full" style={{ paddingLeft: '20px', paddingRight: '20px', paddingBottom: '10px' }}>
       {questionLabel && (
         <div className="text-center" style={{ marginTop: '15px', marginBottom: '10px' }}>
           {editingQuestionLabel ? (

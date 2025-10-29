@@ -330,7 +330,7 @@ const EditableYAxisTick: React.FC<any & {
             outline: 'none',
             backgroundColor: 'white',
             boxSizing: 'border-box',
-            minHeight: '60px',
+            minHeight: '36px',
             resize: 'vertical',
             fontFamily: 'inherit',
             lineHeight: '1.4'
@@ -464,7 +464,7 @@ const EditableXAxisTick: React.FC<any & {
             backgroundColor: 'white',
             textAlign: 'center',
             boxSizing: 'border-box',
-            minHeight: '80px',
+            minHeight: '36px',
             resize: 'vertical',
             fontFamily: 'inherit',
             lineHeight: '1.4'
@@ -498,6 +498,18 @@ const EditableXAxisTick: React.FC<any & {
         setEditInput(textWithoutAsterisk) // Edit without asterisk
       }}
       style={{ cursor: 'pointer' }}
+      onMouseEnter={(e) => {
+        const textElements = e.currentTarget.querySelectorAll('text')
+        textElements.forEach((el) => {
+          el.style.fill = '#3A8518'
+        })
+      }}
+      onMouseLeave={(e) => {
+        const textElements = e.currentTarget.querySelectorAll('text')
+        textElements.forEach((el) => {
+          el.style.fill = '#1f2833'
+        })
+      }}
     >
       {lines.map((line, i) => (
         <text
@@ -507,12 +519,6 @@ const EditableXAxisTick: React.FC<any & {
           textAnchor="middle"
           fontSize={14}
           fill="#1f2833"
-          onMouseEnter={(e) => {
-            e.currentTarget.style.fill = '#3A8518'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.fill = '#1f2833'
-          }}
         >
           {line}
         </text>
@@ -586,12 +592,12 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   // Dynamic chart dimensions based on number of answer options
   const { chartHeight, barCategoryGap, barSize } = isHorizontal
     ? {
-        chartHeight: Math.max(320, data.length * (HORIZONTAL_BAR_SIZE + 32)),
+        chartHeight: Math.max(200, data.length * (HORIZONTAL_BAR_SIZE + 32)),
         barCategoryGap: 32,
         barSize: HORIZONTAL_BAR_SIZE,
       }
     : {
-        chartHeight: 400,
+        chartHeight: 320,
         barCategoryGap: 24,
         barSize: VERTICAL_BAR_SIZE,
       }
@@ -604,7 +610,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
     (isHorizontal ? horizontalAxisWidth : 0) + legendOffset - (isHorizontal ? horizontalLegendAdjustment : 0)
 
   return (
-    <div className="w-full bg-white" style={{ paddingBottom: showLegend ? 12 : 0 }}>
+    <div className="w-full bg-white" style={{ paddingBottom: 0 }}>
       {questionLabel && (
         <div className="text-center" style={{
           marginTop: '15px',
@@ -734,7 +740,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                         backgroundColor: 'white',
                         minWidth: '150px',
                         fontWeight: 600,
-                        minHeight: '60px',
+                        minHeight: '36px',
                         resize: 'vertical',
                         fontFamily: 'inherit',
                         lineHeight: '1.4'
@@ -804,8 +810,8 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           barCategoryGap={barCategoryGap}
           barGap={1}
           margin={isHorizontal
-            ? { top: 25, right: 60, bottom: 30, left: 0 }
-            : { top: 0, right: 48, bottom: 50, left: 0 }
+            ? { top: 25, right: 60, bottom: 5, left: 0 }
+            : { top: 0, right: 48, bottom: 20, left: 0 }
           }
         >
           {isHorizontal ? (
@@ -841,7 +847,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
               <XAxis
                 type="category"
                 dataKey="optionDisplay"
-                height={100}
+                height={70}
                 tick={(props) => (
                   <EditableXAxisTick
                     {...props}

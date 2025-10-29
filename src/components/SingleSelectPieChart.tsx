@@ -98,7 +98,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
   const reversedPieData = [...pieData].reverse()
 
   const legendContent = (
-    <div className="flex flex-col items-start gap-3 text-xs font-semibold text-brand-gray" style={{ paddingBottom: '40px' }}>
+    <div className="flex flex-col items-start gap-3 text-xs font-semibold text-brand-gray" style={{ paddingBottom: '10px' }}>
       {pieData.map((entry, index) => {
         // Find original option key from data
         const dataPoint = data.find(d => d.optionDisplay === entry.name)
@@ -144,14 +144,14 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
                   if (e.key === 'Escape') setEditingOption(null)
                 }}
                 style={{
-                  fontSize: '12px',
-                  padding: '4px 6px',
+                  fontSize: '14px',
+                  padding: '6px 8px',
                   border: '2px solid #3A8518',
                   borderRadius: '3px',
                   outline: 'none',
                   backgroundColor: 'white',
                   minWidth: '150px',
-                  minHeight: '60px',
+                  minHeight: '36px',
                   resize: 'vertical',
                   fontFamily: 'inherit',
                   lineHeight: '1.4'
@@ -188,108 +188,106 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
   )
 
   return (
-    <div className="w-full">
-      {questionLabel && (
-        <div className="mx-auto text-center" style={{ marginTop: '15px', marginBottom: '20px' }}>
-          {editingQuestionLabel ? (
-            <textarea
-              autoFocus
-              value={questionLabelInput}
-              onChange={(e) => setQuestionLabelInput(e.target.value)}
-              onBlur={() => {
-                if (questionLabelInput.trim() && onSaveQuestionLabel) {
-                  onSaveQuestionLabel(questionLabelInput.trim())
-                }
-                setEditingQuestionLabel(false)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
+    <div className="w-full flex justify-center">
+      <div style={{ maxWidth: '800px', width: '100%' }}>
+        {questionLabel && (
+          <div className="mx-auto text-center" style={{ marginTop: '15px', marginBottom: '20px' }}>
+            {editingQuestionLabel ? (
+              <textarea
+                autoFocus
+                value={questionLabelInput}
+                onChange={(e) => setQuestionLabelInput(e.target.value)}
+                onBlur={() => {
                   if (questionLabelInput.trim() && onSaveQuestionLabel) {
                     onSaveQuestionLabel(questionLabelInput.trim())
                   }
                   setEditingQuestionLabel(false)
-                }
-                if (e.key === 'Escape') setEditingQuestionLabel(false)
-              }}
-              className="text-sm font-semibold text-brand-gray"
-              style={{
-                width: '100%',
-                fontSize: '16px',
-                padding: '6px 8px',
-                border: '2px solid #3A8518',
-                borderRadius: '3px',
-                outline: 'none',
-                backgroundColor: 'white',
-                minHeight: '60px',
-                resize: 'vertical',
-                fontFamily: 'Space Grotesk, sans-serif',
-                fontWeight: 600,
-                lineHeight: '1.4',
-                textAlign: 'center'
-              }}
-            />
-          ) : (
-            <h3
-              className="text-sm font-semibold text-brand-gray"
-              style={{ cursor: onSaveQuestionLabel ? 'pointer' : 'default' }}
-              onClick={() => {
-                if (onSaveQuestionLabel) {
-                  setEditingQuestionLabel(true)
-                  setQuestionLabelInput(questionLabel)
-                }
-              }}
-              onMouseEnter={(e) => {
-                if (onSaveQuestionLabel) {
-                  e.currentTarget.style.color = '#3A8518'
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = ''
-              }}
-            >
-              {questionLabel}
-            </h3>
-          )}
-          <p className="text-xs text-brand-gray/60">Segment: {group.label}</p>
-        </div>
-      )}
-      {/* Flexbox container - layout changes based on orientation */}
-      <div className={`flex justify-center ${legendOrientation === 'horizontal' ? 'flex-row items-center' : 'flex-col items-center gap-4'}`} style={{ gap: legendOrientation === 'horizontal' ? '0px' : undefined }}>
-        {/* Pie Chart */}
-        <div style={{ width: '320px', height: '320px', flexShrink: 0 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={reversedPieData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
-                paddingAngle={2}
-                label={renderLabel}
-                labelLine={true}
-                startAngle={90}
-                endAngle={450}
-              >
-                {reversedPieData.map((entry, index) => {
-                  // Use reversed index to get the correct color matching the legend
-                  const colorIndex = pieData.length - 1 - index
-                  return (
-                    <Cell key={`cell-${index}`} fill={colors[colorIndex % colors.length]} />
-                  )
-                })}
-              </Pie>
-              <Tooltip
-                formatter={(value: number) => `${Math.round(value)}%`}
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    if (questionLabelInput.trim() && onSaveQuestionLabel) {
+                      onSaveQuestionLabel(questionLabelInput.trim())
+                    }
+                    setEditingQuestionLabel(false)
+                  }
+                  if (e.key === 'Escape') setEditingQuestionLabel(false)
+                }}
+                className="text-sm font-semibold text-brand-gray"
+                style={{
+                  width: '100%',
+                  fontSize: '16px',
+                  padding: '6px 8px',
+                  border: '2px solid #3A8518',
+                  borderRadius: '3px',
+                  outline: 'none',
+                  backgroundColor: 'white',
+                  minHeight: '60px',
+                  resize: 'vertical',
+                  fontFamily: 'Space Grotesk, sans-serif',
+                  fontWeight: 600,
+                  lineHeight: '1.4',
+                  textAlign: 'center'
+                }}
               />
-            </PieChart>
-          </ResponsiveContainer>
+            ) : (
+              <h3
+                className="text-sm font-semibold text-brand-gray"
+                style={{ cursor: onSaveQuestionLabel ? 'pointer' : 'default' }}
+                onClick={() => {
+                  if (onSaveQuestionLabel) {
+                    setEditingQuestionLabel(true)
+                    setQuestionLabelInput(questionLabel)
+                  }
+                }}
+                onMouseEnter={(e) => {
+                  if (onSaveQuestionLabel) {
+                    e.currentTarget.style.color = '#3A8518'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = ''
+                }}
+              >
+                {questionLabel}
+              </h3>
+            )}
+            <p className="text-xs text-brand-gray/60">Segment: {group.label}</p>
+          </div>
+        )}
+        <div className={`flex justify-center ${legendOrientation === 'horizontal' ? 'flex-row items-center' : 'flex-col items-center gap-4'}`} style={{ gap: legendOrientation === 'horizontal' ? '30px' : undefined }}>
+          <div style={{ width: '280px', height: '280px', flexShrink: 0 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={reversedPieData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={85}
+                  paddingAngle={2}
+                  label={renderLabel}
+                  labelLine={true}
+                  startAngle={90}
+                  endAngle={450}
+                >
+                  {reversedPieData.map((entry, index) => {
+                    const colorIndex = pieData.length - 1 - index
+                    return (
+                      <Cell key={`cell-${index}`} fill={colors[colorIndex % colors.length]} />
+                    )
+                  })}
+                </Pie>
+                <Tooltip
+                  formatter={(value: number) => `${Math.round(value)}%`}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          {legendContent}
         </div>
-        {/* Custom legend - position changes based on orientation */}
-        {legendContent}
       </div>
     </div>
   )
