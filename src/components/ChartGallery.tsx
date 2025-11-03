@@ -291,79 +291,93 @@ const ChartCard: React.FC<ChartCardProps> = ({
     const sorted = [...filteredWithoutLowValues]
     const isPieChart = chartVariant === 'pie' && canUsePie
 
-    switch (cardSort) {
-      case 'descending':
-        // For pie charts, reverse the sort so largest appears at top going clockwise = descending visually
-        sorted.sort((a, b) => isPieChart ? a.average - b.average : b.average - a.average)
-        break
-      case 'ascending':
-        // For pie charts, reverse the sort so smallest appears at top going clockwise = ascending visually
-        sorted.sort((a, b) => isPieChart ? b.average - a.average : a.average - b.average)
-        break
-      case 'alphabetical':
-        sorted.sort((a, b) => {
-          const aText = a.data.optionDisplay
-          const bText = b.data.optionDisplay
+    // Apply sorting only if there's no custom order
+    if (customOptionOrder.length === 0) {
+      switch (cardSort) {
+        case 'descending':
+          // For pie charts, reverse the sort so largest appears at top going clockwise = descending visually
+          sorted.sort((a, b) => isPieChart ? a.average - b.average : b.average - a.average)
+          break
+        case 'ascending':
+          // For pie charts, reverse the sort so smallest appears at top going clockwise = ascending visually
+          sorted.sort((a, b) => isPieChart ? b.average - a.average : a.average - b.average)
+          break
+        case 'alphabetical':
+          sorted.sort((a, b) => {
+            const aText = a.data.optionDisplay
+            const bText = b.data.optionDisplay
 
-          // Extract numeric values for "Less than" / "<" and "More than" / ">" patterns
-          const extractNumericValue = (text: string): { value: number | null, isLessThan: boolean, isMoreThan: boolean } => {
-            const lessThanMatch = text.match(/(?:less\s+than|<)\s*\$?\s*([\d,]+)/i)
-            const moreThanMatch = text.match(/(?:more\s+than|>)\s*\$?\s*([\d,]+)/i)
+            // Extract numeric values for "Less than" / "<" and "More than" / ">" patterns
+            const extractNumericValue = (text: string): { value: number | null, isLessThan: boolean, isMoreThan: boolean } => {
+              const lessThanMatch = text.match(/(?:less\s+than|<)\s*\$?\s*([\d,]+)/i)
+              const moreThanMatch = text.match(/(?:more\s+than|>)\s*\$?\s*([\d,]+)/i)
 
-            if (lessThanMatch) {
-              const num = parseFloat(lessThanMatch[1].replace(/,/g, ''))
-              return { value: num, isLessThan: true, isMoreThan: false }
-            }
-            if (moreThanMatch) {
-              const num = parseFloat(moreThanMatch[1].replace(/,/g, ''))
-              return { value: num, isLessThan: false, isMoreThan: true }
-            }
+              if (lessThanMatch) {
+                const num = parseFloat(lessThanMatch[1].replace(/,/g, ''))
+                return { value: num, isLessThan: true, isMoreThan: false }
+              }
+              if (moreThanMatch) {
+                const num = parseFloat(moreThanMatch[1].replace(/,/g, ''))
+                return { value: num, isLessThan: false, isMoreThan: true }
+              }
 
-            // Try to extract any number from the text for range comparison
-            const numMatch = text.match(/\$?\s*([\d,]+)/)
-            if (numMatch) {
-              const num = parseFloat(numMatch[1].replace(/,/g, ''))
-              return { value: num, isLessThan: false, isMoreThan: false }
-            }
+              // Try to extract any number from the text for range comparison
+              const numMatch = text.match(/\$?\s*([\d,]+)/)
+              if (numMatch) {
+                const num = parseFloat(numMatch[1].replace(/,/g, ''))
+                return { value: num, isLessThan: false, isMoreThan: false }
+              }
 
-            return { value: null, isLessThan: false, isMoreThan: false }
-          }
-
-          const aParsed = extractNumericValue(aText)
-          const bParsed = extractNumericValue(bText)
-
-          // If both have numeric values, sort numerically with special handling
-          if (aParsed.value !== null && bParsed.value !== null) {
-            // "Less than X" comes before ranges starting with X
-            if (aParsed.isLessThan && !bParsed.isLessThan && aParsed.value <= bParsed.value) {
-              return -1
-            }
-            if (bParsed.isLessThan && !aParsed.isLessThan && bParsed.value <= aParsed.value) {
-              return 1
+              return { value: null, isLessThan: false, isMoreThan: false }
             }
 
-            // "More than X" comes after ranges ending with X
-            if (aParsed.isMoreThan && !bParsed.isMoreThan && aParsed.value >= bParsed.value) {
-              return 1
-            }
-            if (bParsed.isMoreThan && !aParsed.isMoreThan && bParsed.value >= aParsed.value) {
-              return -1
+            const aParsed = extractNumericValue(aText)
+            const bParsed = extractNumericValue(bText)
+
+            // If both have numeric values, sort numerically with special handling
+            if (aParsed.value !== null && bParsed.value !== null) {
+              // "Less than X" comes before ranges starting with X
+              if (aParsed.isLessThan && !bParsed.isLessThan && aParsed.value <= bParsed.value) {
+                return -1
+              }
+              if (bParsed.isLessThan && !aParsed.isLessThan && bParsed.value <= aParsed.value) {
+                return 1
+              }
+
+              // "More than X" comes after ranges ending with X
+              if (aParsed.isMoreThan && !bParsed.isMoreThan && aParsed.value >= bParsed.value) {
+                return 1
+              }
+              if (bParsed.isMoreThan && !aParsed.isMoreThan && bParsed.value >= aParsed.value) {
+                return -1
+              }
+
+              // Otherwise sort by numeric value
+              return aParsed.value - bParsed.value
             }
 
-            // Otherwise sort by numeric value
-            return aParsed.value - bParsed.value
-          }
-
-          // Fall back to string comparison
-          return aText.localeCompare(bText)
-        })
-        break
-      default:
-        sorted.sort((a, b) => a.index - b.index)
-        break
+            // Fall back to string comparison
+            return aText.localeCompare(bText)
+          })
+          break
+        default:
+          sorted.sort((a, b) => a.index - b.index)
+          break
+      }
     }
 
-    return sorted.map(item => {
+    // Apply custom order if it exists (overrides cardSort)
+    let finalSorted = sorted
+    if (customOptionOrder.length > 0) {
+      const orderMap = new Map(sorted.map(item => [item.data.option, item]))
+      const ordered = customOptionOrder
+        .filter(option => orderMap.has(option))
+        .map(option => orderMap.get(option)!)
+      const remaining = sorted.filter(item => !customOptionOrder.includes(item.data.option))
+      finalSorted = [...ordered, ...remaining]
+    }
+
+    return finalSorted.map(item => {
       const data = { ...item.data }
       // Strip asterisk from optionDisplay if hideAsterisks is enabled
       if (hideAsterisks && data.optionDisplay.endsWith('*')) {
@@ -371,7 +385,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
       }
       return data
     })
-  }, [series, selectedOptions, cardSort, statSigFilteredData, chartVariant, canUsePie, canUseStacked, hideAsterisks])
+  }, [series, selectedOptions, cardSort, statSigFilteredData, chartVariant, canUsePie, canUseStacked, hideAsterisks, customOptionOrder])
 
   // Sorted options for filter dropdown - respects current cardSort (but doesn't filter by selection)
   const sortedOptionsForFilter = useMemo(() => {

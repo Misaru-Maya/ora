@@ -124,6 +124,14 @@ export function buildSeries({
     c => c.toLowerCase() === 'respondent id' || c.toLowerCase() === 'respondent_id'
   ) || dataset.summary.columns[0]
 
+  // Always calculate Overall values for sorting, even if Overall is not in effectiveSegments
+  const overallInfo = {
+    rows: rows,
+    uniqueRespondents: uniq(rows.map(r => stripQuotes(String(r[respIdCol] ?? '').trim())).filter(Boolean)),
+    singleCounts: undefined as Record<string, number> | undefined,
+    singleDenom: undefined as number | undefined
+  }
+
   const groupInfo = effectiveSegments.reduce<Map<string, {
     rows: Record<string, any>[]
     uniqueRespondents: string[]
@@ -144,6 +152,36 @@ export function buildSeries({
   }, new Map())
 
   if (question.type !== 'multi' && question.singleSourceColumn) {
+    // Calculate Overall counts first
+    const overallCounts: Record<string, number> = {}
+    if (question.level === 'row' || dataset.summary.isProductTest) {
+      for (const r of overallInfo.rows) {
+        const value = stripQuotes(String(r[question.singleSourceColumn!] ?? '').trim())
+        if (!value) continue
+        const normalized = value.toLowerCase()
+        overallCounts[normalized] = (overallCounts[normalized] || 0) + 1
+      }
+      const totalAnswered = Object.values(overallCounts).reduce((sum, count) => sum + count, 0)
+      overallInfo.singleCounts = overallCounts
+      overallInfo.singleDenom = totalAnswered
+    } else {
+      const seen = new Map<string, string>()
+      for (const r of overallInfo.rows) {
+        const respondent = stripQuotes(String(r[respIdCol] ?? '').trim())
+        if (!respondent || seen.has(respondent)) continue
+        const value = stripQuotes(String(r[question.singleSourceColumn!] ?? '').trim())
+        if (!value) continue
+        seen.set(respondent, value)
+      }
+      seen.forEach(value => {
+        const normalized = value.toLowerCase()
+        overallCounts[normalized] = (overallCounts[normalized] || 0) + 1
+      })
+      overallInfo.singleCounts = overallCounts
+      overallInfo.singleDenom = seen.size
+    }
+
+    // Calculate counts for each selected segment
     for (const [groupLabel, info] of groupInfo.entries()) {
       const counts: Record<string, number> = {}
 
@@ -409,6 +447,161 @@ export function buildSeries({
       }
     })
 
+    // Calculate Overall value for sorting (even if Overall is not in selected segments)
+    let overallCount = 0
+    let overallDenom = 0
+
+    if (question.type === 'multi') {
+      const isRowLevel = question.level === 'row' || dataset.summary.isProductTest
+
+      if (isRowLevel) {
+        let rowsWithThisOption = 0
+        let totalRowsAnswered = 0
+
+        if (question.textSummaryColumn && col.header.startsWith('__TEXT_MULTI__')) {
+          const optionLabelLower = optionLabel.toLowerCase()
+          for (const r of overallInfo.rows) {
+            const textValue = r[question.textSummaryColumn]
+            if (!textValue || textValue === '') continue
+
+            totalRowsAnswered += 1
+
+            const cleanedValue = stripQuotes(String(textValue).trim())
+            const options = cleanedValue.includes('|')
+              ? cleanedValue.split('|').map(opt => stripQuotes(opt.trim()).toLowerCase())
+              : [cleanedValue.toLowerCase()]
+
+            if (options.includes(optionLabelLower)) {
+              rowsWithThisOption += 1
+            }
+          }
+        } else {
+          const headersToCheck = [col.header, ...(col.alternateHeaders || [])]
+          const allQuestionHeaders = question.columns.flatMap(qCol =>
+            [qCol.header, ...(qCol.alternateHeaders || [])]
+          )
+
+          for (const r of overallInfo.rows) {
+            let hasAnswerForThisRow = false
+            for (const h of allQuestionHeaders) {
+              const val = r[h]
+              if (val === 1 || val === true || val === '1' || val === 'true' || val === 'Y') {
+                hasAnswerForThisRow = true
+                break
+              }
+            }
+            if (!hasAnswerForThisRow) continue
+
+            totalRowsAnswered += 1
+
+            for (const header of headersToCheck) {
+              const v = r[header]
+              if (v === 1 || v === true || v === '1' || v === 'true' || v === 'Y') {
+                rowsWithThisOption += 1
+                break
+              }
+            }
+          }
+        }
+
+        overallCount = rowsWithThisOption
+        overallDenom = totalRowsAnswered
+      } else {
+        const seen = new Set<string>()
+        const answeredRespondents = new Set<string>()
+
+        if (question.textSummaryColumn && col.header.startsWith('__TEXT_MULTI__')) {
+          const optionLabelLower = optionLabel.toLowerCase()
+          for (const r of overallInfo.rows) {
+            const respondent = normalizeValue(r[respIdCol])
+            if (!respondent) continue
+
+            const textValue = r[question.textSummaryColumn]
+            if (!textValue || textValue === '') continue
+
+            answeredRespondents.add(respondent)
+
+            const cleanedValue = stripQuotes(String(textValue).trim())
+            const options = cleanedValue.includes('|')
+              ? cleanedValue.split('|').map(opt => stripQuotes(opt.trim()).toLowerCase())
+              : [cleanedValue.toLowerCase()]
+
+            if (options.includes(optionLabelLower)) {
+              seen.add(respondent)
+            }
+          }
+        } else {
+          for (const r of overallInfo.rows) {
+            const respondent = normalizeValue(r[respIdCol])
+            if (!respondent) continue
+
+            for (const qCol of question.columns) {
+              const checkHeaders = [qCol.header, ...(qCol.alternateHeaders || [])]
+              for (const h of checkHeaders) {
+                const val = r[h]
+                if (val === 1 || val === true || val === '1' || val === 'true' || val === 'Y') {
+                  answeredRespondents.add(respondent)
+                  break
+                }
+              }
+              if (answeredRespondents.has(respondent)) break
+            }
+          }
+
+          const headersToCheck = [col.header, ...(col.alternateHeaders || [])]
+          for (const r of overallInfo.rows) {
+            const respondent = normalizeValue(r[respIdCol])
+            if (!respondent) continue
+
+            for (const header of headersToCheck) {
+              const v = r[header]
+              if (v === 1 || v === true || v === '1' || v === 'true' || v === 'Y') {
+                seen.add(respondent)
+                break
+              }
+            }
+          }
+        }
+
+        overallCount = seen.size
+        overallDenom = answeredRespondents.size
+      }
+    } else if (question.type === 'ranking') {
+      const headersToCheck = [col.header, ...(col.alternateHeaders || [])]
+      const rankings: number[] = []
+
+      for (const r of overallInfo.rows) {
+        for (const header of headersToCheck) {
+          const value = r[header]
+          if (value !== null && value !== undefined && value !== '') {
+            const numValue = typeof value === 'number' ? value : parseFloat(String(value))
+            if (!isNaN(numValue) && numValue > 0) {
+              rankings.push(numValue)
+              break
+            }
+          }
+        }
+      }
+
+      const avgRanking = rankings.length > 0
+        ? rankings.reduce((sum, val) => sum + val, 0) / rankings.length
+        : 0
+
+      // For ranking questions, store the ranking value directly
+      row['__overallValue' as any] = Math.round(avgRanking * 10) / 10
+    } else if (question.singleSourceColumn) {
+      const cleanedLabel = optionLabel.toLowerCase()
+      const counts = overallInfo.singleCounts || {}
+      overallDenom = overallInfo.singleDenom ?? overallInfo.uniqueRespondents.length
+      overallCount = counts[cleanedLabel] || 0
+    }
+
+    // Store Overall percentage for non-ranking questions
+    if (question.type !== 'ranking') {
+      const overallPercent = overallDenom ? Math.round((overallCount / overallDenom) * 100 * 1e10) / 1e10 : 0
+      row['__overallValue' as any] = overallPercent
+    }
+
     // Compute chi-square significance for each pair of groups
     const significanceResults: SeriesDataPoint['significance'] = []
     let hasSignificant = false
@@ -446,7 +639,14 @@ export function buildSeries({
 
   const sortByAverage = (direction: 'asc' | 'desc') => {
     return dataWithIndex.sort((a, b) => {
-      const avg = (row: SeriesDataPoint & { __index: number }) => {
+      const getValue = (row: SeriesDataPoint & { __index: number }) => {
+        // Always use the __overallValue for sorting (calculated above)
+        const overallValue = (row as any)['__overallValue']
+        if (typeof overallValue === 'number') {
+          return overallValue
+        }
+
+        // Fallback: calculate average across all groups (shouldn't happen)
         let total = 0
         let count = 0
         groupMeta.forEach(meta => {
@@ -456,7 +656,7 @@ export function buildSeries({
         })
         return count ? total / count : 0
       }
-      const diff = avg(a) - avg(b)
+      const diff = getValue(a) - getValue(b)
       return direction === 'asc' ? diff : -diff
     })
   }
@@ -485,7 +685,7 @@ export function buildSeries({
 
   const data: SeriesDataPoint[] = dataWithIndex
     .filter((item): item is SeriesDataPoint & { __index: number } => item !== null)
-    .map(({ __index, ...rest }) => rest)
+    .map(({ __index, __overallValue, ...rest }: any) => rest)
 
   return {
     data,
