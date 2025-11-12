@@ -627,7 +627,6 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 e.stopPropagation()
                 setShowSortMenu(!showSortMenu)
                 setShowFilter(false)
-                setShowOrientationMenu(false)
                 setShowStatSigMenu(false)
                 }}
               className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
@@ -693,7 +692,6 @@ const ChartCard: React.FC<ChartCardProps> = ({
               onClick={(e) => {
                 e.stopPropagation()
                 setShowFilter(!showFilter)
-                setShowOrientationMenu(false)
                 setShowSortMenu(false)
                 setShowStatSigMenu(false)
               }}
@@ -791,7 +789,6 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 setShowStatSigMenu(prev => !prev)
                 setShowFilter(false)
                 setShowSortMenu(false)
-                setShowOrientationMenu(false)
               }}
               className={`flex items-center justify-center transition-all duration-200 text-xs font-semibold shadow-sm active:scale-95 cursor-pointer ${
                 filterSignificantOnly || statSigFilter === 'statSigOnly'
