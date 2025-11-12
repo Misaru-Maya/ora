@@ -56,11 +56,20 @@ function extractBaseAndOption(header: string): { base: string, option?: string }
       return { base, option }
     }
 
-    const simpleOptionRegex = /:\s*(.+)$/
-    const simpleMatch = simpleOptionRegex.exec(header)
-    if (simpleMatch && simpleMatch.index !== undefined) {
-      option = simpleMatch[1].replace(/^"|"$/g, '').trim()
-      base = header.slice(0, simpleMatch.index).replace(/["\s]+$/, '').trim()
+    // For ranking/multi questions with format: "...Example: text...": "Option"
+    // Find the LAST colon that precedes a quoted value
+    const lastColonIndex = header.lastIndexOf(':')
+    if (lastColonIndex > 0) {
+      const afterColon = header.slice(lastColonIndex + 1).trim()
+      // Check if what comes after the last colon is a quoted value
+      if (afterColon.startsWith('"') || afterColon.startsWith('"') || afterColon.startsWith('"')) {
+        // Remove all types of quotes at start and end
+        option = afterColon
+          .replace(/^["'""']+/, '')  // Remove leading quotes
+          .replace(/["'""']+$/, '')  // Remove trailing quotes
+          .trim()
+        base = header.slice(0, lastColonIndex).replace(/["\s]+$/, '').trim()
+      }
     }
 	  }
 
@@ -465,14 +474,23 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
   // Add Product Preference segment based on sentiment question (before Gender)
   const PRODUCT_PREFERENCE_COLUMN = 'Product Preference'
   const sentimentColumn = columns.find(col =>
-    col.toLowerCase().includes('(sentiment)') && col.toLowerCase().includes('would you consider buying')
+    col.toLowerCase().includes('(sentiment)')
   )
 
   if (sentimentColumn) {
     // Add synthetic Product Preference column to each row
     rows.forEach(row => {
       const rating = row[sentimentColumn]
-      const numericRating = typeof rating === 'number' ? rating : Number(rating)
+      let numericRating: number
+
+      if (typeof rating === 'number') {
+        numericRating = rating
+      } else {
+        // Extract numeric value from strings like "4 - Probably" or "5"
+        const stringRating = String(rating).trim()
+        const match = stringRating.match(/^(\d+)/)
+        numericRating = match ? Number(match[1]) : Number(stringRating)
+      }
 
       if (Number.isFinite(numericRating)) {
         if (numericRating >= 4) {

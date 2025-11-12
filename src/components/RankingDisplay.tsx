@@ -14,8 +14,19 @@ export const RankingDisplay: React.FC<RankingDisplayProps> = ({
   questionLabel,
   onSaveQuestionLabel
 }) => {
+  // Remove "Example: ..." text from ranking question labels
+  const cleanLabel = (label: string): string => {
+    const exampleIndex = label.toLowerCase().indexOf('example:')
+    if (exampleIndex !== -1) {
+      return label.substring(0, exampleIndex).trim()
+    }
+    return label
+  }
+
+  const displayLabel = cleanLabel(questionLabel)
+
   const [editingTitle, setEditingTitle] = useState(false)
-  const [titleInput, setTitleInput] = useState(questionLabel)
+  const [titleInput, setTitleInput] = useState(displayLabel)
 
   const handleSaveTitle = () => {
     if (titleInput.trim() && onSaveQuestionLabel) {
@@ -47,7 +58,7 @@ export const RankingDisplay: React.FC<RankingDisplayProps> = ({
                 handleSaveTitle()
               }
               if (e.key === 'Escape') {
-                setTitleInput(questionLabel)
+                setTitleInput(displayLabel)
                 setEditingTitle(false)
               }
             }}
@@ -81,7 +92,7 @@ export const RankingDisplay: React.FC<RankingDisplayProps> = ({
             onClick={() => {
               if (onSaveQuestionLabel) {
                 setEditingTitle(true)
-                setTitleInput(questionLabel)
+                setTitleInput(displayLabel)
               }
             }}
             onMouseEnter={(e) => {
@@ -93,7 +104,7 @@ export const RankingDisplay: React.FC<RankingDisplayProps> = ({
               e.currentTarget.style.color = ''
             }}
           >
-            {questionLabel}
+            {displayLabel}
           </h3>
         )}
       </div>

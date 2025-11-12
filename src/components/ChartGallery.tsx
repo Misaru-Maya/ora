@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import html2canvas from 'html2canvas'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faSort, faFilter, faStar, faRotate, faChartSimple, faArrowUpShortWide, faArrowDownWideShort, faArrowUpAZ, faChartPie, faTableCellsLarge, faBars } from '@fortawesome/free-solid-svg-icons'
 import { ComparisonChart } from './ComparisonChart'
 import { SingleSelectPieChart } from './SingleSelectPieChart'
 import { HeatmapTable } from './HeatmapTable'
@@ -67,7 +69,6 @@ const ChartCard: React.FC<ChartCardProps> = ({
   const [cardSort, setCardSort] = useState<CardSortOption>(question.isLikert ? 'alphabetical' : 'default')
   const [showFilter, setShowFilter] = useState(false)
   const [showSortMenu, setShowSortMenu] = useState(false)
-  const [showOrientationMenu, setShowOrientationMenu] = useState(false)
   const [selectedOptions, setSelectedOptions] = useState<string[]>([])
   const [showStatSigMenu, setShowStatSigMenu] = useState(false)
   const [statSigFilter, setStatSigFilter] = useState<'all' | 'statSigOnly'>(filterSignificantOnly ? 'statSigOnly' : 'all')
@@ -75,6 +76,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
   const [pieLegendOrientation, setPieLegendOrientation] = useState<'horizontal' | 'vertical'>('horizontal')
   const [customOptionOrder, setCustomOptionOrder] = useState<string[]>([])
   const [draggedOptionIndex, setDraggedOptionIndex] = useState<number | null>(null)
+  const [axesSwapped, setAxesSwapped] = useState(false)
   const chartContentRef = useRef<HTMLDivElement | null>(null)
 
   // Screenshot handler - captures only chart content without buttons
@@ -134,28 +136,38 @@ const ChartCard: React.FC<ChartCardProps> = ({
   const [heatmapFilters, setHeatmapFilters] = useState<{ products: string[], attributes: string[] }>({ products: [], attributes: [] })
   const [showHeatmapProductFilter, setShowHeatmapProductFilter] = useState(false)
   const [showHeatmapAttributeFilter, setShowHeatmapAttributeFilter] = useState(false)
-  const orientationMenuRef = useRef<HTMLDivElement | null>(null)
   const sortMenuRef = useRef<HTMLDivElement | null>(null)
   const filterMenuRef = useRef<HTMLDivElement | null>(null)
   const statSigMenuRef = useRef<HTMLDivElement | null>(null)
   const heatmapProductFilterRef = useRef<HTMLDivElement | null>(null)
   const heatmapAttributeFilterRef = useRef<HTMLDivElement | null>(null)
+  const previousQuestionIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    setCardSort(question.isLikert || isSentimentQuestion ? 'alphabetical' : 'default')
-    // Filter out excluded values from defaults
-    const allOptions = series.data.map(d => d.option).filter(option => {
-      const displayValue = series.data.find(d => d.option === option)?.optionDisplay || option
-      return !isExcludedValue(displayValue)
-    })
-    // If more than 10 options, keep only the top 10 by default
-    const selectedDefaults = allOptions.length > 10
-      ? allOptions.slice(0, 10)
-      : allOptions
-    setSelectedOptions(selectedDefaults)
-    // Reset custom order when question changes
-    setCustomOptionOrder([])
-  }, [series, question.isLikert, isSentimentQuestion])
+    // Only reset selections when the question itself changes, not when the data changes
+    const questionChanged = previousQuestionIdRef.current !== question.qid
+
+    if (questionChanged) {
+      previousQuestionIdRef.current = question.qid
+      setCardSort(question.isLikert || isSentimentQuestion ? 'alphabetical' : 'default')
+
+      // Filter out excluded values from defaults
+      const allOptions = series.data.map(d => d.option).filter(option => {
+        const displayValue = series.data.find(d => d.option === option)?.optionDisplay || option
+        return !isExcludedValue(displayValue)
+      })
+
+      // For ranking questions, show all options by default
+      // For other questions with more than 10 options, keep only the top 10 by default
+      const selectedDefaults = question.type === 'ranking'
+        ? allOptions
+        : (allOptions.length > 10 ? allOptions.slice(0, 10) : allOptions)
+      setSelectedOptions(selectedDefaults)
+
+      // Reset custom order when question changes
+      setCustomOptionOrder([])
+    }
+  }, [series, question.qid, question.isLikert, question.type, isSentimentQuestion])
 
   useEffect(() => {
     setChartOrientation(orientation)
@@ -186,9 +198,6 @@ const ChartCard: React.FC<ChartCardProps> = ({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node
-      if (showOrientationMenu && orientationMenuRef.current && !orientationMenuRef.current.contains(target)) {
-        setShowOrientationMenu(false)
-      }
       if (showSortMenu && sortMenuRef.current && !sortMenuRef.current.contains(target)) {
         setShowSortMenu(false)
       }
@@ -199,11 +208,11 @@ const ChartCard: React.FC<ChartCardProps> = ({
         setShowStatSigMenu(false)
       }
     }
-    if (showSortMenu || showFilter || showStatSigMenu || showOrientationMenu) {
+    if (showSortMenu || showFilter || showStatSigMenu) {
       document.addEventListener('click', handleClickOutside)
       return () => document.removeEventListener('click', handleClickOutside)
     }
-  }, [showSortMenu, showFilter, showStatSigMenu, showOrientationMenu])
+  }, [showSortMenu, showFilter, showStatSigMenu])
 
   useEffect(() => {
     setStatSigFilter(filterSignificantOnly ? 'statSigOnly' : 'all')
@@ -506,7 +515,36 @@ const ChartCard: React.FC<ChartCardProps> = ({
     return [...nonExcludedItems, ...excludedItems]
   }, [series, cardSort, statSigFilteredData, chartVariant, canUsePie, hideAsterisks, customOptionOrder])
 
-  const hasData = processedData.length > 0
+  // Transpose data when axes are swapped
+  const { transposedData, transposedGroups } = useMemo(() => {
+    if (!axesSwapped || series.groups.length <= 1) {
+      return { transposedData: processedData, transposedGroups: series.groups }
+    }
+
+    // Create new data structure where groups become options and options become groups
+    const newData: typeof processedData = []
+    const newGroups = processedData.map(item => ({
+      key: item.option,
+      label: item.optionDisplay || item.option
+    }))
+
+    series.groups.forEach(group => {
+      const newDataPoint: any = {
+        option: group.key,
+        optionDisplay: group.label
+      }
+
+      processedData.forEach(item => {
+        newDataPoint[item.option] = item[group.key]
+      })
+
+      newData.push(newDataPoint)
+    })
+
+    return { transposedData: newData, transposedGroups: newGroups }
+  }, [axesSwapped, processedData, series.groups])
+
+  const hasData = transposedData.length > 0
   const hasBaseData = series.data.length > 0
   const hasStatSigResults = statSigFilteredData.length > 0
 
@@ -518,193 +556,68 @@ const ChartCard: React.FC<ChartCardProps> = ({
     <div className="rounded-2xl bg-white p-5 shadow-md transition-shadow hover:shadow-lg space-y-4">
       <div className="flex items-center justify-between gap-2 pb-2">
         <div className="flex items-center gap-2" style={{ paddingLeft: '40px' }}>
-          {/* Screenshot Button */}
-          <button
-            onClick={handleScreenshot}
-            className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
-            style={{
-              height: '30px',
-              width: '30px',
-              backgroundColor: '#EEF2F6',
-              border: '1px solid #EEF2F6',
-              borderRadius: '3px'
-            }}
-            title="Save chart as PNG"
-            aria-label="Save chart as PNG"
-            type="button"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-              <circle cx="12" cy="13" r="4" />
-            </svg>
-          </button>
-          {/* Chart Orientation Dropdown - for bar charts and stacked charts */}
+          {/* Chart Orientation Toggle - for bar charts and stacked charts */}
           {chartVariant !== 'heatmap' && (chartVariant === 'bar' || chartVariant === 'stacked') && (
-            <div className="relative" ref={orientationMenuRef}>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setShowOrientationMenu(prev => !prev)
-                  setShowSortMenu(false)
-                  setShowFilter(false)
-                  setShowStatSigMenu(false)
+            <button
+              onClick={() => {
+                setChartOrientation(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')
+              }}
+              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
+              style={{ height: '30px', width: '30px', backgroundColor: '#EBF3E7', border: '1px solid #EBF3E7', borderRadius: '3px' }}
+              title={`Switch to ${chartOrientation === 'horizontal' ? 'vertical' : 'horizontal'} orientation`}
+              aria-label="Toggle chart orientation"
+              type="button"
+            >
+              <FontAwesomeIcon
+                icon={faBars}
+                style={{
+                  fontSize: '16px',
+                  transform: chartOrientation === 'horizontal' ? 'rotate(0deg)' : 'rotate(90deg)',
+                  transition: 'transform 0.2s ease'
                 }}
-                className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
-                style={{ height: '30px', width: '30px', backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}
-                title="Chart orientation"
-                aria-label="Toggle chart orientation menu"
-                type="button"
-              >
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="7" height="7" />
-                  <rect x="14" y="3" width="7" height="7" />
-                  <rect x="14" y="14" width="7" height="7" />
-                  <rect x="3" y="14" width="7" height="7" />
-                </svg>
-              </button>
-              {showOrientationMenu && (
-                <div className="absolute left-0 top-10 z-10 w-56 shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', opacity: 1 }}>
-                  <div className="px-4 py-3" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setChartOrientation('horizontal')
-                        setShowOrientationMenu(false)
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          setChartOrientation('horizontal')
-                          setShowOrientationMenu(false)
-                        }
-                      }}
-                      className="flex w-full items-center cursor-pointer px-2 py-2 text-sm transition hover:bg-gray-100 rounded"
-                      style={{ backgroundColor: '#EEF2F6', gap: '2px' }}
-                    >
-                      <input
-                        type="checkbox"
-                        readOnly
-                        checked={chartOrientation === 'horizontal'}
-                        className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
-                      />
-                      <span className="text-gray-900 text-sm">Horizontal</span>
-                    </div>
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setChartOrientation('vertical')
-                        setShowOrientationMenu(false)
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          setChartOrientation('vertical')
-                          setShowOrientationMenu(false)
-                        }
-                      }}
-                      className="flex w-full items-center cursor-pointer px-2 py-2 text-sm transition hover:bg-gray-100 rounded"
-                      style={{ backgroundColor: '#EEF2F6', gap: '2px' }}
-                    >
-                      <input
-                        type="checkbox"
-                        readOnly
-                        checked={chartOrientation === 'vertical'}
-                        className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
-                      />
-                      <span className="text-gray-900 text-sm">Vertical</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+              />
+            </button>
           )}
-          {/* Pie Legend Orientation Dropdown - for pie charts */}
+          {/* Swap Axes Button - for bar charts with multiple segments */}
+          {chartVariant !== 'heatmap' && chartVariant === 'bar' && series.groups.length > 1 && (
+            <button
+              onClick={() => setAxesSwapped(prev => !prev)}
+              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
+              style={{
+                height: '30px',
+                width: '30px',
+                backgroundColor: axesSwapped ? '#C8E2BA' : '#EEF2F6',
+                border: axesSwapped ? '1px solid #3A8518' : '1px solid #EEF2F6',
+                borderRadius: '3px'
+              }}
+              title="Swap X/Y axes"
+              aria-label="Swap X and Y axes"
+              type="button"
+            >
+              <FontAwesomeIcon icon={faRotate} style={{ fontSize: '16px' }} />
+            </button>
+          )}
+          {/* Pie Legend Orientation Toggle - for pie charts */}
           {chartVariant !== 'heatmap' && chartVariant === 'pie' && canUsePie && (
-            <div className="relative" ref={orientationMenuRef}>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setShowOrientationMenu(prev => !prev)
-                  setShowSortMenu(false)
-                  setShowFilter(false)
-                  setShowStatSigMenu(false)
+            <button
+              onClick={() => {
+                setPieLegendOrientation(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')
+              }}
+              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
+              style={{ height: '30px', width: '30px', backgroundColor: '#EBF3E7', border: '1px solid #EBF3E7', borderRadius: '3px' }}
+              title={`Switch to ${pieLegendOrientation === 'horizontal' ? 'vertical' : 'horizontal'} legend`}
+              aria-label="Toggle legend orientation"
+              type="button"
+            >
+              <FontAwesomeIcon
+                icon={faBars}
+                style={{
+                  fontSize: '16px',
+                  transform: pieLegendOrientation === 'horizontal' ? 'rotate(0deg)' : 'rotate(90deg)',
+                  transition: 'transform 0.2s ease'
                 }}
-                className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
-                style={{ height: '30px', width: '30px', backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}
-                title="Legend orientation"
-                aria-label="Toggle legend orientation menu"
-                type="button"
-              >
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="7" height="7" />
-                  <rect x="14" y="3" width="7" height="7" />
-                  <rect x="14" y="14" width="7" height="7" />
-                  <rect x="3" y="14" width="7" height="7" />
-                </svg>
-              </button>
-              {showOrientationMenu && (
-                <div className="absolute left-0 top-10 z-10 w-56 shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', opacity: 1 }}>
-                  <div className="px-4 py-3" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setPieLegendOrientation('horizontal')
-                        setShowOrientationMenu(false)
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          setPieLegendOrientation('horizontal')
-                          setShowOrientationMenu(false)
-                        }
-                      }}
-                      className="flex w-full items-center cursor-pointer px-2 py-2 text-sm transition hover:bg-gray-100 rounded"
-                      style={{ backgroundColor: '#EEF2F6', gap: '2px' }}
-                    >
-                      <input
-                        type="checkbox"
-                        readOnly
-                        checked={pieLegendOrientation === 'horizontal'}
-                        className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
-                      />
-                      <span className="text-gray-900 text-sm">Horizontal</span>
-                    </div>
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setPieLegendOrientation('vertical')
-                        setShowOrientationMenu(false)
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          setPieLegendOrientation('vertical')
-                          setShowOrientationMenu(false)
-                        }
-                      }}
-                      className="flex w-full items-center cursor-pointer px-2 py-2 text-sm transition hover:bg-gray-100 rounded"
-                      style={{ backgroundColor: '#EEF2F6', gap: '2px' }}
-                    >
-                      <input
-                        type="checkbox"
-                        readOnly
-                        checked={pieLegendOrientation === 'vertical'}
-                        className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
-                      />
-                      <span className="text-gray-900 text-sm">Vertical</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+              />
+            </button>
           )}
           {/* Sort Icon Dropdown */}
           {chartVariant !== 'heatmap' && (
@@ -718,15 +631,24 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 setShowStatSigMenu(false)
                 }}
               className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
-              style={{ height: '30px', width: '30px', backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}
+              style={{
+                height: '30px',
+                width: '30px',
+                backgroundColor: cardSort !== 'default' ? '#C8E2BA' : '#EBF3E7',
+                border: cardSort !== 'default' ? '1px solid #3A8518' : '1px solid #EBF3E7',
+                borderRadius: '3px'
+              }}
               title="Sort"
             >
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m21 16-4 4-4-4" />
-                <path d="M17 20V4" />
-                <path d="m3 8 4-4 4 4" />
-                <path d="M7 4v16" />
-              </svg>
+              <FontAwesomeIcon
+                icon={
+                  cardSort === 'ascending' ? faArrowUpShortWide :
+                  cardSort === 'descending' ? faArrowDownWideShort :
+                  cardSort === 'alphabetical' ? faArrowUpAZ :
+                  faSort
+                }
+                style={{ fontSize: '16px' }}
+              />
             </button>
             {showSortMenu && (
               <div className="absolute left-0 top-10 z-10 w-64 shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', opacity: 1 }}>
@@ -765,8 +687,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
             )}
           </div>
           )}
-          {/* Filter Icon Dropdown */}
-          {chartVariant !== 'heatmap' && (
+          {/* Filter Icon Dropdown - shows for all question types */}
           <div className="relative" ref={filterMenuRef}>
             <button
               onClick={(e) => {
@@ -777,14 +698,16 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 setShowStatSigMenu(false)
               }}
               className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
-              style={{ height: '30px', width: '30px', backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}
+              style={{
+                height: '30px',
+                width: '30px',
+                backgroundColor: selectedOptions.length < series.data.length ? '#C8E2BA' : '#EBF3E7',
+                border: selectedOptions.length < series.data.length ? '1px solid #3A8518' : '1px solid #EBF3E7',
+                borderRadius: '3px'
+              }}
               title="Filter Options"
             >
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 6h18" />
-                <path d="M7 12h10" />
-                <path d="M10 18h4" />
-              </svg>
+              <FontAwesomeIcon icon={faFilter} style={{ fontSize: '16px' }} />
             </button>
             {showFilter && (
               <div className="absolute left-0 top-10 z-50 w-[32rem] shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', opacity: 1 }}>
@@ -855,6 +778,9 @@ const ChartCard: React.FC<ChartCardProps> = ({
               </div>
             )}
           </div>
+          {/* Heatmap product filter portal */}
+          {chartVariant === 'heatmap' && isSentimentQuestion && (
+            <div id={`heatmap-filters-${question.qid}`}></div>
           )}
           {/* Stat Sig Dropdown */}
           {chartVariant !== 'heatmap' && !isOverallSegment && (
@@ -883,9 +809,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
               aria-label="Toggle stat significance filter menu"
               type="button"
             >
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-              </svg>
+              <FontAwesomeIcon icon={faStar} style={{ fontSize: '16px' }} />
             </button>
             {showStatSigMenu && (
               <div className="absolute right-0 top-10 z-10 w-60 shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', opacity: 1 }}>
@@ -947,37 +871,37 @@ const ChartCard: React.FC<ChartCardProps> = ({
             )}
           </div>
           )}
-          {(canUsePie || canUseStacked || canUseHeatmap) && (
+          {(canUsePie || canUseStacked || canUseHeatmap) && question.type !== 'ranking' && (
             <>
               <div className="flex items-center gap-0.5" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}>
                 <button
-                  className="text-base font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
+                  className="flex items-center justify-center transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
                   style={{
                     height: '30px',
                     width: '30px',
-                    backgroundColor: '#EEF2F6',
+                    backgroundColor: chartVariant === 'bar' ? '#D6E9FF' : '#EEF2F6',
                     border: chartVariant === 'bar' ? '1px solid #80BDFF' : '1px solid #EEF2F6',
-                    borderRadius: '3px',
-                    padding: '0 2px'
+                    borderRadius: '3px'
                   }}
                   onClick={() => setChartVariant('bar')}
+                  title="Bar chart"
                 >
-                  <span style={{ padding: '0 2px' }}>Bar</span>
+                  <FontAwesomeIcon icon={faChartSimple} style={{ fontSize: '16px' }} />
                 </button>
-                {canUsePie && (
+                {canUsePie && !isSentimentQuestion && (
                   <button
-                    className="text-base font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
+                    className="flex items-center justify-center transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
                     style={{
                       height: '30px',
                       width: '30px',
-                      backgroundColor: '#EEF2F6',
+                      backgroundColor: chartVariant === 'pie' ? '#D6E9FF' : '#EEF2F6',
                       border: chartVariant === 'pie' ? '1px solid #80BDFF' : '1px solid #EEF2F6',
-                      borderRadius: '3px',
-                      padding: '0 2px'
+                      borderRadius: '3px'
                     }}
                     onClick={() => setChartVariant('pie')}
+                    title="Pie chart"
                   >
-                    <span style={{ padding: '0 2px' }}>Pie</span>
+                    <FontAwesomeIcon icon={faChartPie} style={{ fontSize: '16px' }} />
                   </button>
                 )}
                 {canUseStacked && (
@@ -986,7 +910,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
                     style={{
                       height: '30px',
                       minWidth: '70px',
-                      backgroundColor: '#EEF2F6',
+                      backgroundColor: chartVariant === 'stacked' ? '#D6E9FF' : '#EEF2F6',
                       border: chartVariant === 'stacked' ? '1px solid #80BDFF' : '1px solid #EEF2F6',
                       borderRadius: '3px',
                       padding: '0 6px'
@@ -1001,24 +925,23 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 )}
                 {canUseHeatmap && (
                   <button
-                    className="text-base font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
+                    className="flex items-center justify-center transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
                     style={{
                       height: '30px',
                       width: '30px',
-                      backgroundColor: '#EEF2F6',
+                      backgroundColor: chartVariant === 'heatmap' ? '#D6E9FF' : '#EEF2F6',
                       border: chartVariant === 'heatmap' ? '1px solid #80BDFF' : '1px solid #EEF2F6',
-                      borderRadius: '3px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
+                      borderRadius: '3px'
                     }}
                     onClick={() => setChartVariant('heatmap')}
+                    title="Heatmap"
                   >
-                    Map
+                    <FontAwesomeIcon icon={faTableCellsLarge} style={{ fontSize: '16px' }} />
                   </button>
                 )}
               </div>
-              {chartVariant === 'heatmap' && (
+              {/* Portal div moved to be next to filter button for sentiment questions */}
+              {chartVariant === 'heatmap' && !isSentimentQuestion && (
                 <div id={`heatmap-filters-${question.qid}`}></div>
               )}
             </>
@@ -1026,7 +949,16 @@ const ChartCard: React.FC<ChartCardProps> = ({
         </div>
       </div>
 
-      <div ref={chartContentRef} style={{ display: 'inline-block', minWidth: '100%' }}>
+      <div ref={chartContentRef} style={{
+        display: 'inline-block',
+        minWidth: '100%',
+        paddingTop: '20px',
+        paddingBottom: '20px'
+      }}>
+      <div style={{
+        transform: 'scale(0.9)',
+        transformOrigin: 'top center'
+      }}>
       {(() => {
         console.log('Render Debug:', {
           qid: question.qid,
@@ -1187,14 +1119,16 @@ const ChartCard: React.FC<ChartCardProps> = ({
           if (isSentimentQuestion) {
             console.log('📊 Rendering SentimentHeatmap for sentiment question')
             return (
-              <SentimentHeatmap
-                dataset={dataset}
-                productColumn={productColumn}
-                questionLabel={displayLabel}
-                questionId={question.qid}
-                hideAsterisks={hideAsterisks}
-                onSaveQuestionLabel={onSaveQuestionLabel}
-              />
+              <div style={{ marginBottom: '20px' }}>
+                <SentimentHeatmap
+                  dataset={dataset}
+                  productColumn={productColumn}
+                  questionLabel={displayLabel}
+                  questionId={question.qid}
+                  hideAsterisks={hideAsterisks}
+                  onSaveQuestionLabel={onSaveQuestionLabel}
+                />
+              </div>
             )
           }
 
@@ -1246,8 +1180,8 @@ const ChartCard: React.FC<ChartCardProps> = ({
 
         return (
           <ComparisonChart
-            data={processedData}
-            groups={series.groups}
+            data={transposedData}
+            groups={transposedGroups}
             orientation={chartOrientation}
             questionLabel={displayLabel}
             colors={chartColors}
@@ -1257,6 +1191,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
           />
         )
       })()}
+      </div>
       </div>
     </div>
   )

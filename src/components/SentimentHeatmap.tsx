@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faShuffle, faFilter } from '@fortawesome/free-solid-svg-icons'
 import { ParsedCSV } from '../types'
 
 // Utility function to strip quotation marks from text
@@ -115,7 +117,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
   // Find sentiment column
   const sentimentColumn = useMemo(() => {
     return dataset.summary.columns.find(col =>
-      col.toLowerCase().includes('(sentiment)') && col.toLowerCase().includes('would you consider buying')
+      col.toLowerCase().includes('(sentiment)')
     )
   }, [dataset])
 
@@ -137,7 +139,16 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
 
       productRows.forEach(row => {
         const rating = row[sentimentColumn]
-        const numericRating = typeof rating === 'number' ? rating : Number(rating)
+        let numericRating: number
+
+        if (typeof rating === 'number') {
+          numericRating = rating
+        } else {
+          // Extract numeric value from strings like "4 - Probably" or "5"
+          const stringRating = String(rating).trim()
+          const match = stringRating.match(/^(\d+)/)
+          numericRating = match ? Number(match[1]) : Number(stringRating)
+        }
 
         if (Number.isFinite(numericRating)) {
           validResponses++
@@ -279,14 +290,16 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
         <button
           onClick={() => setShowProductFilter(!showProductFilter)}
           className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"
-          style={{ height: '30px', width: '30px', backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}
+          style={{
+            height: '30px',
+            width: '30px',
+            backgroundColor: selectedProducts.length < sortedProducts.length ? '#C8E2BA' : '#EEF2F6',
+            border: selectedProducts.length < sortedProducts.length ? '1px solid #3A8518' : '1px solid #EEF2F6',
+            borderRadius: '3px'
+          }}
           title="Filter Products"
         >
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 6h18" />
-            <path d="M7 12h10" />
-            <path d="M10 18h4" />
-          </svg>
+          <FontAwesomeIcon icon={faShuffle} style={{ fontSize: '16px' }} />
         </button>
         {showProductFilter && (
           <div className="absolute left-0 top-10 z-50 w-[20rem] shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}>
