@@ -790,16 +790,12 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 setShowFilter(false)
                 setShowSortMenu(false)
               }}
-              className={`flex items-center justify-center transition-all duration-200 text-xs font-semibold shadow-sm active:scale-95 cursor-pointer ${
-                filterSignificantOnly || statSigFilter === 'statSigOnly'
-                  ? 'bg-brand-green text-white hover:bg-green-600'
-                  : 'text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900'
-              }`}
+              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
               style={{
                 height: '30px',
                 width: '30px',
-                backgroundColor: filterSignificantOnly || statSigFilter === 'statSigOnly' ? undefined : '#EEF2F6',
-                border: filterSignificantOnly || statSigFilter === 'statSigOnly' ? '1px solid #10B981' : '1px solid #EEF2F6',
+                backgroundColor: filterSignificantOnly || statSigFilter === 'statSigOnly' ? '#C8E2BA' : '#EBF3E7',
+                border: filterSignificantOnly || statSigFilter === 'statSigOnly' ? '1px solid #3A8518' : '1px solid #EBF3E7',
                 borderRadius: '3px'
               }}
               title="Statistical Significance Filter"
