@@ -557,7 +557,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
       <div className="flex items-center justify-between gap-2 pb-2">
         <div className="flex items-center gap-2" style={{ paddingLeft: '40px' }}>
           {/* Chart Orientation Toggle - for bar charts and stacked charts */}
-          {chartVariant !== 'heatmap' && (chartVariant === 'bar' || chartVariant === 'stacked') && (
+          {chartVariant !== 'heatmap' && (chartVariant === 'bar' || chartVariant === 'stacked') && question.type !== 'ranking' && (
             <button
               onClick={() => {
                 setChartOrientation(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')
@@ -620,7 +620,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
             </button>
           )}
           {/* Sort Icon Dropdown */}
-          {chartVariant !== 'heatmap' && (
+          {chartVariant !== 'heatmap' && question.type !== 'ranking' && (
           <div className="relative" ref={sortMenuRef}>
             <button
               onClick={(e) => {
