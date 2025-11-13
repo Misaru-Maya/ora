@@ -781,7 +781,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
             <div id={`heatmap-filters-${question.qid}`}></div>
           )}
           {/* Stat Sig Dropdown */}
-          {chartVariant !== 'heatmap' && !isOverallSegment && (
+          {chartVariant !== 'heatmap' && !isOverallSegment && question.type !== 'ranking' && (
           <div className="relative" ref={statSigMenuRef}>
             <button
               onClick={(e) => {
