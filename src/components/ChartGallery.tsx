@@ -579,7 +579,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
             </button>
           )}
           {/* Swap Axes Button - for bar charts with multiple segments */}
-          {chartVariant !== 'heatmap' && chartVariant === 'bar' && series.groups.length > 1 && (
+          {chartVariant !== 'heatmap' && chartVariant === 'bar' && series.groups.length > 1 && question.type !== 'ranking' && (
             <button
               onClick={() => setAxesSwapped(prev => !prev)}
               className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
