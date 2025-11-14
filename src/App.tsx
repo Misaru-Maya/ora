@@ -126,10 +126,15 @@ function autoDefaultProducts(rows: any[], column: string): string[] {
   return values
 }
 
-// Filter for segmentation dropdown: exclude ranking questions only
+// Filter for segmentation dropdown: exclude ranking and sentiment questions
 function shouldIncludeInSegmentation(question: QuestionDef, rows: any[]): boolean {
   // Exclude ranking questions
   if (question.type === 'ranking') {
+    return false
+  }
+
+  // Exclude sentiment/Likert questions
+  if (question.isLikert) {
     return false
   }
 
