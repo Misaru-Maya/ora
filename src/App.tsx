@@ -1038,7 +1038,7 @@ export default function App() {
             <div style={{ width: '240px' }}>
               <CSVUpload />
             </div>
-            <span className="text-brand-gray font-semibold truncate" style={{ fontSize: '12px', maxWidth: '200px' }}>
+            <span className="text-brand-gray font-semibold truncate" style={{ fontSize: '12px', maxWidth: '400px', display: 'block' }} title={cleanFileName(summary.fileName)}>
               {cleanFileName(summary.fileName)}
             </span>
           </div>
