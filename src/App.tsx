@@ -1034,10 +1034,13 @@ export default function App() {
         }}
       >
         <div className="flex w-full items-center justify-center gap-4 px-4">
-          <div className="w-[480px] flex-shrink-0 flex justify-start" style={{ paddingLeft: '30px' }}>
+          <div className="w-[480px] flex-shrink-0 flex justify-start items-center gap-3" style={{ paddingLeft: '30px' }}>
             <div style={{ width: '240px' }}>
               <CSVUpload />
             </div>
+            <span className="text-brand-gray font-semibold truncate" style={{ fontSize: '12px', maxWidth: '200px' }}>
+              {cleanFileName(summary.fileName)}
+            </span>
           </div>
           <div className="flex-1 flex justify-center">
             <h2 className="text-center text-lg font-semibold text-brand-gray">
@@ -1115,12 +1118,6 @@ export default function App() {
             >
           {summary && (
             <>
-              <div className="flex items-start gap-2" style={{ marginBottom: '25px', paddingLeft: '62px' }}>
-                <h3 className="font-semibold text-brand-gray break-words" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, fontSize: '12px' }}>
-                  {cleanFileName(summary.fileName)}
-                </h3>
-              </div>
-
               {/* Filter Summary */}
               <div className="rounded-lg bg-white px-4 py-3 shadow-sm" style={{ fontSize: '13px', marginBottom: '20px', width: '100%', overflow: 'hidden' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
