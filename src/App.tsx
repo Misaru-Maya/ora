@@ -1554,8 +1554,12 @@ export default function App() {
                             const next = new Set(prev)
                             if (isExpanded) {
                               next.delete('consumerQuestions')
+                              // Close dropdown when collapsing
+                              setQuestionDropdownOpen(false)
                             } else {
                               next.add('consumerQuestions')
+                              // Open dropdown when expanding
+                              setQuestionDropdownOpen(true)
                             }
                             return next
                           })
@@ -1654,7 +1658,7 @@ export default function App() {
                                 </div>
 
                                 {/* Questions List */}
-                                <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
+                                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                                 {filteredSegmentationQuestions.length === 0 ? (
                                   <div style={{ padding: '12px 8px', fontSize: '11px', color: '#6B7280', textAlign: 'center' }}>
                                     No questions found
