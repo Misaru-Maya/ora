@@ -126,13 +126,8 @@ function autoDefaultProducts(rows: any[], column: string): string[] {
   return values
 }
 
-// Filter for segmentation dropdown: only consumer questions (non-product, repeated, non-sentiment, non-ranking)
+// Filter for segmentation dropdown: exclude sentiment and ranking questions only
 function shouldIncludeInSegmentation(question: QuestionDef, rows: any[]): boolean {
-  // Exclude product-level questions (only include respondent-level)
-  if (question.level !== 'respondent') {
-    return false
-  }
-
   // Exclude sentiment questions (isLikert)
   if (question.isLikert) {
     return false
@@ -141,30 +136,6 @@ function shouldIncludeInSegmentation(question: QuestionDef, rows: any[]): boolea
   // Exclude ranking questions
   if (question.type === 'ranking') {
     return false
-  }
-
-  // Only include questions that appear multiple times (repeated across rows)
-  // For single questions, check if the source column appears in multiple rows
-  if (question.type === 'single' && question.singleSourceColumn) {
-    const sourceColumn = question.singleSourceColumn
-    const uniqueRespondents = new Set(rows.map(r => String(r['Respondent Id'] || '').trim()).filter(Boolean))
-    // If unique respondents is less than total rows, question is repeated
-    const questionCount = rows.filter(r => {
-      const value = String(r[sourceColumn] || '').trim()
-      return value && value !== 'null' && value !== 'undefined'
-    }).length
-    return questionCount > uniqueRespondents.size
-  }
-
-  // For multi questions, similar check
-  if (question.type === 'multi' && question.columns.length > 0) {
-    const firstColumn = question.columns[0].header
-    const uniqueRespondents = new Set(rows.map(r => String(r['Respondent Id'] || '').trim()).filter(Boolean))
-    const questionCount = rows.filter(r => {
-      const value = String(r[firstColumn] || '').trim()
-      return value && value !== 'null' && value !== 'undefined'
-    }).length
-    return questionCount > uniqueRespondents.size
   }
 
   return true
