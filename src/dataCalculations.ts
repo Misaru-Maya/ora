@@ -155,15 +155,24 @@ export function buildSeries({
     // Calculate Overall counts first
     const overallCounts: Record<string, number> = {}
     if (question.level === 'row' || dataset.summary.isProductTest) {
+      // COUNT AT RESPONDENT LEVEL: Count unique respondents (changed from row-level)
+      const seen = new Map<string, string>()
       for (const r of overallInfo.rows) {
+        const respondent = stripQuotes(String(r[respIdCol] ?? '').trim())
+        if (!respondent) continue
         const value = stripQuotes(String(r[question.singleSourceColumn!] ?? '').trim())
         if (!value) continue
+        // Only count first response from each respondent
+        if (!seen.has(respondent)) {
+          seen.set(respondent, value)
+        }
+      }
+      seen.forEach(value => {
         const normalized = value.toLowerCase()
         overallCounts[normalized] = (overallCounts[normalized] || 0) + 1
-      }
-      const totalAnswered = Object.values(overallCounts).reduce((sum, count) => sum + count, 0)
+      })
       overallInfo.singleCounts = overallCounts
-      overallInfo.singleDenom = totalAnswered
+      overallInfo.singleDenom = seen.size
     } else {
       const seen = new Map<string, string>()
       for (const r of overallInfo.rows) {
@@ -185,19 +194,25 @@ export function buildSeries({
     for (const [groupLabel, info] of groupInfo.entries()) {
       const counts: Record<string, number> = {}
 
-      // For product-level questions, count all responses (rows), not just unique respondents
+      // COUNT AT RESPONDENT LEVEL: Count unique respondents (changed from row-level)
       if (question.level === 'row' || dataset.summary.isProductTest) {
-        // Count all rows with answers
+        const seen = new Map<string, string>()
         for (const r of info.rows) {
+          const respondent = stripQuotes(String(r[respIdCol] ?? '').trim())
+          if (!respondent) continue
           const value = stripQuotes(String(r[question.singleSourceColumn!] ?? '').trim())
           if (!value) continue
+          // Only count first response from each respondent
+          if (!seen.has(respondent)) {
+            seen.set(respondent, value)
+          }
+        }
+        seen.forEach(value => {
           const normalized = value.toLowerCase()
           counts[normalized] = (counts[normalized] || 0) + 1
-        }
-        // Denominator is total rows with answers
-        const totalAnswered = Object.values(counts).reduce((sum, count) => sum + count, 0)
+        })
         info.singleCounts = counts
-        info.singleDenom = totalAnswered
+        info.singleDenom = seen.size
       } else {
         // For respondent-level questions, count unique respondents
         const seen = new Map<string, string>()
@@ -277,17 +292,20 @@ export function buildSeries({
         const isRowLevel = question.level === 'row' || dataset.summary.isProductTest
 
         if (isRowLevel) {
-          // COUNT AT ROW LEVEL: Each row (product) is counted separately
-          let rowsWithThisOption = 0
-          let totalRowsAnswered = 0
+          // COUNT AT RESPONDENT LEVEL: Each unique respondent is counted once (changed from row-level)
+          const seen = new Set<string>()
+          const answeredRespondents = new Set<string>()
 
           if (question.textSummaryColumn && col.header.startsWith('__TEXT_MULTI__')) {
             const optionLabelLower = optionLabel.toLowerCase()
             for (const r of info.rows) {
+              const respondent = normalizeValue(r[respIdCol])
+              if (!respondent) continue
+
               const textValue = r[question.textSummaryColumn]
               if (!textValue || textValue === '') continue
 
-              totalRowsAnswered += 1
+              answeredRespondents.add(respondent)
 
               const cleanedValue = stripQuotes(String(textValue).trim())
               const options = cleanedValue.includes('|')
@@ -295,7 +313,7 @@ export function buildSeries({
                 : [cleanedValue.toLowerCase()]
 
               if (options.includes(optionLabelLower)) {
-                rowsWithThisOption += 1
+                seen.add(respondent)
               }
             }
           } else {
@@ -305,6 +323,9 @@ export function buildSeries({
             )
 
             for (const r of info.rows) {
+              const respondent = normalizeValue(r[respIdCol])
+              if (!respondent) continue
+
               let hasAnswerForThisRow = false
               for (const h of allQuestionHeaders) {
                 const val = r[h]
@@ -315,20 +336,20 @@ export function buildSeries({
               }
               if (!hasAnswerForThisRow) continue
 
-              totalRowsAnswered += 1
+              answeredRespondents.add(respondent)
 
               for (const header of headersToCheck) {
                 const v = r[header]
                 if (v === 1 || v === true || v === '1' || v === 'true' || v === 'Y') {
-                  rowsWithThisOption += 1
+                  seen.add(respondent)
                   break
                 }
               }
             }
           }
 
-          count = rowsWithThisOption
-          denom = totalRowsAnswered
+          count = seen.size
+          denom = answeredRespondents.size
         } else {
           // COUNT AT RESPONDENT LEVEL: Each unique respondent is counted once
           const seen = new Set<string>()
@@ -455,16 +476,20 @@ export function buildSeries({
       const isRowLevel = question.level === 'row' || dataset.summary.isProductTest
 
       if (isRowLevel) {
-        let rowsWithThisOption = 0
-        let totalRowsAnswered = 0
+        // COUNT AT RESPONDENT LEVEL: Each unique respondent is counted once (changed from row-level)
+        const seen = new Set<string>()
+        const answeredRespondents = new Set<string>()
 
         if (question.textSummaryColumn && col.header.startsWith('__TEXT_MULTI__')) {
           const optionLabelLower = optionLabel.toLowerCase()
           for (const r of overallInfo.rows) {
+            const respondent = normalizeValue(r[respIdCol])
+            if (!respondent) continue
+
             const textValue = r[question.textSummaryColumn]
             if (!textValue || textValue === '') continue
 
-            totalRowsAnswered += 1
+            answeredRespondents.add(respondent)
 
             const cleanedValue = stripQuotes(String(textValue).trim())
             const options = cleanedValue.includes('|')
@@ -472,7 +497,7 @@ export function buildSeries({
               : [cleanedValue.toLowerCase()]
 
             if (options.includes(optionLabelLower)) {
-              rowsWithThisOption += 1
+              seen.add(respondent)
             }
           }
         } else {
@@ -482,6 +507,9 @@ export function buildSeries({
           )
 
           for (const r of overallInfo.rows) {
+            const respondent = normalizeValue(r[respIdCol])
+            if (!respondent) continue
+
             let hasAnswerForThisRow = false
             for (const h of allQuestionHeaders) {
               const val = r[h]
@@ -492,20 +520,20 @@ export function buildSeries({
             }
             if (!hasAnswerForThisRow) continue
 
-            totalRowsAnswered += 1
+            answeredRespondents.add(respondent)
 
             for (const header of headersToCheck) {
               const v = r[header]
               if (v === 1 || v === true || v === '1' || v === 'true' || v === 'Y') {
-                rowsWithThisOption += 1
+                seen.add(respondent)
                 break
               }
             }
           }
         }
 
-        overallCount = rowsWithThisOption
-        overallDenom = totalRowsAnswered
+        overallCount = seen.size
+        overallDenom = answeredRespondents.size
       } else {
         const seen = new Set<string>()
         const answeredRespondents = new Set<string>()

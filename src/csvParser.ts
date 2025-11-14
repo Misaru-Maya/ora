@@ -56,19 +56,21 @@ function extractBaseAndOption(header: string): { base: string, option?: string }
       return { base, option }
     }
 
-    // For ranking/multi questions with format: "...Example: text...": "Option"
-    // Find the LAST colon that precedes a quoted value
-    const lastColonIndex = header.lastIndexOf(':')
+    // For ranking/multi questions with format: "...Example: text... : Option"
+    // Find the LAST colon that precedes the option value
+    // But exclude colons that are part of "Example:" explanatory text
+    const lastColonIndex = header.lastIndexOf(' : ')
     if (lastColonIndex > 0) {
-      const afterColon = header.slice(lastColonIndex + 1).trim()
-      // Check if what comes after the last colon is a quoted value
-      if (afterColon.startsWith('"') || afterColon.startsWith('"') || afterColon.startsWith('"')) {
-        // Remove all types of quotes at start and end
+      const afterColon = header.slice(lastColonIndex + 3).trim()
+      // Check if there's actual content after the colon (the option)
+      // Skip if it starts with numbers (like "1 = most preferred") which indicates it's part of the example text
+      if (afterColon && !afterColon.match(/^\d+\s*=/)) {
         option = afterColon
           .replace(/^["'""']+/, '')  // Remove leading quotes
           .replace(/["'""']+$/, '')  // Remove trailing quotes
           .trim()
         base = header.slice(0, lastColonIndex).replace(/["\s]+$/, '').trim()
+        return { base, option }
       }
     }
 	  }

@@ -316,9 +316,12 @@ export default function App() {
   }, [dataset, rowsRaw, selections.productColumn])
 
   const useAllProducts = !selections.productColumn || selections.productGroups.length === 0 || selections.productGroups.length === productValues.length
-  const rows = useAllProducts
-    ? rowsRaw
-    : rowsRaw.filter(row => selections.productGroups.includes(normalizeProductValue(row[selections.productColumn!])) )
+
+  const rows = useMemo(() => {
+    return useAllProducts
+      ? rowsRaw
+      : rowsRaw.filter(row => selections.productGroups.includes(normalizeProductValue(row[selections.productColumn!])))
+  }, [useAllProducts, rowsRaw, selections.productGroups, selections.productColumn])
 
   const filteredDataset = useMemo(() => {
     if (!dataset) return null
@@ -360,6 +363,54 @@ export default function App() {
     return sidebarOrder.filter(value => selections.groups.includes(value))
   }, [selections.segmentColumn, selections.groups, segmentValues])
 
+  // Memoize filtered respondent count for performance
+  const filteredRespondentCount = useMemo(() => {
+    if (!dataset || !rows) return 0
+
+    const respIdCol = dataset.summary.columns.find(
+      c => c.toLowerCase() === 'respondent id' || c.toLowerCase() === 'respondent_id'
+    ) || dataset.summary.columns[0]
+
+    // stripQuotes function matching dataCalculations.ts
+    const stripQuotes = (value: string): string => {
+      if (!value) return value
+      let result = value.trim()
+      if ((result.startsWith('"') && result.endsWith('"')) || (result.startsWith('"') && result.endsWith('"'))) {
+        result = result.slice(1, -1)
+      } else if (result.startsWith("'") && result.endsWith("'")) {
+        result = result.slice(1, -1)
+      }
+      return result.replace(/""/g, '"').trim()
+    }
+
+    const uniq = <T,>(arr: T[]): T[] => Array.from(new Set(arr))
+
+    // Filter rows by selected segments using the SAME logic as dataCalculations.ts
+    const selectedSegments = selections.segments || []
+    let filteredRows = rows
+
+    if (selectedSegments.length > 0) {
+      // Filter to only include rows that match at least one selected segment
+      filteredRows = rows.filter(row => {
+        return selectedSegments.some(segment => {
+          if (segment.column === 'Overall') return true
+          return stripQuotes(String(row[segment.column])) === stripQuotes(segment.value)
+        })
+      })
+    }
+
+    const uniqueRespondents = uniq(
+      filteredRows.map(r => stripQuotes(String(r[respIdCol] ?? '').trim())).filter(Boolean)
+    )
+    return uniqueRespondents.length
+  }, [dataset, rows, selections.segments])
+
+  // Create stable reference for segments to avoid unnecessary recalculations
+  const segmentsKey = useMemo(() =>
+    JSON.stringify(selections.segments || []),
+    [selections.segments]
+  )
+
   const { data, groups } = useMemo(() => {
     if (!filteredDataset || !currentQuestion) {
       return { data: [], groups: [] }
@@ -392,7 +443,8 @@ export default function App() {
     }
 
     return result
-  }, [filteredDataset, currentQuestion, selections.segmentColumn, selections.segments, orderedGroups, selections.sortOrder, selections.groupLabels])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredDataset, currentQuestion, selections.segmentColumn, segmentsKey, orderedGroups, selections.sortOrder, selections.groupLabels])
 
   useEffect(() => {
     if (!selections.segmentColumn) return
@@ -804,6 +856,114 @@ export default function App() {
                   {cleanFileName(summary.fileName)}
                 </h3>
               </div>
+
+              {/* Filter Summary */}
+              <div className="rounded-lg bg-white px-4 py-3 shadow-sm" style={{ fontSize: '13px', marginBottom: '20px', width: '100%', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                  {/* Respondent Count */}
+                  <div className="text-brand-gray" style={{ fontSize: '12px' }}>
+                    {filteredRespondentCount} of {summary.uniqueRespondents} respondents
+                  </div>
+
+                  {/* Active Filters */}
+                  {(() => {
+                    const activeFilters = []
+
+                    // Add segment filters (excluding Overall)
+                    const selectedSegments = (selections.segments || []).filter(s => s.column !== 'Overall')
+                    selectedSegments.forEach(segment => {
+                      activeFilters.push({
+                        type: 'segment',
+                        column: segment.column,
+                        value: segment.value,
+                        label: getGroupDisplayLabel(segment.value)
+                      })
+                    })
+
+                    // Add product filters
+                    if (productColumn && selections.productGroups.length > 0 && selections.productGroups.length < productValues.length) {
+                      selections.productGroups.forEach(product => {
+                        activeFilters.push({
+                          type: 'product',
+                          value: product,
+                          label: product
+                        })
+                      })
+                    }
+
+                    if (activeFilters.length === 0) return null
+
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', width: '100%' }}>
+                          {activeFilters.map((filter, idx) => (
+                            <div
+                              key={idx}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '4px 8px',
+                                backgroundColor: '#f3f4f6',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                color: '#374151',
+                                maxWidth: '100%'
+                              }}
+                            >
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{filter.label}</span>
+                              <button
+                                onClick={() => {
+                                  if (filter.type === 'segment') {
+                                    toggleSegment(filter.column, filter.value)
+                                  } else if (filter.type === 'product') {
+                                    toggleProductGroup(filter.value)
+                                  }
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  padding: '0',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  color: '#6b7280'
+                                }}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M18 6L6 18M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => {
+                            setSelections({ segments: [{ column: 'Overall', value: 'Overall' }], productGroups: [] })
+                          }}
+                          style={{
+                            alignSelf: 'flex-start',
+                            padding: '6px 12px',
+                            backgroundColor: 'white',
+                            border: '1px solid #3A8518',
+                            borderRadius: '6px',
+                            color: '#3A8518',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            fontFamily: 'Space Grotesk, sans-serif'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0fdf4'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                        >
+                          Clear All
+                        </button>
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
+
               <div className="flex flex-col gap-[10px]">
                 <section className="space-y-3 rounded-xl bg-white p-5 shadow-sm">
                   <div
@@ -888,19 +1048,20 @@ export default function App() {
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-brand-gray/70">
-                          <button
-                            className="transition hover:bg-brand-pale-gray cursor-pointer"
-                            style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', textDecoration: 'underline', fontFamily: 'Space Grotesk, sans-serif' }}
-                            onClick={() => setSelections({ segments: [] })}
-                          >
-                            Clear
-                          </button>
-                        </div>
                       </div>
                     </div>
                     {/* All segment columns */}
-                    {segmentColumns.filter(col => col !== 'Overall').map((column, index) => {
+                    {segmentColumns
+                      .filter(col => col !== 'Overall')
+                      .sort((a, b) => {
+                        // Put Product Preference first, then Country, then others
+                        if (a.toLowerCase().includes('product preference')) return -1
+                        if (b.toLowerCase().includes('product preference')) return 1
+                        if (a.toLowerCase() === 'country') return -1
+                        if (b.toLowerCase() === 'country') return 1
+                        return 0
+                      })
+                      .map((column, index) => {
                       const rawValues = Array.from(new Set(rows.map(r => stripQuotesFromValue(String(r[column])))))
                         .filter(v => {
                           if (!v || v === 'null' || v === 'undefined') return false
@@ -946,25 +1107,34 @@ export default function App() {
                               </svg>
                               <h5 className="text-2xl font-semibold text-brand-gray group-hover:text-brand-green transition-colors">{column}</h5>
                             </div>
-                            <div className="flex items-center gap-3 text-xs text-brand-gray/70">
-                              <button
-                                className="transition hover:bg-brand-pale-gray cursor-pointer"
-                                style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', textDecoration: 'underline', fontFamily: 'Space Grotesk, sans-serif' }}
-                                onClick={() => handleSelectAllInColumn(column, values)}
-                              >
-                                All
-                              </button>
-                              <button
-                                className="transition hover:bg-brand-pale-gray cursor-pointer"
-                                style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', textDecoration: 'underline', fontFamily: 'Space Grotesk, sans-serif' }}
-                                onClick={() => handleClearColumn(column)}
-                              >
-                                Clear
-                              </button>
-                            </div>
                           </div>
                           {isExpanded && (
                             <div className="pl-[10px]">
+                            {/* Select all checkbox */}
+                            <div className="flex items-center mb-2" style={{ gap: '5px' }}>
+                              <input
+                                type="checkbox"
+                                className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0 cursor-pointer"
+                                checked={(() => {
+                                  // Check if all values in this column are selected
+                                  const selectedInColumn = (selections.segments || []).filter(s => s.column === column)
+                                  return selectedInColumn.length === values.length
+                                })()}
+                                onChange={() => {
+                                  const selectedInColumn = (selections.segments || []).filter(s => s.column === column)
+                                  if (selectedInColumn.length === values.length) {
+                                    // Deselect all - go back to Overall
+                                    handleClearColumn(column)
+                                  } else {
+                                    // Select all
+                                    handleSelectAllInColumn(column, values)
+                                  }
+                                }}
+                              />
+                              <label className="text-brand-gray cursor-pointer" style={{ fontSize: '12px', fontFamily: 'Space Grotesk, sans-serif' }}>
+                                Select all
+                              </label>
+                            </div>
                             {values.map(value => (
                               <div key={value} className="flex items-center" style={{ gap: '5px' }}>
                                 <input
@@ -1122,23 +1292,25 @@ export default function App() {
                     </div>
                     {expandedSections.has('products') && (
                     <div className="pl-[10px]">
-                    <div className="flex items-center justify-end gap-3 text-xs text-brand-gray/70" style={{ paddingBottom: '5px' }}>
-                      <button
-                        className="transition hover:bg-brand-pale-gray cursor-pointer"
-                        style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', textDecoration: 'underline', fontFamily: 'Space Grotesk, sans-serif' }}
-                        onClick={handleSelectAllProducts}
-                      >
-                        All
-                      </button>
-                      <button
-                        className="transition hover:bg-brand-pale-gray cursor-pointer"
-                        style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', textDecoration: 'underline', fontFamily: 'Space Grotesk, sans-serif' }}
-                        onClick={handleClearProducts}
-                      >
-                        Clear
-                      </button>
-                    </div>
                     <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg bg-white px-2 py-2">
+                      {/* Select all checkbox */}
+                      <div className="flex items-center mb-2" style={{ gap: '4px' }}>
+                        <input
+                          type="checkbox"
+                          className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0 cursor-pointer"
+                          checked={selections.productGroups.length === productValues.length}
+                          onChange={() => {
+                            if (selections.productGroups.length === productValues.length) {
+                              handleClearProducts()
+                            } else {
+                              handleSelectAllProducts()
+                            }
+                          }}
+                        />
+                        <label className="text-brand-gray cursor-pointer" style={{ fontSize: '12px', fontFamily: 'Space Grotesk, sans-serif' }}>
+                          Select all
+                        </label>
+                      </div>
                       {productValues.map(value => (
                         <label key={value} className="flex items-center text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px', fontSize: '12px' }}>
                           <input
