@@ -1033,12 +1033,12 @@ export default function App() {
           justifyContent: 'center'
         }}
       >
-        <div className="flex w-full items-center justify-center gap-4 px-4">
-          <div className="w-[480px] flex-shrink-0 flex justify-start items-center gap-3" style={{ paddingLeft: '30px' }}>
-            <div style={{ width: '240px' }}>
+        <div className="flex w-full items-center justify-center gap-2 px-4">
+          <div className="w-[600px] flex-shrink-0 flex justify-start items-center gap-3" style={{ paddingLeft: '30px' }}>
+            <div style={{ width: '240px', flexShrink: 0 }}>
               <CSVUpload />
             </div>
-            <span className="text-brand-gray font-semibold truncate" style={{ fontSize: '12px', maxWidth: '400px', display: 'block' }} title={cleanFileName(summary.fileName)}>
+            <span className="text-brand-gray font-semibold truncate" style={{ fontSize: '12px', maxWidth: '320px', display: 'block' }} title={cleanFileName(summary.fileName)}>
               {cleanFileName(summary.fileName)}
             </span>
           </div>
