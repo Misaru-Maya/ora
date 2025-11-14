@@ -126,6 +126,50 @@ function autoDefaultProducts(rows: any[], column: string): string[] {
   return values
 }
 
+// Filter for segmentation dropdown: only consumer questions (non-product, repeated, non-sentiment, non-ranking)
+function shouldIncludeInSegmentation(question: QuestionDef, rows: any[]): boolean {
+  // Exclude product-level questions (only include respondent-level)
+  if (question.level !== 'respondent') {
+    return false
+  }
+
+  // Exclude sentiment questions (isLikert)
+  if (question.isLikert) {
+    return false
+  }
+
+  // Exclude ranking questions
+  if (question.type === 'ranking') {
+    return false
+  }
+
+  // Only include questions that appear multiple times (repeated across rows)
+  // For single questions, check if the source column appears in multiple rows
+  if (question.type === 'single' && question.singleSourceColumn) {
+    const sourceColumn = question.singleSourceColumn
+    const uniqueRespondents = new Set(rows.map(r => String(r['Respondent Id'] || '').trim()).filter(Boolean))
+    // If unique respondents is less than total rows, question is repeated
+    const questionCount = rows.filter(r => {
+      const value = String(r[sourceColumn] || '').trim()
+      return value && value !== 'null' && value !== 'undefined'
+    }).length
+    return questionCount > uniqueRespondents.size
+  }
+
+  // For multi questions, similar check
+  if (question.type === 'multi' && question.columns.length > 0) {
+    const firstColumn = question.columns[0].header
+    const uniqueRespondents = new Set(rows.map(r => String(r['Respondent Id'] || '').trim()).filter(Boolean))
+    const questionCount = rows.filter(r => {
+      const value = String(r[firstColumn] || '').trim()
+      return value && value !== 'null' && value !== 'undefined'
+    }).length
+    return questionCount > uniqueRespondents.size
+  }
+
+  return true
+}
+
 // Filter out zipcode and free text questions
 function shouldIncludeQuestion(question: QuestionDef): boolean {
   const labelLower = question.label.toLowerCase()
@@ -197,16 +241,23 @@ export default function App() {
     new Set(['color'])
   )
 
+  const rowsRaw = dataset?.rows || []
+
   const questions = useMemo(() => {
     if (!dataset) return []
     return [...dataset.questions]
       .filter(shouldIncludeQuestion)
   }, [dataset])
 
+  // Questions available for segmentation dropdown
+  const segmentationQuestions = useMemo(() => {
+    if (!dataset) return []
+    return [...dataset.questions]
+      .filter(q => shouldIncludeInSegmentation(q, rowsRaw))
+  }, [dataset, rowsRaw])
+
   const filteredQuestions = questions
   const statSigFilter = selections.statSigFilter || 'all'
-
-  const rowsRaw = dataset?.rows || []
   const segmentColumns = dataset?.segmentColumns || []
   const summary = dataset?.summary
   const productColumn = useMemo(() => {
@@ -1221,7 +1272,7 @@ export default function App() {
                     </div>
 
                     {/* Questions section for segmentation */}
-                    {questions.length > 0 && (
+                    {segmentationQuestions.length > 0 && (
                       <div className="space-y-2" style={{ paddingBottom: '5px', paddingTop: '10px' }}>
                         <div className="flex items-center justify-between">
                           <div
@@ -1248,7 +1299,7 @@ export default function App() {
                         {questionDropdownOpen && (
                           <div className="pl-[10px]">
                             <div className="max-h-64 overflow-y-auto rounded-lg bg-gray-50 border border-gray-200 p-2">
-                              {questions.map((q) => {
+                              {segmentationQuestions.map((q) => {
                                 const isSelected = (selections.questionSegments || []).includes(q.qid)
                                 return (
                                   <div
