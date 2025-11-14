@@ -139,10 +139,48 @@ export function buildSeries({
     singleDenom?: number
   }>>((map, segment) => {
     const groupLabel = segment.value
+
     // Handle "Overall" as a special case: include ALL rows
-    const filtered = segment.value === 'Overall'
-      ? rows
-      : rows.filter(r => stripQuotes(String(r[segment.column])) === stripQuotes(segment.value))
+    if (segment.value === 'Overall') {
+      const respondentIds = uniq(rows.map(r => stripQuotes(String(r[respIdCol] ?? '').trim())).filter(Boolean))
+      map.set(groupLabel, {
+        rows: rows,
+        uniqueRespondents: respondentIds
+      })
+      return map
+    }
+
+    // Check if segment.column is a question ID (consumer question used as segment)
+    const segmentQuestion = dataset.questions.find(q => q.qid === segment.column)
+
+    let filtered: Record<string, any>[]
+
+    if (segmentQuestion) {
+      // This is a consumer question used as a segment
+      if (segmentQuestion.type === 'single' && segmentQuestion.singleSourceColumn) {
+        // Single-select question: filter by the value in the source column
+        filtered = rows.filter(r => stripQuotes(String(r[segmentQuestion.singleSourceColumn!])) === stripQuotes(segment.value))
+      } else if (segmentQuestion.type === 'multi') {
+        // Multi-select question: find the column for this option
+        const optionColumn = segmentQuestion.columns.find(col => col.optionLabel === segment.value)
+        if (optionColumn) {
+          // Filter rows where this option's column has a truthy value (1, "1", true, etc.)
+          filtered = rows.filter(r => {
+            const val = r[optionColumn.header]
+            return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE'
+          })
+        } else {
+          filtered = []
+        }
+      } else {
+        // Unsupported question type for segmentation
+        filtered = []
+      }
+    } else {
+      // Regular segment column (Age, Gender, etc.)
+      filtered = rows.filter(r => stripQuotes(String(r[segment.column])) === stripQuotes(segment.value))
+    }
+
     const respondentIds = uniq(filtered.map(r => stripQuotes(String(r[respIdCol] ?? '').trim())).filter(Boolean))
     map.set(groupLabel, {
       rows: filtered,
