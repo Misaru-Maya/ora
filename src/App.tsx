@@ -126,18 +126,14 @@ function autoDefaultProducts(rows: any[], column: string): string[] {
   return values
 }
 
-// Filter for segmentation dropdown: exclude ranking and sentiment questions
+// Filter for segmentation dropdown: exclude ranking questions only
 function shouldIncludeInSegmentation(question: QuestionDef, rows: any[]): boolean {
   // Exclude ranking questions
   if (question.type === 'ranking') {
     return false
   }
 
-  // Exclude sentiment/Likert questions
-  if (question.isLikert) {
-    return false
-  }
-
+  // Include Likert/sentiment questions
   return true
 }
 
@@ -470,6 +466,8 @@ export default function App() {
     let filteredRows = rows
 
     if (selectedSegments.length > 0) {
+      console.log('[RESPONDENT COUNT] Selected segments:', selectedSegments)
+
       // Group segments by column for proper OR logic within same question
       const segmentsByColumn = new Map<string, string[]>()
       selectedSegments.forEach(seg => {
@@ -479,11 +477,16 @@ export default function App() {
         segmentsByColumn.set(seg.column, values)
       })
 
+      console.log('[RESPONDENT COUNT] Segments by column:', Array.from(segmentsByColumn.entries()))
+
       // Filter rows where they match at least one value from EACH column group (AND across columns, OR within column)
       filteredRows = rows.filter(row => {
-        // If Overall is selected, include this row (Overall means all rows)
+        // If Overall is selected alone, include all rows
         const hasOverall = selectedSegments.some(seg => seg.column === 'Overall')
         if (hasOverall && segmentsByColumn.size === 0) return true
+
+        // If no segments (only Overall), include all rows
+        if (segmentsByColumn.size === 0) return true
 
         // Check if row matches criteria for each column group
         return Array.from(segmentsByColumn.entries()).every(([column, values]) => {
@@ -518,11 +521,14 @@ export default function App() {
           }
         })
       })
+
+      console.log('[RESPONDENT COUNT] Filtered rows:', filteredRows.length, 'out of', rows.length)
     }
 
     const uniqueRespondents = uniq(
       filteredRows.map(r => stripQuotes(String(r[respIdCol] ?? '').trim())).filter(Boolean)
     )
+    console.log('[RESPONDENT COUNT] Unique respondents:', uniqueRespondents.length)
     return uniqueRespondents.length
   }, [dataset, rows, selections.segments])
 
