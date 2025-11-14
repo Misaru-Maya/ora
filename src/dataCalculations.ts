@@ -713,8 +713,8 @@ export function buildSeries({
         ? rankings.reduce((sum, val) => sum + val, 0) / rankings.length
         : 0
 
-      // For ranking questions, store the ranking value directly (2 decimal places)
-      row['__overallValue' as any] = Math.round(avgRanking * 100) / 100
+      // For ranking questions, store the UNROUNDED ranking value for accurate sorting
+      row['__overallValue' as any] = avgRanking
     } else if (question.singleSourceColumn) {
       const cleanedLabel = optionLabel.toLowerCase()
       const counts = overallInfo.singleCounts || {}
