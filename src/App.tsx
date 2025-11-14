@@ -1548,10 +1548,27 @@ export default function App() {
                                       onChange={(e) => {
                                         e.stopPropagation()
                                         const current = selections.questionSegments || []
-                                        const newQuestionSegments = current.includes(q.qid)
+                                        const isRemoving = current.includes(q.qid)
+                                        const newQuestionSegments = isRemoving
                                           ? current.filter(id => id !== q.qid)
                                           : [...current, q.qid]
                                         setSelections({ questionSegments: newQuestionSegments })
+
+                                        // Auto-expand newly selected questions
+                                        if (!isRemoving) {
+                                          setExpandedQuestionSegments(prev => {
+                                            const next = new Set(prev)
+                                            next.add(q.qid)
+                                            return next
+                                          })
+                                        } else {
+                                          // Remove from expanded when deselected
+                                          setExpandedQuestionSegments(prev => {
+                                            const next = new Set(prev)
+                                            next.delete(q.qid)
+                                            return next
+                                          })
+                                        }
                                       }}
                                       style={{ cursor: 'pointer' }}
                                     />
@@ -1570,11 +1587,49 @@ export default function App() {
                                 const question = dataset?.questions.find(q => q.qid === qid)
                                 if (!question) return null
 
+                                const isExpanded = expandedQuestionSegments.has(qid)
+
                                 return (
                                   <div key={qid} style={{ paddingBottom: '8px', borderBottom: '1px solid #F3F4F6' }}>
-                                    <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '6px', color: '#374151' }}>
+                                    <div
+                                      onClick={() => {
+                                        setExpandedQuestionSegments(prev => {
+                                          const next = new Set(prev)
+                                          if (isExpanded) {
+                                            next.delete(qid)
+                                          } else {
+                                            next.add(qid)
+                                          }
+                                          return next
+                                        })
+                                      }}
+                                      style={{
+                                        fontSize: '11px',
+                                        fontWeight: '600',
+                                        marginBottom: isExpanded ? '6px' : '0',
+                                        color: '#374151',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                      }}
+                                    >
+                                      <svg
+                                        width="10"
+                                        height="10"
+                                        viewBox="0 0 12 12"
+                                        fill="none"
+                                        style={{
+                                          transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                                          transition: 'transform 0.2s ease',
+                                          flexShrink: 0
+                                        }}
+                                      >
+                                        <path d="M4.5 2L8.5 6L4.5 10" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                      </svg>
                                       {question.label}
                                     </div>
+                                    {isExpanded && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                       {question.columns.map((col) => {
                                         const segmentKey = `${qid}::${col.optionLabel}`
@@ -1612,6 +1667,7 @@ export default function App() {
                                         )
                                       })}
                                     </div>
+                                    )}
                                   </div>
                                 )
                               })}
