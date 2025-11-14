@@ -391,13 +391,19 @@ export default function App() {
 
         console.log('[ROWS CALC] segmentsByColumn:', segmentsByColumn)
 
+        let matchedRows = 0
+        let totalChecked = 0
         filtered = filtered.filter(row => {
+          totalChecked++
           // Row must match at least one value from each category (AND between categories, OR within)
-          return Object.entries(segmentsByColumn).every(([column, values]) => {
+          const matches = Object.entries(segmentsByColumn).every(([column, values]) => {
             // Check if this column is a consumer question
             const consumerQuestion = dataset?.questions.find(q => q.qid === column)
 
             if (consumerQuestion) {
+              if (totalChecked === 1) {
+                console.log('[ROWS CALC] First row - Consumer question:', consumerQuestion.qid, 'type:', consumerQuestion.type, 'values:', values)
+              }
               // Consumer question - use appropriate filtering logic
               if (consumerQuestion.type === 'single' && consumerQuestion.singleSourceColumn) {
                 // Single-select: check if row's value matches any of the selected values
@@ -405,10 +411,19 @@ export default function App() {
                 return values.some(value => stripQuotesFromValue(value) === rowValue)
               } else if (consumerQuestion.type === 'multi') {
                 // Multi-select: check if any of the selected options' columns are truthy
-                return values.some(value => {
+                const result = values.some(value => {
                   const optionColumn = consumerQuestion.columns.find(col => col.optionLabel === value)
+                  if (totalChecked === 1) {
+                    console.log('[ROWS CALC] First row - Looking for option:', value, 'optionColumn:', optionColumn)
+                  }
                   if (optionColumn) {
                     const headersToCheck = [optionColumn.header, ...(optionColumn.alternateHeaders || [])]
+                    if (totalChecked === 1) {
+                      console.log('[ROWS CALC] First row - Headers to check:', headersToCheck)
+                      headersToCheck.forEach(h => {
+                        console.log('[ROWS CALC] First row - Header', h, '=', row[h])
+                      })
+                    }
                     return headersToCheck.some(header => {
                       const val = row[header]
                       return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes'
@@ -416,6 +431,7 @@ export default function App() {
                   }
                   return false
                 })
+                return result
               }
               return false
             } else {
@@ -425,7 +441,10 @@ export default function App() {
               return values.some(value => rowValue === stripQuotesFromValue(value))
             }
           })
+          if (matches) matchedRows++
+          return matches
         })
+        console.log('[ROWS CALC] Matched', matchedRows, 'out of', totalChecked, 'rows')
         console.log('[ROWS CALC] After segment filter:', filtered.length)
       }
     }
