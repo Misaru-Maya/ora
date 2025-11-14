@@ -423,6 +423,12 @@ export default function App() {
                       headersToCheck.forEach(h => {
                         console.log('[ROWS CALC] First row - Header', h, '=', row[h])
                       })
+                      // Show actual column names in row that might match
+                      const rowKeys = Object.keys(row).filter(k => k.toLowerCase().includes('lululemon'))
+                      console.log('[ROWS CALC] First row - Actual columns containing "lululemon":', rowKeys)
+                      rowKeys.forEach(k => {
+                        console.log('[ROWS CALC] First row - Actual column', k, '=', row[k])
+                      })
                     }
                     return headersToCheck.some(header => {
                       const val = row[header]
