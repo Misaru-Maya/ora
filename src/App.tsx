@@ -388,9 +388,36 @@ export default function App() {
         filtered = filtered.filter(row => {
           // Row must match at least one value from each category (AND between categories, OR within)
           return Object.entries(segmentsByColumn).every(([column, values]) => {
-            const rowValue = stripQuotesFromValue(String(row[column]))
-            // Match if row value equals ANY of the selected values in this category (OR logic)
-            return values.some(value => rowValue === stripQuotesFromValue(value))
+            // Check if this column is a consumer question
+            const consumerQuestion = dataset?.questions.find(q => q.qid === column)
+
+            if (consumerQuestion) {
+              // Consumer question - use appropriate filtering logic
+              if (consumerQuestion.type === 'single' && consumerQuestion.singleSourceColumn) {
+                // Single-select: check if row's value matches any of the selected values
+                const rowValue = stripQuotesFromValue(String(row[consumerQuestion.singleSourceColumn]))
+                return values.some(value => stripQuotesFromValue(value) === rowValue)
+              } else if (consumerQuestion.type === 'multi') {
+                // Multi-select: check if any of the selected options' columns are truthy
+                return values.some(value => {
+                  const optionColumn = consumerQuestion.columns.find(col => col.optionLabel === value)
+                  if (optionColumn) {
+                    const headersToCheck = [optionColumn.header, ...(optionColumn.alternateHeaders || [])]
+                    return headersToCheck.some(header => {
+                      const val = row[header]
+                      return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes'
+                    })
+                  }
+                  return false
+                })
+              }
+              return false
+            } else {
+              // Regular segment column
+              const rowValue = stripQuotesFromValue(String(row[column]))
+              // Match if row value equals ANY of the selected values in this category (OR logic)
+              return values.some(value => rowValue === stripQuotesFromValue(value))
+            }
           })
         })
       }
