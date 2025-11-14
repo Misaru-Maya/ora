@@ -318,10 +318,32 @@ export default function App() {
   const useAllProducts = !selections.productColumn || selections.productGroups.length === 0 || selections.productGroups.length === productValues.length
 
   const rows = useMemo(() => {
-    return useAllProducts
-      ? rowsRaw
-      : rowsRaw.filter(row => selections.productGroups.includes(normalizeProductValue(row[selections.productColumn!])))
-  }, [useAllProducts, rowsRaw, selections.productGroups, selections.productColumn])
+    let filtered = rowsRaw
+
+    // Apply product filter
+    if (!useAllProducts) {
+      filtered = filtered.filter(row =>
+        selections.productGroups.includes(normalizeProductValue(row[selections.productColumn!]))
+      )
+    }
+
+    // Apply segment filters (Country, Product Preference, etc.) - use AND logic
+    if (selections.segments && selections.segments.length > 0) {
+      // Filter out "Overall" segments as they don't apply filtering
+      const actualSegments = selections.segments.filter(seg => seg.value !== 'Overall')
+
+      if (actualSegments.length > 0) {
+        filtered = filtered.filter(row => {
+          // Row must match ALL segment conditions (AND logic)
+          return actualSegments.every(segment =>
+            stripQuotesFromValue(String(row[segment.column])) === stripQuotesFromValue(segment.value)
+          )
+        })
+      }
+    }
+
+    return filtered
+  }, [useAllProducts, rowsRaw, selections.productGroups, selections.productColumn, selections.segments])
 
   const filteredDataset = useMemo(() => {
     if (!dataset) return null
@@ -424,11 +446,16 @@ export default function App() {
       return { data: [], groups: [] }
     }
 
+    // When multiple segments are selected, the dataset is already filtered
+    // So we pass "Overall" to buildSeries to show the filtered data
+    const actualSegments = selections.segments?.filter(seg => seg.value !== 'Overall') || []
+    const useOverall = actualSegments.length > 1
+
     const result = buildSeries({
       dataset: filteredDataset,
       question: currentQuestion,
       ...(hasSegments
-        ? { segments: selections.segments }
+        ? { segments: useOverall ? [{ column: 'Overall', value: 'Overall' }] : selections.segments }
         : { segmentColumn: selections.segmentColumn, groups: orderedGroups }
       ),
       sortOrder: selections.sortOrder

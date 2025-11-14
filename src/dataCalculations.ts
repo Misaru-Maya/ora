@@ -414,33 +414,41 @@ export function buildSeries({
       } else if (question.type === 'ranking') {
         // For ranking questions, calculate average ranking score
         const headersToCheck = [col.header, ...(col.alternateHeaders || [])]
-        const rankings: number[] = []
+        const rankingsByRespondent = new Map<string, number>()
 
-        // Collect all ranking values for this option
+        // Collect ranking values per unique respondent (first occurrence only)
         for (const r of info.rows) {
+          const respondent = normalizeValue(r[respIdCol])
+          if (!respondent) continue
+
+          // Skip if we already have a ranking for this respondent
+          if (rankingsByRespondent.has(respondent)) continue
+
           for (const header of headersToCheck) {
             const value = r[header]
             if (value !== null && value !== undefined && value !== '') {
               const numValue = typeof value === 'number' ? value : parseFloat(String(value))
               if (!isNaN(numValue) && numValue > 0) {
-                rankings.push(numValue)
+                rankingsByRespondent.set(respondent, numValue)
                 break
               }
             }
           }
         }
 
+        const rankings = Array.from(rankingsByRespondent.values())
+
         // Calculate average ranking (lower is better)
         const avgRanking = rankings.length > 0
           ? rankings.reduce((sum, val) => sum + val, 0) / rankings.length
           : 0
 
-        // Store the average ranking as the value
-        row[meta.key] = Math.round(avgRanking * 10) / 10 // Round to 1 decimal place
+        // Store the average ranking as the value with 2 decimal places
+        row[meta.key] = Math.round(avgRanking * 100) / 100
         groupSummaries.push({
           label: meta.label,
           count: rankings.length,
-          denominator: info.rows.length,
+          denominator: info.uniqueRespondents.length,
           percent: avgRanking // Store avg ranking in percent field for display
         })
       } else if (question.singleSourceColumn) {
@@ -596,27 +604,35 @@ export function buildSeries({
       }
     } else if (question.type === 'ranking') {
       const headersToCheck = [col.header, ...(col.alternateHeaders || [])]
-      const rankings: number[] = []
+      const rankingsByRespondent = new Map<string, number>()
 
+      // Collect ranking values per unique respondent (first occurrence only)
       for (const r of overallInfo.rows) {
+        const respondent = normalizeValue(r[respIdCol])
+        if (!respondent) continue
+
+        // Skip if we already have a ranking for this respondent
+        if (rankingsByRespondent.has(respondent)) continue
+
         for (const header of headersToCheck) {
           const value = r[header]
           if (value !== null && value !== undefined && value !== '') {
             const numValue = typeof value === 'number' ? value : parseFloat(String(value))
             if (!isNaN(numValue) && numValue > 0) {
-              rankings.push(numValue)
+              rankingsByRespondent.set(respondent, numValue)
               break
             }
           }
         }
       }
 
+      const rankings = Array.from(rankingsByRespondent.values())
       const avgRanking = rankings.length > 0
         ? rankings.reduce((sum, val) => sum + val, 0) / rankings.length
         : 0
 
-      // For ranking questions, store the ranking value directly
-      row['__overallValue' as any] = Math.round(avgRanking * 10) / 10
+      // For ranking questions, store the ranking value directly (2 decimal places)
+      row['__overallValue' as any] = Math.round(avgRanking * 100) / 100
     } else if (question.singleSourceColumn) {
       const cleanedLabel = optionLabel.toLowerCase()
       const counts = overallInfo.singleCounts || {}
