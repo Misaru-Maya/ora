@@ -867,7 +867,7 @@ export default function App() {
 
                   {/* Active Filters */}
                   {(() => {
-                    const activeFilters = []
+                    const activeFilters: Array<{type: 'segment' | 'product', column?: string, value: string, label: string}> = []
 
                     // Add segment filters (excluding Overall)
                     const selectedSegments = (selections.segments || []).filter(s => s.column !== 'Overall')
@@ -914,7 +914,7 @@ export default function App() {
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{filter.label}</span>
                               <button
                                 onClick={() => {
-                                  if (filter.type === 'segment') {
+                                  if (filter.type === 'segment' && filter.column) {
                                     toggleSegment(filter.column, filter.value)
                                   } else if (filter.type === 'product') {
                                     toggleProductGroup(filter.value)
