@@ -525,8 +525,8 @@ export function buildSeries({
           ? rankings.reduce((sum, val) => sum + val, 0) / rankings.length
           : 0
 
-        // Store the average ranking as the value with 2 decimal places
-        row[meta.key] = Math.round(avgRanking * 100) / 100
+        // Store the UNROUNDED average ranking for sorting (will be rounded for display later)
+        row[meta.key] = avgRanking
         groupSummaries.push({
           label: meta.label,
           count: rankings.length,
