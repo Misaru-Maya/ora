@@ -359,6 +359,7 @@ export default function App() {
   const useAllProducts = !selections.productColumn || selections.productGroups.length === 0 || selections.productGroups.length === productValues.length
 
   const rows = useMemo(() => {
+    console.log('[ROWS CALC] Starting rows calculation, rowsRaw.length:', rowsRaw.length)
     let filtered = rowsRaw
 
     // Apply product filter
@@ -366,16 +367,19 @@ export default function App() {
       filtered = filtered.filter(row =>
         selections.productGroups.includes(normalizeProductValue(row[selections.productColumn!]))
       )
+      console.log('[ROWS CALC] After product filter:', filtered.length)
     }
 
     // Apply segment filters with AND logic between categories, OR logic within categories
     // Only apply filtering in Filter mode (comparisonMode = false)
     const isFilterMode = !(selections.comparisonMode ?? true)
+    console.log('[ROWS CALC] isFilterMode:', isFilterMode, 'segments:', selections.segments)
     if (isFilterMode && selections.segments && selections.segments.length > 0) {
       // Filter out "Overall" segments as they don't apply filtering
       const actualSegments = selections.segments.filter(seg => seg.value !== 'Overall')
 
       if (actualSegments.length > 0) {
+        console.log('[ROWS CALC] Applying segment filter, actualSegments:', actualSegments)
         // Group segments by column (category)
         const segmentsByColumn = actualSegments.reduce((acc, segment) => {
           if (!acc[segment.column]) {
@@ -384,6 +388,8 @@ export default function App() {
           acc[segment.column].push(segment.value)
           return acc
         }, {} as Record<string, string[]>)
+
+        console.log('[ROWS CALC] segmentsByColumn:', segmentsByColumn)
 
         filtered = filtered.filter(row => {
           // Row must match at least one value from each category (AND between categories, OR within)
@@ -420,11 +426,13 @@ export default function App() {
             }
           })
         })
+        console.log('[ROWS CALC] After segment filter:', filtered.length)
       }
     }
 
+    console.log('[ROWS CALC] Final filtered.length:', filtered.length)
     return filtered
-  }, [useAllProducts, rowsRaw, selections.productGroups, selections.productColumn, selections.segments, selections.comparisonMode])
+  }, [useAllProducts, rowsRaw, selections.productGroups, selections.productColumn, selections.segments, selections.comparisonMode, dataset])
 
   const filteredDataset = useMemo(() => {
     if (!dataset) return null
