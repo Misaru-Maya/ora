@@ -1638,7 +1638,7 @@ export default function App() {
                                 </div>
 
                                 {/* Questions List */}
-                                <div style={{ maxHeight: '800px', overflowY: 'auto' }}>
+                                <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
                                 {filteredSegmentationQuestions.length === 0 ? (
                                   <div style={{ padding: '12px 8px', fontSize: '11px', color: '#6B7280', textAlign: 'center' }}>
                                     No questions found
