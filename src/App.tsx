@@ -537,9 +537,11 @@ export default function App() {
 
     const uniq = <T,>(arr: T[]): T[] => Array.from(new Set(arr))
 
-    // Filter rows by selected segments using the SAME logic as dataCalculations.ts
-    const selectedSegments = selections.segments || []
+    // In Compare mode: rows doesn't have segment filtering, so count includes all compared segments
+    // In Filter mode: rows has segment filtering applied, so just count those rows
+    // But we still need to apply segment filtering here for Compare mode to show union of selected segments
     let filteredRows = rows
+    const selectedSegments = selections.segments || []
 
     if (selectedSegments.length > 0) {
       console.log('[RESPONDENT COUNT] Selected segments:', selectedSegments)
@@ -1033,69 +1035,62 @@ export default function App() {
           justifyContent: 'center'
         }}
       >
-        <div className="flex w-full items-center justify-center gap-2 px-4">
-          <div className="w-[600px] flex-shrink-0 flex justify-start items-center gap-3" style={{ paddingLeft: '30px' }}>
+        <div className="flex w-full items-center justify-between px-4">
+          <div className="flex justify-start items-center" style={{ paddingLeft: '30px', gap: '10px' }}>
             <div style={{ width: '240px', flexShrink: 0 }}>
               <CSVUpload />
             </div>
-            <span className="text-brand-gray font-semibold truncate" style={{ fontSize: '12px', maxWidth: '320px', display: 'block' }} title={cleanFileName(summary.fileName)}>
+            <span className="text-brand-gray font-bold truncate" style={{ fontSize: '14px', display: 'block' }} title={cleanFileName(summary.fileName)}>
               {cleanFileName(summary.fileName)}
             </span>
           </div>
-          <div className="flex-1 flex justify-center">
-            <h2 className="text-center text-lg font-semibold text-brand-gray">
+          <div className="flex-shrink-0" style={{ paddingRight: '30px' }}>
+            <h2 className="text-lg font-semibold text-brand-gray">
               ✨ORA✨
             </h2>
-          </div>
-          <div className="w-[480px] flex-shrink-0" style={{ paddingRight: '30px' }}>
-            <p className="text-gray-400" style={{ fontSize: '12px', lineHeight: '1.4', textAlign: 'right' }}>
-              Open text and demographic questions are excluded.
-            </p>
           </div>
         </div>
       </header>
 
       {/* Main Layout Container */}
       <div className="flex" style={{ height: '100vh' }}>
-        {/* Sidebar toggle button - fixed position, always visible */}
-        <button
-          onClick={() => setSidebarVisible(!sidebarVisible)}
-          className="flex flex-shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-          style={{
-            position: 'fixed',
-            left: '16px',
-            top: '88px',
-            zIndex: 50,
-            height: '45px',
-            width: '45px',
-            backgroundColor: sidebarVisible ? '#FAFCFE' : '#FFFFFF',
-            border: '1px solid #e5e7eb',
-            boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-            cursor: 'pointer'
-          }}
-          title={sidebarVisible ? "Hide sidebar" : "Show sidebar"}
-          aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="29"
-            height="29"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        {/* Sidebar toggle button - only visible when sidebar is hidden */}
+        {!sidebarVisible && (
+          <button
+            onClick={() => setSidebarVisible(true)}
+            className="flex flex-shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            style={{
+              position: 'fixed',
+              left: '16px',
+              top: '88px',
+              zIndex: 50,
+              height: '45px',
+              width: '45px',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+              cursor: 'pointer'
+            }}
+            title="Show sidebar"
+            aria-label="Show sidebar"
           >
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <path d="M9 3v18" />
-            {sidebarVisible ? (
-              <path d="m14 9-3 3 3 3" />
-            ) : (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="29"
+              height="29"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M9 3v18" />
               <path d="m6 9 3 3-3 3" />
-            )}
-          </svg>
-        </button>
+            </svg>
+          </button>
+        )}
 
         {/* Fixed Left Sidebar Panel */}
         {sidebarVisible && (
@@ -1116,13 +1111,47 @@ export default function App() {
                 paddingRight: '16px'
               }}
             >
+              {/* Hide sidebar button - upper right corner */}
+              <button
+                onClick={() => setSidebarVisible(false)}
+                className="flex items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '8px',
+                  height: '28px',
+                  width: '28px',
+                  backgroundColor: '#FFFFFF',
+                  border: 'none',
+                  cursor: 'pointer',
+                  zIndex: 10
+                }}
+                title="Hide sidebar"
+                aria-label="Hide sidebar"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <path d="M9 3v18" />
+                  <path d="m14 9-3 3 3 3" />
+                </svg>
+              </button>
           {summary && (
             <>
               {/* Filter Summary */}
               <div className="rounded-lg bg-white px-4 py-3 shadow-sm" style={{ fontSize: '13px', marginBottom: '20px', width: '100%', overflow: 'hidden' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
                   {/* Respondent Count */}
-                  <div className="text-brand-gray" style={{ fontSize: '12px' }}>
+                  <div className="text-brand-gray font-bold" style={{ fontSize: '14px' }}>
                     {filteredRespondentCount} of {summary.uniqueRespondents} respondents
                   </div>
 
