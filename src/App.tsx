@@ -1242,184 +1242,6 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Questions section for segmentation */}
-                    {segmentationQuestions.length > 0 && (
-                      <div className="space-y-2" style={{ paddingBottom: '5px', paddingTop: '10px' }}>
-                        <div className="flex items-center justify-between">
-                          <div
-                            className="flex items-center gap-1 cursor-pointer transition flex-1 group"
-                            onClick={() => setQuestionDropdownOpen(!questionDropdownOpen)}
-                          >
-                            <svg
-                              width="12"
-                              height="12"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              className="flex-shrink-0 transition-transform group-hover:text-brand-green"
-                              style={{ transform: questionDropdownOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
-                            >
-                              <path d="M9 18l6-6-6-6" />
-                            </svg>
-                            <h5 className="font-semibold text-brand-gray group-hover:text-brand-green transition-colors" style={{ fontSize: '12px', fontFamily: 'Space Grotesk, sans-serif' }}>
-                              Questions ({(selections.questionSegments || []).length} selected)
-                            </h5>
-                          </div>
-                        </div>
-                        {questionDropdownOpen && (
-                          <div className="pl-[10px]">
-                            <div className="max-h-64 overflow-y-auto rounded-lg bg-gray-50 border border-gray-200 p-2">
-                              {segmentationQuestions.map((q) => {
-                                const isSelected = (selections.questionSegments || []).includes(q.qid)
-                                return (
-                                  <div
-                                    key={q.qid}
-                                    className="flex items-center py-1 px-2 hover:bg-gray-100 rounded cursor-pointer transition-colors"
-                                    style={{ gap: '5px' }}
-                                    onClick={() => toggleQuestionForSegmentation(q.qid)}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0 cursor-pointer"
-                                      checked={isSelected}
-                                      onChange={() => {}}
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                    <label className="text-brand-gray cursor-pointer" style={{ fontSize: '12px', fontFamily: 'Space Grotesk, sans-serif' }}>
-                                      {q.label}
-                                    </label>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Show answer options for selected questions */}
-                    {(selections.questionSegments || []).length > 0 && (selections.questionSegments || []).map((qid) => {
-                      const question = dataset?.questions.find(q => q.qid === qid)
-                      if (!question) return null
-
-                      const isExpanded = expandedQuestionSegments.has(qid)
-
-                      // Get answer options based on question type
-                      let answerOptions: { column: string; label: string; displayLabel: string }[] = []
-                      if (question.type === 'multi' || question.type === 'ranking') {
-                        // For multi/ranking questions, each column is an option with binary values (1/0)
-                        // We use "1" as the value to match selected options
-                        answerOptions = question.columns.map(col => ({
-                          column: col.header,
-                          label: '1', // Binary indicator for selected
-                          displayLabel: col.optionLabel // For display in UI
-                        }))
-                      } else if (question.type === 'single' && question.singleSourceColumn) {
-                        // For single questions, get distinct values from the data
-                        const sourceColumn = question.singleSourceColumn
-                        const distinctValues = Array.from(new Set(
-                          rowsRaw.map(r => String(r[sourceColumn]).trim()).filter(v => v && v !== 'null' && v !== 'undefined')
-                        ))
-                        // For single questions, all options share the same source column
-                        answerOptions = distinctValues.map(val => ({
-                          column: sourceColumn, // Use actual source column
-                          label: val,
-                          displayLabel: val
-                        }))
-                      }
-
-                      // Hide if only one option (not useful for segmentation)
-                      if (answerOptions.length <= 1) return null
-
-                      return (
-                        <div key={qid} className="space-y-2" style={{ paddingBottom: '5px' }}>
-                          <div className="flex items-center justify-between">
-                            <div
-                              className="flex items-center gap-1 cursor-pointer transition flex-1 group"
-                              onClick={() => toggleQuestionSegmentGroup(qid)}
-                            >
-                              <svg
-                                width="12"
-                                height="12"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                className="flex-shrink-0 transition-transform group-hover:text-brand-green"
-                                style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
-                              >
-                                <path d="M9 18l6-6-6-6" />
-                              </svg>
-                              <h5 className="font-semibold text-brand-gray group-hover:text-brand-green transition-colors" style={{ fontSize: '12px', fontFamily: 'Space Grotesk, sans-serif' }}>
-                                {question.label}
-                              </h5>
-                            </div>
-                          </div>
-                          {isExpanded && (
-                            <div className="pl-[10px]">
-                              {/* Select all checkbox */}
-                              <div className="flex items-center mb-2" style={{ gap: '5px' }}>
-                                <input
-                                  type="checkbox"
-                                  className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0 cursor-pointer"
-                                  checked={(() => {
-                                    // Check if all options from this question are selected
-                                    const selectedColumns = answerOptions.map(opt => opt.column)
-                                    const selectedInQuestion = (selections.segments || []).filter(s => selectedColumns.includes(s.column))
-                                    return selectedInQuestion.length === answerOptions.length
-                                  })()}
-                                  onChange={() => {
-                                    const selectedColumns = answerOptions.map(opt => opt.column)
-                                    const selectedInQuestion = (selections.segments || []).filter(s => selectedColumns.includes(s.column))
-                                    if (selectedInQuestion.length === answerOptions.length) {
-                                      // Deselect all
-                                      const newSegments = (selections.segments || []).filter(s => !selectedColumns.includes(s.column))
-                                      if (newSegments.length < 2 && selections.statSigFilter === 'statSigOnly') {
-                                        setSelections({ segments: newSegments, statSigFilter: 'all' })
-                                      } else {
-                                        setSelections({ segments: newSegments })
-                                      }
-                                    } else {
-                                      // Select all
-                                      const currentSegments = selections.segments || []
-                                      const otherSegments = currentSegments.filter(s => !selectedColumns.includes(s.column))
-                                      let newSegments = [...otherSegments, ...answerOptions.map(opt => ({ column: opt.column, value: opt.label }))]
-
-                                      // In Filter mode: remove Overall when selecting other segments
-                                      const isFilterMode = !(selections.comparisonMode ?? true)
-                                      if (isFilterMode) {
-                                        newSegments = newSegments.filter(s => s.value !== 'Overall')
-                                      }
-
-                                      setSelections({ segments: newSegments })
-                                    }
-                                  }}
-                                />
-                                <label className="text-brand-gray cursor-pointer" style={{ fontSize: '12px', fontFamily: 'Space Grotesk, sans-serif' }}>
-                                  Select all
-                                </label>
-                              </div>
-                              {/* Individual answer options */}
-                              {answerOptions.map((option, idx) => (
-                                <div key={`${option.column}-${idx}`} className="flex items-center" style={{ gap: '5px' }}>
-                                  <input
-                                    type="checkbox"
-                                    className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0 cursor-pointer"
-                                    checked={isSegmentSelected(option.column, option.label)}
-                                    onChange={() => toggleSegment(option.column, option.label)}
-                                  />
-                                  <label className="text-brand-gray cursor-pointer" style={{ fontSize: '12px', fontFamily: 'Space Grotesk, sans-serif' }}>
-                                    {option.displayLabel}
-                                  </label>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-
                     {/* All segment columns */}
                     {segmentColumns
                       .filter(col => col !== 'Overall')
@@ -1568,6 +1390,189 @@ export default function App() {
                         </div>
                       )
                     })}
+
+                    {/* Consumer Questions Segmentation */}
+                    <div style={{ paddingTop: '14px', marginTop: '1px' }}>
+                      <div
+                        className="group"
+                        style={{
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          paddingBottom: '6px',
+                          borderBottom: '1px solid #E5E7EB'
+                        }}
+                        onClick={() => {
+                          const isExpanded = expandedSections['consumerQuestions']
+                          setExpandedSections(prev => ({
+                            ...prev,
+                            consumerQuestions: !isExpanded
+                          }))
+                        }}
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          style={{
+                            transform: expandedSections['consumerQuestions'] ? 'rotate(90deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.2s ease'
+                          }}
+                        >
+                          <path d="M4.5 2L8.5 6L4.5 10" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        <h5 className="font-semibold text-brand-gray group-hover:text-brand-green transition-colors" style={{ fontSize: '12px', fontFamily: 'Space Grotesk, sans-serif' }}>
+                          Consumer Questions
+                        </h5>
+                      </div>
+
+                      {expandedSections['consumerQuestions'] && (
+                        <div style={{ marginTop: '8px' }}>
+                          {/* Questions Dropdown */}
+                          <div style={{ position: 'relative', marginBottom: '8px' }}>
+                            <div
+                              onClick={() => setQuestionDropdownOpen(!questionDropdownOpen)}
+                              style={{
+                                padding: '6px 8px',
+                                border: '1px solid #E5E7EB',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '11px',
+                                backgroundColor: 'white',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                              }}
+                            >
+                              <span>Select Questions</span>
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 12 12"
+                                fill="none"
+                                style={{
+                                  transform: questionDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                                  transition: 'transform 0.2s ease'
+                                }}
+                              >
+                                <path d="M2 4L6 8L10 4" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            </div>
+
+                            {questionDropdownOpen && (
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  top: '100%',
+                                  left: 0,
+                                  right: 0,
+                                  marginTop: '2px',
+                                  backgroundColor: 'white',
+                                  border: '1px solid #E5E7EB',
+                                  borderRadius: '4px',
+                                  maxHeight: '200px',
+                                  overflowY: 'auto',
+                                  zIndex: 1000,
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                }}
+                              >
+                                {segmentationQuestions.map((q) => (
+                                  <label
+                                    key={q.qid}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      padding: '6px 8px',
+                                      fontSize: '11px',
+                                      cursor: 'pointer',
+                                      gap: '6px'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#F3F4F6'
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = 'white'
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={(selections.questionSegments || []).includes(q.qid)}
+                                      onChange={(e) => {
+                                        e.stopPropagation()
+                                        const current = selections.questionSegments || []
+                                        const newQuestionSegments = current.includes(q.qid)
+                                          ? current.filter(id => id !== q.qid)
+                                          : [...current, q.qid]
+                                        setSelections({ questionSegments: newQuestionSegments })
+                                      }}
+                                      style={{ cursor: 'pointer' }}
+                                    />
+                                    <span>{q.label}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Answer Options for Selected Questions */}
+                          {(selections.questionSegments || []).length > 0 && (
+                            <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                              {(selections.questionSegments || []).map((qid) => {
+                                const question = dataset?.questions.find(q => q.qid === qid)
+                                if (!question) return null
+
+                                return (
+                                  <div key={qid} style={{ paddingBottom: '8px', borderBottom: '1px solid #F3F4F6' }}>
+                                    <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '6px', color: '#374151' }}>
+                                      {question.label}
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                      {question.columns.map((col) => {
+                                        const segmentKey = `${qid}::${col.optionLabel}`
+                                        const isSelected = (selections.segments || []).some(
+                                          s => s.column === qid && s.value === col.optionLabel
+                                        )
+
+                                        return (
+                                          <div key={segmentKey} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <input
+                                              type="checkbox"
+                                              id={segmentKey}
+                                              checked={isSelected}
+                                              onChange={(e) => {
+                                                e.stopPropagation()
+                                                const current = selections.segments || []
+                                                const newSegments = isSelected
+                                                  ? current.filter(s => !(s.column === qid && s.value === col.optionLabel))
+                                                  : [...current, { column: qid, value: col.optionLabel }]
+                                                setSelections({ segments: newSegments })
+                                              }}
+                                              style={{ cursor: 'pointer' }}
+                                            />
+                                            <label
+                                              htmlFor={segmentKey}
+                                              style={{
+                                                fontSize: '11px',
+                                                cursor: 'pointer',
+                                                color: '#6B7280'
+                                              }}
+                                            >
+                                              {col.optionLabel}
+                                            </label>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   {selections.comparisonMode && (
                     <div style={{ paddingTop: '14px', marginTop: '1px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
