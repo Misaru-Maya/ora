@@ -867,7 +867,8 @@ export default function App() {
             width: '45px',
             backgroundColor: sidebarVisible ? '#FAFCFE' : '#FFFFFF',
             border: '1px solid #e5e7eb',
-            boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
+            boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+            cursor: 'pointer'
           }}
           title={sidebarVisible ? "Hide sidebar" : "Show sidebar"}
           aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}
@@ -1021,10 +1022,10 @@ export default function App() {
                                 setSelections({ segments: [{ column: 'Overall', value: 'Overall' }], productGroups: [] })
                               }}
                               style={{
-                                padding: '6px 12px',
+                                padding: '5.7px 12px',
                                 backgroundColor: 'white',
                                 border: '1px solid #3A8518',
-                                borderRadius: '6px',
+                                borderRadius: '34px',
                                 color: '#3A8518',
                                 fontSize: '12px',
                                 fontWeight: '600',
@@ -1039,7 +1040,7 @@ export default function App() {
 
                             {/* Filter/Compare Mode Toggle */}
                             <div className="flex items-center" style={{ gap: '2px' }}>
-                              <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px' }}>
+                              <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '44px', height: '22px' }}>
                                 <input
                                   type="checkbox"
                                   checked={selections.comparisonMode ?? true}
@@ -1060,17 +1061,17 @@ export default function App() {
                                     bottom: 0,
                                     backgroundColor: selections.comparisonMode ? '#3A8518' : '#CCC',
                                     transition: '0.4s',
-                                    borderRadius: '20px'
+                                    borderRadius: '34px'
                                   }}
                                 >
                                   <span
                                     style={{
                                       position: 'absolute',
                                       content: '""',
-                                      height: '15px',
-                                      width: '15px',
-                                      left: selections.comparisonMode ? '22px' : '2.5px',
-                                      top: '2.5px',
+                                      height: '16.5px',
+                                      width: '16.5px',
+                                      left: selections.comparisonMode ? '24.5px' : '2.75px',
+                                      top: '2.75px',
                                       backgroundColor: 'white',
                                       transition: '0.4s',
                                       borderRadius: '50%'
@@ -1122,7 +1123,7 @@ export default function App() {
                     <div className="pl-[10px]">
                   <div className="max-h-96 space-y-5 overflow-y-auto rounded-lg bg-white px-2 py-2">
                     {/* Overall option with Clear all button */}
-                    <div className="space-y-1 pl-[10px]" style={{ paddingBottom: '10px' }}>
+                    <div className="space-y-1 pl-[10px]" style={{ paddingBottom: '10px', paddingTop: '4px' }}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center" style={{ gap: '5px' }}>
                           <input
@@ -1334,9 +1335,9 @@ export default function App() {
                     })}
                   </div>
                   {selections.comparisonMode && (
-                    <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '14px', marginTop: '1px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <div style={{ paddingTop: '14px', marginTop: '1px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                       <div className="flex items-center" style={{ gap: '2px' }}>
-                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px' }}>
+                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '36px', height: '18px' }}>
                           <input
                             type="checkbox"
                             checked={statSigFilter === 'statSigOnly'}
@@ -1344,7 +1345,13 @@ export default function App() {
                               e.stopPropagation()
                               const isDisabled = (selections.segments && selections.segments.length < 2) || (!selections.segments && selections.groups.length < 2)
                               if (!isDisabled) {
-                                setSelections({ statSigFilter: statSigFilter === 'all' ? 'statSigOnly' : 'all' })
+                                const newStatSigFilter = statSigFilter === 'all' ? 'statSigOnly' : 'all'
+                                // If turning off Stat Sig Only, also turn off Remove Asterisks
+                                if (newStatSigFilter === 'all') {
+                                  setSelections({ statSigFilter: newStatSigFilter, hideAsterisks: false })
+                                } else {
+                                  setSelections({ statSigFilter: newStatSigFilter })
+                                }
                               }
                             }}
                             disabled={(selections.segments && selections.segments.length < 2) || (!selections.segments && selections.groups.length < 2)}
@@ -1361,17 +1368,17 @@ export default function App() {
                               bottom: 0,
                               backgroundColor: statSigFilter === 'statSigOnly' ? '#3A8518' : '#CCC',
                               transition: '0.4s',
-                              borderRadius: '20px'
+                              borderRadius: '34px'
                             }}
                           >
                             <span
                               style={{
                                 position: 'absolute',
                                 content: '""',
-                                height: '15px',
-                                width: '15px',
-                                left: statSigFilter === 'statSigOnly' ? '22px' : '2.5px',
-                                top: '2.5px',
+                                height: '13.5px',
+                                width: '13.5px',
+                                left: statSigFilter === 'statSigOnly' ? '20.25px' : '2.25px',
+                                top: '2.25px',
                                 backgroundColor: 'white',
                                 transition: '0.4s',
                                 borderRadius: '50%'
@@ -1390,7 +1397,7 @@ export default function App() {
                         </span>
                       </div>
                       <div className="flex items-center" style={{ gap: '2px' }}>
-                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px' }}>
+                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '36px', height: '18px' }}>
                           <input
                             type="checkbox"
                             checked={selections.hideAsterisks || false}
@@ -1411,17 +1418,17 @@ export default function App() {
                               bottom: 0,
                               backgroundColor: selections.hideAsterisks ? '#3A8518' : '#CCC',
                               transition: '0.4s',
-                              borderRadius: '20px'
+                              borderRadius: '34px'
                             }}
                           >
                             <span
                               style={{
                                 position: 'absolute',
                                 content: '""',
-                                height: '15px',
-                                width: '15px',
-                                left: selections.hideAsterisks ? '22px' : '2.5px',
-                                top: '2.5px',
+                                height: '13.5px',
+                                width: '13.5px',
+                                left: selections.hideAsterisks ? '20.25px' : '2.25px',
+                                top: '2.25px',
                                 backgroundColor: 'white',
                                 transition: '0.4s',
                                 borderRadius: '50%'
@@ -1436,7 +1443,7 @@ export default function App() {
                             fontSize: '12.6px'
                           }}
                         >
-                          {' '}Remove asterisks
+                          {' '}Remove Asterisks
                         </span>
                       </div>
                     </div>
@@ -1469,7 +1476,7 @@ export default function App() {
                     <div className="pl-[10px]">
                     <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg bg-white px-2 py-2">
                       {/* Select all checkbox */}
-                      <div className="flex items-center mb-2" style={{ gap: '4px' }}>
+                      <div className="flex items-center mb-2" style={{ gap: '4px', paddingTop: '4px' }}>
                         <input
                           type="checkbox"
                           className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0 cursor-pointer"
@@ -1527,41 +1534,109 @@ export default function App() {
                   </div>
                   {expandedSections.has('display') && (
                   <div className="pl-[10px] space-y-5">
-                  <div className="space-y-2" style={{ paddingBottom: '5px' }}>
-                    <div
-                      className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition"
-                      onClick={() => toggleDisplayGroup('color')}
-                    >
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        className="flex-shrink-0 transition-transform"
-                        style={{ transform: expandedDisplayGroups.has('color') ? 'rotate(90deg)' : 'rotate(0deg)' }}
-                      >
-                        <path d="M9 18l6-6-6-6" />
-                      </svg>
-                      <h5 className="text-2xl font-semibold text-brand-gray">Color</h5>
+                    <div style={{ marginBottom: '10px', paddingTop: '4px' }}>
+                      <div className="flex items-center" style={{ gap: '2px' }}>
+                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '36px', height: '18px' }}>
+                          <input
+                            type="checkbox"
+                            checked={(() => {
+                              const defaultColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
+                              const currentColors = selections.chartColors || defaultColors
+                              return JSON.stringify(currentColors) === JSON.stringify(defaultColors)
+                            })()}
+                            onChange={(e) => {
+                              e.stopPropagation()
+                              if (e.target.checked) {
+                                setSelections({ chartColors: ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'] })
+                              }
+                            }}
+                            style={{ opacity: 0, width: 0, height: 0 }}
+                          />
+                          <span
+                            className="slider round"
+                            style={{
+                              position: 'absolute',
+                              cursor: 'pointer',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              backgroundColor: (() => {
+                                const defaultColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
+                                const currentColors = selections.chartColors || defaultColors
+                                return JSON.stringify(currentColors) === JSON.stringify(defaultColors) ? '#3A8518' : '#CCC'
+                              })(),
+                              transition: '0.4s',
+                              borderRadius: '34px'
+                            }}
+                          >
+                            <span
+                              style={{
+                                position: 'absolute',
+                                content: '""',
+                                height: '13.5px',
+                                width: '13.5px',
+                                left: (() => {
+                                  const defaultColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
+                                  const currentColors = selections.chartColors || defaultColors
+                                  return JSON.stringify(currentColors) === JSON.stringify(defaultColors) ? '20.25px' : '2.25px'
+                                })(),
+                                top: '2.25px',
+                                backgroundColor: 'white',
+                                transition: '0.4s',
+                                borderRadius: '50%'
+                              }}
+                            />
+                          </span>
+                        </label>
+                        <span
+                          className="font-medium"
+                          style={{
+                            color: (() => {
+                              const defaultColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
+                              const currentColors = selections.chartColors || defaultColors
+                              return JSON.stringify(currentColors) === JSON.stringify(defaultColors) ? '#3A8518' : '#9CA3AF'
+                            })(),
+                            fontSize: '12.6px'
+                          }}
+                        >
+                          {' '}Default colors
+                        </span>
+                      </div>
                     </div>
-                    {expandedDisplayGroups.has('color') && (
-                    <div className="pl-[10px]">
                     <div className="flex flex-col" style={{ gap: '12px' }}>
                       {(selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088']).slice(0, 6).map((color, index) => (
                         <div key={index} className="flex items-center" style={{ gap: '8px' }}>
-                          <div
-                            style={{
-                              backgroundColor: color,
-                              width: '32px',
-                              height: '32px',
-                              minWidth: '32px',
-                              minHeight: '32px',
-                              borderRadius: '3px',
-                              border: '2px solid #e5e7eb',
-                            }}
-                          />
+                          <label className="cursor-pointer">
+                            <div
+                              style={{
+                                backgroundColor: color,
+                                width: '32px',
+                                height: '32px',
+                                minWidth: '32px',
+                                minHeight: '32px',
+                                borderRadius: '3px',
+                                border: '2px solid #e5e7eb',
+                                cursor: 'pointer'
+                              }}
+                            />
+                            <input
+                              type="color"
+                              value={color}
+                              onChange={(e) => {
+                                const newColors = [...(selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'])]
+                                newColors[index] = e.target.value.toUpperCase()
+                                setSelections({ chartColors: newColors })
+                              }}
+                              style={{
+                                opacity: 0,
+                                position: 'absolute',
+                                pointerEvents: 'none',
+                                width: 0,
+                                height: 0
+                              }}
+                            />
+                          </label>
                           <input
                             type="text"
                             value={color.toUpperCase()}
@@ -1585,46 +1660,9 @@ export default function App() {
                             }}
                             placeholder="#000000"
                           />
-                          <label className="cursor-pointer flex items-center justify-center" style={{ width: '28px', height: '28px' }}>
-                            <input
-                              type="color"
-                              value={color}
-                              onChange={(e) => {
-                                const newColors = [...(selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'])]
-                                newColors[index] = e.target.value.toUpperCase()
-                                setSelections({ chartColors: newColors })
-                              }}
-                              style={{
-                                opacity: 0,
-                                position: 'absolute',
-                                pointerEvents: 'none',
-                                width: 0,
-                                height: 0
-                              }}
-                            />
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
-                              <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
-                              <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
-                              <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
-                              <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
-                              <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
-                            </svg>
-                          </label>
                         </div>
                       ))}
                     </div>
-                    <div style={{ marginTop: '10px' }}>
-                      <button
-                        onClick={() => setSelections({ chartColors: ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'] })}
-                        className="text-xs text-brand-green underline hover:text-brand-green/80 transition"
-                        style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none' }}
-                      >
-                        Reset to default
-                      </button>
-                    </div>
-                    </div>
-                    )}
-                  </div>
                   </div>
                   )}
                 </section>
