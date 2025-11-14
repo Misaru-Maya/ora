@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import html2canvas from 'html2canvas'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faSort, faFilter, faStar, faRotate, faChartSimple, faArrowUpShortWide, faArrowDownWideShort, faArrowUpAZ, faChartPie, faTableCellsLarge, faBars } from '@fortawesome/free-solid-svg-icons'
+import { faSort, faFilter, faStar, faRotate, faChartSimple, faArrowUpShortWide, faArrowDownWideShort, faArrowUpAZ, faChartPie, faTableCellsLarge, faBars, faChartBar } from '@fortawesome/free-solid-svg-icons'
 import { ComparisonChart } from './ComparisonChart'
 import { SingleSelectPieChart } from './SingleSelectPieChart'
 import { HeatmapTable } from './HeatmapTable'
@@ -578,8 +578,8 @@ const ChartCard: React.FC<ChartCardProps> = ({
               />
             </button>
           )}
-          {/* Swap Axes Button - for bar charts with multiple segments */}
-          {chartVariant !== 'heatmap' && chartVariant === 'bar' && series.groups.length > 1 && question.type !== 'ranking' && (
+          {/* Swap Axes Button - for bar and stacked charts with multiple segments */}
+          {chartVariant !== 'heatmap' && (chartVariant === 'bar' || chartVariant === 'stacked') && series.groups.length > 1 && question.type !== 'ranking' && (
             <button
               onClick={() => setAxesSwapped(prev => !prev)}
               className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
@@ -899,21 +899,21 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 )}
                 {canUseStacked && (
                   <button
-                    className="text-base font-semibold transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
+                    className="flex items-center justify-center transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
                     style={{
                       height: '30px',
-                      minWidth: '70px',
+                      width: '30px',
                       backgroundColor: chartVariant === 'stacked' ? '#D6E9FF' : '#EEF2F6',
                       border: chartVariant === 'stacked' ? '1px solid #80BDFF' : '1px solid #EEF2F6',
-                      borderRadius: '3px',
-                      padding: '0 6px'
+                      borderRadius: '3px'
                     }}
                     onClick={() => {
                       setChartVariant('stacked')
                       setChartOrientation('horizontal')
                     }}
+                    title="Stacked chart"
                   >
-                    <span style={{ padding: '0 2px' }}>Stacked</span>
+                    <FontAwesomeIcon icon={faChartBar} style={{ fontSize: '16px' }} />
                   </button>
                 )}
                 {canUseHeatmap && (
@@ -1003,12 +1003,16 @@ const ChartCard: React.FC<ChartCardProps> = ({
         }
 
         if (chartVariant === 'stacked' && canUseStacked) {
-          console.log('Rendering stacked chart with orientation:', chartOrientation)
+          console.log('Rendering stacked chart with orientation:', chartOrientation, 'axesSwapped:', axesSwapped)
+
+          // Use transposed data if axes are swapped
+          const dataToUse = axesSwapped ? transposedData : processedData
+          const groupsToUse = axesSwapped ? transposedGroups : series.groups
 
           // Transform data: swap rows and columns
           // Current: rows = answer options, columns = segments
           // Needed: rows = segments, columns = answer options
-          const stackedData = series.groups.map(group => {
+          const stackedData = groupsToUse.map(group => {
             const row: any = {
               optionDisplay: group.label,
               option: group.key,
@@ -1017,7 +1021,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
             }
 
             // Each answer option becomes a column in the stacked bar
-            processedData.forEach(dataPoint => {
+            dataToUse.forEach(dataPoint => {
               const value = dataPoint[group.key]
               row[dataPoint.option] = typeof value === 'number' ? value : 0
             })
@@ -1026,7 +1030,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
           })
 
           // Create new groups metadata for answer options
-          const stackedGroups = processedData.map(dataPoint => ({
+          const stackedGroups = dataToUse.map(dataPoint => ({
             label: dataPoint.optionDisplay,
             key: dataPoint.option
           }))
@@ -1196,6 +1200,7 @@ interface ChartGalleryProps {
   segmentColumn?: string
   groups?: string[]
   segments?: SegmentDef[]
+  comparisonMode?: boolean
   groupLabels?: Record<string, string>
   orientation: 'horizontal' | 'vertical'
   sortOrder: SortOrder
@@ -1215,6 +1220,7 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
   segmentColumn,
   groups,
   segments,
+  comparisonMode = true,
   groupLabels = {},
   orientation,
   sortOrder,
@@ -1233,13 +1239,20 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
 
     if (!hasSegments && !hasOldStyle) return []
 
+    // When segments are selected in filter mode (not comparison), the dataset is already filtered
+    // So we pass "Overall" segment to buildSeries to show the filtered data as a single bar
+    // We then customize the label to show the combined filter text
+    // In comparison mode, pass all segments to show them side-by-side
+    const actualSegments = segments?.filter(seg => seg.value !== 'Overall') || []
+    const useFilterMode = !comparisonMode && actualSegments.length >= 1
+
     return questions
       .map(question => {
         const series = buildSeries({
           dataset,
           question,
           ...(hasSegments
-            ? { segments }
+            ? (useFilterMode ? { segments: [{ column: 'Overall', value: 'Overall' }] } : { segments })
             : { segmentColumn, groups }
           ),
           sortOrder
@@ -1251,6 +1264,18 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
           label: groupLabels[group.key] || group.label
         }))
 
+        // In filter mode with multiple segments, create a combined label showing all filters
+        if (useFilterMode && series.groups.length > 0) {
+          const filterLabels = actualSegments.map(seg => {
+            const customLabel = groupLabels[seg.value]
+            return customLabel || seg.value
+          })
+          series.groups = series.groups.map(group => ({
+            ...group,
+            label: filterLabels.join(', ')
+          }))
+        }
+
         // Apply custom labels to series data options
         const questionOptionLabels = optionLabels[question.qid] || {}
         series.data = series.data.map(dataPoint => ({
@@ -1261,7 +1286,7 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
         return { question, series }
       })
       .filter(entry => entry.series.data.length > 0)
-  }, [dataset, questions, segmentColumn, groups, segments, sortOrder, groupLabels, optionLabels])
+  }, [dataset, questions, segmentColumn, groups, segments, sortOrder, groupLabels, optionLabels, comparisonMode])
 
   // Create a wrapper div with ref for each chart
   return (

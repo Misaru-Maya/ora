@@ -327,23 +327,36 @@ export default function App() {
       )
     }
 
-    // Apply segment filters (Country, Product Preference, etc.) - use AND logic
-    if (selections.segments && selections.segments.length > 0) {
+    // Apply segment filters with AND logic between categories, OR logic within categories
+    // Only apply filtering in Filter mode (comparisonMode = false)
+    const isFilterMode = !(selections.comparisonMode ?? true)
+    if (isFilterMode && selections.segments && selections.segments.length > 0) {
       // Filter out "Overall" segments as they don't apply filtering
       const actualSegments = selections.segments.filter(seg => seg.value !== 'Overall')
 
       if (actualSegments.length > 0) {
+        // Group segments by column (category)
+        const segmentsByColumn = actualSegments.reduce((acc, segment) => {
+          if (!acc[segment.column]) {
+            acc[segment.column] = []
+          }
+          acc[segment.column].push(segment.value)
+          return acc
+        }, {} as Record<string, string[]>)
+
         filtered = filtered.filter(row => {
-          // Row must match ALL segment conditions (AND logic)
-          return actualSegments.every(segment =>
-            stripQuotesFromValue(String(row[segment.column])) === stripQuotesFromValue(segment.value)
-          )
+          // Row must match at least one value from each category (AND between categories, OR within)
+          return Object.entries(segmentsByColumn).every(([column, values]) => {
+            const rowValue = stripQuotesFromValue(String(row[column]))
+            // Match if row value equals ANY of the selected values in this category (OR logic)
+            return values.some(value => rowValue === stripQuotesFromValue(value))
+          })
         })
       }
     }
 
     return filtered
-  }, [useAllProducts, rowsRaw, selections.productGroups, selections.productColumn, selections.segments])
+  }, [useAllProducts, rowsRaw, selections.productGroups, selections.productColumn, selections.segments, selections.comparisonMode])
 
   const filteredDataset = useMemo(() => {
     if (!dataset) return null
@@ -446,10 +459,12 @@ export default function App() {
       return { data: [], groups: [] }
     }
 
-    // When multiple segments are selected, the dataset is already filtered
-    // So we pass "Overall" to buildSeries to show the filtered data
+    // In Filter mode (comparisonMode = false), when multiple segments are selected,
+    // the dataset is already filtered, so we pass "Overall" to buildSeries to show the filtered data
+    // In Compare mode (comparisonMode = true), pass all segments to show them side-by-side
+    const isFilterMode = !(selections.comparisonMode ?? true)
     const actualSegments = selections.segments?.filter(seg => seg.value !== 'Overall') || []
-    const useOverall = actualSegments.length > 1
+    const useOverall = isFilterMode && actualSegments.length >= 1
 
     const result = buildSeries({
       dataset: filteredDataset,
@@ -471,7 +486,7 @@ export default function App() {
 
     return result
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredDataset, currentQuestion, selections.segmentColumn, segmentsKey, orderedGroups, selections.sortOrder, selections.groupLabels])
+  }, [filteredDataset, currentQuestion, selections.segmentColumn, segmentsKey, orderedGroups, selections.sortOrder, selections.groupLabels, selections.comparisonMode])
 
   useEffect(() => {
     if (!selections.segmentColumn) return
@@ -532,6 +547,7 @@ export default function App() {
     const existingIndex = currentSegments.findIndex(
       s => s.column === column && s.value === value
     )
+    const isFilterMode = !(selections.comparisonMode ?? true)
 
     if (existingIndex >= 0) {
       // Remove segment
@@ -546,7 +562,19 @@ export default function App() {
       }
     } else {
       // Add segment
-      setSelections({ segments: [...currentSegments, { column, value }] })
+      let newSegments = [...currentSegments, { column, value }]
+
+      // If selecting Overall, remove all other segments
+      if (value === 'Overall') {
+        setSelections({ segments: [{ column: 'Overall', value: 'Overall' }] })
+      } else if (isFilterMode) {
+        // In Filter mode only: remove Overall when selecting other segments
+        newSegments = newSegments.filter(s => s.value !== 'Overall')
+        setSelections({ segments: newSegments })
+      } else {
+        // In Compare mode: keep Overall, allow multiple selections
+        setSelections({ segments: newSegments })
+      }
     }
   }
 
@@ -558,10 +586,18 @@ export default function App() {
 
   const handleSelectAllInColumn = (column: string, values: string[]) => {
     const currentSegments = selections.segments || []
+    const isFilterMode = !(selections.comparisonMode ?? true)
+
     // Remove existing segments from this column
     const otherSegments = currentSegments.filter(s => s.column !== column)
     // Add all values from this column
-    const newSegments = [...otherSegments, ...values.map(value => ({ column, value }))]
+    let newSegments = [...otherSegments, ...values.map(value => ({ column, value }))]
+
+    // In Filter mode only: remove Overall when selecting other segments
+    if (isFilterMode) {
+      newSegments = newSegments.filter(s => s.value !== 'Overall')
+    }
+
     setSelections({ segments: newSegments })
   }
 
@@ -1000,23 +1036,80 @@ export default function App() {
 
               <div className="flex flex-col gap-[10px]">
                 <section className="space-y-3 rounded-xl bg-white p-5 shadow-sm">
-                  <div
-                    className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition"
-                    onClick={() => toggleSection('segmentation')}
-                  >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      className="flex-shrink-0 transition-transform"
-                      style={{ transform: expandedSections.has('segmentation') ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                  <div className="flex items-center justify-between">
+                    <div
+                      className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition"
+                      onClick={() => toggleSection('segmentation')}
                     >
-                      <path d="M9 18l6-6-6-6" />
-                    </svg>
-                    <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Segmentation</h4>
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className="flex-shrink-0 transition-transform"
+                        style={{ transform: expandedSections.has('segmentation') ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                      >
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
+                      <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Segmentation</h4>
+                    </div>
+
+                    {/* Filter/Compare Mode Toggle */}
+                    <div className="flex items-center" style={{ gap: '1px' }}>
+                      {/* Toggle Switch */}
+                      <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px' }}>
+                        <input
+                          type="checkbox"
+                          checked={selections.comparisonMode ?? true}
+                          onChange={(e) => {
+                            e.stopPropagation()
+                            setSelections({ comparisonMode: !selections.comparisonMode })
+                          }}
+                          style={{ opacity: 0, width: 0, height: 0 }}
+                        />
+                        <span
+                          className="slider round"
+                          style={{
+                            position: 'absolute',
+                            cursor: 'pointer',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: selections.comparisonMode ? '#3A8518' : '#CCC',
+                            transition: '0.4s',
+                            borderRadius: '20px'
+                          }}
+                        >
+                          <span
+                            style={{
+                              position: 'absolute',
+                              content: '""',
+                              height: '15px',
+                              width: '15px',
+                              left: selections.comparisonMode ? '22px' : '2.5px',
+                              bottom: '2.5px',
+                              backgroundColor: 'white',
+                              transition: '0.4s',
+                              borderRadius: '50%'
+                            }}
+                          />
+                        </span>
+                      </label>
+
+                      {/* Compare label */}
+                      <span
+                        className="font-medium"
+                        style={{
+                          color: selections.comparisonMode ? '#3A8518' : '#9CA3AF',
+                          fontSize: '12.6px'
+                        }}
+                      >
+                        {' '}Compare
+                      </span>
+                    </div>
                   </div>
                   {expandedSections.has('segmentation') && (
                     <div className="pl-[10px]">
@@ -1096,7 +1189,7 @@ export default function App() {
                         return 0
                       })
                       .map((column, index) => {
-                      const rawValues = Array.from(new Set(rows.map(r => stripQuotesFromValue(String(r[column])))))
+                      const rawValues = Array.from(new Set(rowsRaw.map(r => stripQuotesFromValue(String(r[column])))))
                         .filter(v => {
                           if (!v || v === 'null' || v === 'undefined') return false
 
@@ -1637,6 +1730,7 @@ export default function App() {
                     segmentColumn={selections.segmentColumn}
                     groups={orderedGroups}
                     segments={selections.segments}
+                    comparisonMode={selections.comparisonMode ?? true}
                     groupLabels={selections.groupLabels || {}}
                     orientation={chartOrientation}
                     sortOrder={selections.sortOrder}

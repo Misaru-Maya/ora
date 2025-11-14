@@ -46,7 +46,7 @@ const GROUP_COLORS = [
 ]
 
 const LABEL_FONT_SIZE = 14
-const HORIZONTAL_BAR_SIZE = Math.max(LABEL_FONT_SIZE + 8, 32)
+const HORIZONTAL_BAR_SIZE = Math.round(Math.max(LABEL_FONT_SIZE + 8, 32) * 0.9)
 const VERTICAL_BAR_SIZE = Math.max(LABEL_FONT_SIZE + 8, 32)
 const AXIS_LINE_STYLE = { stroke: '#000', strokeWidth: 1 }
 const TICK_LINE_STYLE = { stroke: '#000', strokeWidth: 1 }
@@ -604,7 +604,9 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   // Dynamic chart dimensions based on number of answer options
   const { chartHeight, barCategoryGap, barSize } = isHorizontal
     ? {
-        chartHeight: Math.max(200, data.length * (HORIZONTAL_BAR_SIZE + 32)),
+        // For horizontal charts: calculate height to maintain same bar size per answer option
+        // Stacked charts have one bar per option, grouped charts have multiple bars per option
+        chartHeight: Math.max(200, data.length * (HORIZONTAL_BAR_SIZE * (stacked ? 1 : groups.length) + 32)),
         barCategoryGap: 32,
         barSize: HORIZONTAL_BAR_SIZE,
       }

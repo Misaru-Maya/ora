@@ -54,6 +54,7 @@ export interface Selections {
   segmentColumn?: string
   groups: string[]
   segments?: SegmentDef[]  // New: supports multiple columns
+  comparisonMode?: boolean // true = Compare mode (segments shown side-by-side), false = Filter mode (segments treated as one group)
   groupLabels?: Record<string, string> // Map of group key to custom label
   segmentColumnLabels?: Record<string, string> // Map of segment column name to custom label
   productColumn?: string

@@ -11,6 +11,7 @@ interface ORAState {
 const initialSelections: Selections = {
   groups: [],
   segments: [],
+  comparisonMode: true, // Default to Compare mode (current behavior)
   groupLabels: {},
   segmentColumnLabels: {},
   sortOrder: 'descending',
