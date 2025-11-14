@@ -1385,6 +1385,7 @@ export default function App() {
                         </div>
                       )
                     })}
+                  </div>
 
                     {/* Consumer Questions Segmentation */}
                     <div style={{ paddingTop: '14px', marginTop: '1px' }}>
@@ -1429,7 +1430,7 @@ export default function App() {
                       </div>
 
                       {expandedSections.has('consumerQuestions') && (
-                        <div style={{ marginTop: '8px' }}>
+                        <div style={{ marginTop: '8px', maxHeight: '400px', overflowY: 'auto' }}>
                           {/* Questions Dropdown */}
                           <div style={{ position: 'relative', marginBottom: '8px' }}>
                             <div
@@ -1573,7 +1574,6 @@ export default function App() {
                         </div>
                       )}
                     </div>
-                  </div>
                   {selections.comparisonMode && (
                     <div style={{ paddingTop: '14px', marginTop: '1px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                       <div className="flex items-center" style={{ gap: '2px' }}>
