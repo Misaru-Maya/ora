@@ -191,10 +191,26 @@ export default function App() {
   const [editingSegment, setEditingSegment] = useState<string | null>(null)
   const [segmentInput, setSegmentInput] = useState('')
   const segmentInputRef = useRef<HTMLInputElement>(null)
+  const questionDropdownRef = useRef<HTMLDivElement>(null)
   const [expandedSegmentGroups, setExpandedSegmentGroups] = useState<Set<string>>(new Set())
   const [questionDropdownOpen, setQuestionDropdownOpen] = useState(false)
   const [questionSearchTerm, setQuestionSearchTerm] = useState('')
   const [expandedQuestionSegments, setExpandedQuestionSegments] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (questionDropdownRef.current && !questionDropdownRef.current.contains(event.target as Node)) {
+        setQuestionDropdownOpen(false)
+      }
+    }
+
+    if (questionDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+      }
+    }
+  }, [questionDropdownOpen])
 
   useEffect(() => {
     if (editingSegment && segmentInputRef.current) {
@@ -1565,7 +1581,7 @@ export default function App() {
                       {expandedSections.has('consumerQuestions') && (
                         <div style={{ marginTop: '8px' }}>
                           {/* Questions Dropdown */}
-                          <div style={{ position: 'relative', marginBottom: '8px', flexShrink: 0 }}>
+                          <div ref={questionDropdownRef} style={{ position: 'relative', marginBottom: '8px', flexShrink: 0 }}>
                             <div
                               onClick={() => setQuestionDropdownOpen(!questionDropdownOpen)}
                               style={{
