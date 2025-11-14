@@ -1404,11 +1404,16 @@ export default function App() {
                           borderBottom: '1px solid #E5E7EB'
                         }}
                         onClick={() => {
-                          const isExpanded = expandedSections['consumerQuestions']
-                          setExpandedSections(prev => ({
-                            ...prev,
-                            consumerQuestions: !isExpanded
-                          }))
+                          const isExpanded = expandedSections.has('consumerQuestions')
+                          setExpandedSections(prev => {
+                            const next = new Set(prev)
+                            if (isExpanded) {
+                              next.delete('consumerQuestions')
+                            } else {
+                              next.add('consumerQuestions')
+                            }
+                            return next
+                          })
                         }}
                       >
                         <svg
@@ -1417,7 +1422,7 @@ export default function App() {
                           viewBox="0 0 12 12"
                           fill="none"
                           style={{
-                            transform: expandedSections['consumerQuestions'] ? 'rotate(90deg)' : 'rotate(0deg)',
+                            transform: expandedSections.has('consumerQuestions') ? 'rotate(90deg)' : 'rotate(0deg)',
                             transition: 'transform 0.2s ease'
                           }}
                         >
@@ -1428,7 +1433,7 @@ export default function App() {
                         </h5>
                       </div>
 
-                      {expandedSections['consumerQuestions'] && (
+                      {expandedSections.has('consumerQuestions') && (
                         <div style={{ marginTop: '8px' }}>
                           {/* Questions Dropdown */}
                           <div style={{ position: 'relative', marginBottom: '8px' }}>
