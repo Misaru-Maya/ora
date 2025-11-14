@@ -470,11 +470,52 @@ export default function App() {
     let filteredRows = rows
 
     if (selectedSegments.length > 0) {
-      // Filter to only include rows that match at least one selected segment
+      // Group segments by column for proper OR logic within same question
+      const segmentsByColumn = new Map<string, string[]>()
+      selectedSegments.forEach(seg => {
+        if (seg.column === 'Overall') return // Skip Overall for grouping
+        const values = segmentsByColumn.get(seg.column) || []
+        values.push(seg.value)
+        segmentsByColumn.set(seg.column, values)
+      })
+
+      // Filter rows where they match at least one value from EACH column group (AND across columns, OR within column)
       filteredRows = rows.filter(row => {
-        return selectedSegments.some(segment => {
-          if (segment.column === 'Overall') return true
-          return stripQuotes(String(row[segment.column])) === stripQuotes(segment.value)
+        // If Overall is selected, include this row (Overall means all rows)
+        const hasOverall = selectedSegments.some(seg => seg.column === 'Overall')
+        if (hasOverall && segmentsByColumn.size === 0) return true
+
+        // Check if row matches criteria for each column group
+        return Array.from(segmentsByColumn.entries()).every(([column, values]) => {
+          // Check if this column is a consumer question
+          const consumerQuestion = dataset.questions.find(q => q.qid === column)
+
+          if (consumerQuestion) {
+            // Consumer question - use appropriate filtering logic
+            if (consumerQuestion.type === 'single' && consumerQuestion.singleSourceColumn) {
+              // Single-select: check if row's value matches any of the selected values
+              const rowValue = stripQuotes(String(row[consumerQuestion.singleSourceColumn]))
+              return values.some(value => stripQuotes(value) === rowValue)
+            } else if (consumerQuestion.type === 'multi') {
+              // Multi-select: check if any of the selected options' columns are truthy
+              return values.some(value => {
+                const optionColumn = consumerQuestion.columns.find(col => col.optionLabel === value)
+                if (optionColumn) {
+                  const headersToCheck = [optionColumn.header, ...(optionColumn.alternateHeaders || [])]
+                  return headersToCheck.some(header => {
+                    const val = row[header]
+                    return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes'
+                  })
+                }
+                return false
+              })
+            }
+            return false
+          } else {
+            // Regular segment column: check if row's value matches any of the selected values
+            const rowValue = stripQuotes(String(row[column]))
+            return values.some(value => stripQuotes(value) === rowValue)
+          }
         })
       })
     }
