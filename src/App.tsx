@@ -1443,9 +1443,9 @@ export default function App() {
                       </div>
 
                       {expandedSections.has('consumerQuestions') && (
-                        <div style={{ marginTop: '8px', maxHeight: '400px', overflowY: 'auto' }}>
+                        <div style={{ marginTop: '8px' }}>
                           {/* Questions Dropdown */}
-                          <div style={{ position: 'relative', marginBottom: '8px' }}>
+                          <div style={{ position: 'relative', marginBottom: '8px', flexShrink: 0 }}>
                             <div
                               onClick={() => setQuestionDropdownOpen(!questionDropdownOpen)}
                               style={{
@@ -1565,7 +1565,7 @@ export default function App() {
 
                           {/* Answer Options for Selected Questions */}
                           {(selections.questionSegments || []).length > 0 && (
-                            <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ maxHeight: '600px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                               {(selections.questionSegments || []).map((qid) => {
                                 const question = dataset?.questions.find(q => q.qid === qid)
                                 if (!question) return null
