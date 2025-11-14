@@ -29,6 +29,7 @@ interface ChartCardProps {
   segmentColumn?: string
   sortOrder: SortOrder
   hideAsterisks?: boolean
+  comparisonMode?: boolean
   chartColors: string[]
   optionLabels: Record<string, string>
   onSaveOptionLabel: (option: string, newLabel: string) => void
@@ -61,6 +62,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
   segmentColumn,
   sortOrder,
   hideAsterisks = false,
+  comparisonMode = true,
   chartColors,
   optionLabels,
   onSaveOptionLabel,
@@ -104,9 +106,19 @@ const ChartCard: React.FC<ChartCardProps> = ({
   const canUsePie = canUseAlternateCharts && series.groups.length === 1
   const canUseStacked = canUseAlternateCharts && series.groups.length > 1
 
-  // Can use heatmap for product-level questions, only when viewing "Overall" segment
+  // Can use heatmap for product-level questions only (questions repeated for multiple products)
+  // Check if there's a Product Title/Name column (indicates product test)
+  const hasProductColumn = dataset.summary.columns.some(col => {
+    const lower = col.toLowerCase()
+    return lower === 'product title' ||
+           lower === 'product name' ||
+           lower === 'style' ||
+           (lower.includes('product') && (lower.includes('title') || lower.includes('name')))
+  })
+  const isProductQuestion = hasProductColumn && question.level === 'row'
   const isOverallSegment = series.groups.length === 1 && series.groups[0]?.label === 'Overall'
-  const canUseHeatmap = question.level === 'row' && isOverallSegment
+  const isFilterMode = !comparisonMode
+  const canUseHeatmap = isProductQuestion && (isOverallSegment || isFilterMode)
 
   // Check if this is a sentiment question
   const sentimentColumn = dataset.summary.columns.find(col =>
@@ -1308,6 +1320,7 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
                 segmentColumn={segmentColumn}
                 sortOrder={sortOrder}
                 hideAsterisks={hideAsterisks}
+                comparisonMode={comparisonMode}
                 chartColors={chartColors}
                 optionLabels={optionLabels[question.qid] || {}}
                 onSaveOptionLabel={(option, newLabel) => onSaveOptionLabel?.(question.qid, option, newLabel)}

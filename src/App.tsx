@@ -967,6 +967,7 @@ export default function App() {
                           {activeFilters.map((filter, idx) => (
                             <div
                               key={idx}
+                              className="filter-chip"
                               style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
@@ -976,7 +977,15 @@ export default function App() {
                                 borderRadius: '4px',
                                 fontSize: '12px',
                                 color: '#374151',
-                                maxWidth: '100%'
+                                maxWidth: '100%',
+                                cursor: 'pointer',
+                                transition: 'background-color 0.2s'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#EBF3E7'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#f3f4f6'
                               }}
                             >
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{filter.label}</span>
@@ -1232,7 +1241,7 @@ export default function App() {
                               >
                                 <path d="M9 18l6-6-6-6" />
                               </svg>
-                              <h5 className="text-2xl font-semibold text-brand-gray group-hover:text-brand-green transition-colors">{column}</h5>
+                              <h5 className="font-semibold text-brand-gray group-hover:text-brand-green transition-colors" style={{ fontSize: '12px' }}>{column}</h5>
                             </div>
                           </div>
                           {isExpanded && (
