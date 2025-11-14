@@ -598,8 +598,8 @@ const ChartCard: React.FC<ChartCardProps> = ({
               style={{
                 height: '30px',
                 width: '30px',
-                backgroundColor: axesSwapped ? '#C8E2BA' : '#EEF2F6',
-                border: axesSwapped ? '1px solid #3A8518' : '1px solid #EEF2F6',
+                backgroundColor: axesSwapped ? '#C8E2BA' : '#EBF3E7',
+                border: axesSwapped ? '1px solid #3A8518' : '1px solid #EBF3E7',
                 borderRadius: '3px'
               }}
               title="Swap X/Y axes"

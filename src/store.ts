@@ -19,7 +19,8 @@ const initialSelections: Selections = {
   statSigFilter: 'all',
   hideAsterisks: false,
   chartColors: ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'],
-  optionLabels: {}
+  optionLabels: {},
+  questionSegments: []
 }
 
 export const useORAStore = create<ORAState>((set) => ({

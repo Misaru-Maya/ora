@@ -66,4 +66,5 @@ export interface Selections {
   chartColors?: string[]
   optionLabels?: Record<string, Record<string, string>> // Map of qid -> option -> custom label
   questionLabels?: Record<string, string> // Map of qid -> custom question title
+  questionSegments?: string[] // Array of qids selected for segmentation
 }
