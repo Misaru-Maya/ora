@@ -1486,7 +1486,6 @@ export default function App() {
                                   backgroundColor: 'white',
                                   border: '1px solid #E5E7EB',
                                   borderRadius: '4px',
-                                  maxHeight: '850px',
                                   zIndex: 1000,
                                   boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                                   display: 'flex',
