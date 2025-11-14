@@ -1040,9 +1040,11 @@ export default function App() {
             <div style={{ width: '240px', flexShrink: 0 }}>
               <CSVUpload />
             </div>
-            <span className="text-brand-gray font-bold truncate" style={{ fontSize: '14px', display: 'block' }} title={cleanFileName(summary.fileName)}>
-              {cleanFileName(summary.fileName)}
-            </span>
+            {summary && (
+              <span className="text-brand-gray font-bold truncate" style={{ fontSize: '14px', display: 'block' }} title={cleanFileName(summary.fileName)}>
+                {cleanFileName(summary.fileName)}
+              </span>
+            )}
           </div>
           <div className="flex-shrink-0" style={{ paddingRight: '30px' }}>
             <h2 className="text-lg font-semibold text-brand-gray">
