@@ -1015,27 +1015,80 @@ export default function App() {
                           ))}
                         </div>
                         {!onlyOverall && (
-                          <button
-                            onClick={() => {
-                              setSelections({ segments: [{ column: 'Overall', value: 'Overall' }], productGroups: [] })
-                            }}
-                            style={{
-                              alignSelf: 'flex-start',
-                              padding: '6px 12px',
-                              backgroundColor: 'white',
-                              border: '1px solid #3A8518',
-                              borderRadius: '6px',
-                              color: '#3A8518',
-                              fontSize: '12px',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                              fontFamily: 'Space Grotesk, sans-serif'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0fdf4'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                          >
-                            Clear All
-                          </button>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <button
+                              onClick={() => {
+                                setSelections({ segments: [{ column: 'Overall', value: 'Overall' }], productGroups: [] })
+                              }}
+                              style={{
+                                padding: '6px 12px',
+                                backgroundColor: 'white',
+                                border: '1px solid #3A8518',
+                                borderRadius: '6px',
+                                color: '#3A8518',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                fontFamily: 'Space Grotesk, sans-serif'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0fdf4'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                            >
+                              Clear All
+                            </button>
+
+                            {/* Filter/Compare Mode Toggle */}
+                            <div className="flex items-center" style={{ gap: '2px' }}>
+                              <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={selections.comparisonMode ?? true}
+                                  onChange={(e) => {
+                                    e.stopPropagation()
+                                    setSelections({ comparisonMode: !selections.comparisonMode })
+                                  }}
+                                  style={{ opacity: 0, width: 0, height: 0 }}
+                                />
+                                <span
+                                  className="slider round"
+                                  style={{
+                                    position: 'absolute',
+                                    cursor: 'pointer',
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    backgroundColor: selections.comparisonMode ? '#3A8518' : '#CCC',
+                                    transition: '0.4s',
+                                    borderRadius: '20px'
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      position: 'absolute',
+                                      content: '""',
+                                      height: '15px',
+                                      width: '15px',
+                                      left: selections.comparisonMode ? '22px' : '2.5px',
+                                      top: '2.5px',
+                                      backgroundColor: 'white',
+                                      transition: '0.4s',
+                                      borderRadius: '50%'
+                                    }}
+                                  />
+                                </span>
+                              </label>
+                              <span
+                                className="font-medium"
+                                style={{
+                                  color: selections.comparisonMode ? '#3A8518' : '#9CA3AF',
+                                  fontSize: '12.6px'
+                                }}
+                              >
+                                {' '}Compare
+                              </span>
+                            </div>
+                          </div>
                         )}
                       </div>
                     )
@@ -1063,61 +1116,6 @@ export default function App() {
                         <path d="M9 18l6-6-6-6" />
                       </svg>
                       <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Segmentation</h4>
-                    </div>
-
-                    {/* Filter/Compare Mode Toggle */}
-                    <div className="flex items-center" style={{ gap: '1px' }}>
-                      {/* Toggle Switch */}
-                      <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px' }}>
-                        <input
-                          type="checkbox"
-                          checked={selections.comparisonMode ?? true}
-                          onChange={(e) => {
-                            e.stopPropagation()
-                            setSelections({ comparisonMode: !selections.comparisonMode })
-                          }}
-                          style={{ opacity: 0, width: 0, height: 0 }}
-                        />
-                        <span
-                          className="slider round"
-                          style={{
-                            position: 'absolute',
-                            cursor: 'pointer',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            backgroundColor: selections.comparisonMode ? '#3A8518' : '#CCC',
-                            transition: '0.4s',
-                            borderRadius: '20px'
-                          }}
-                        >
-                          <span
-                            style={{
-                              position: 'absolute',
-                              content: '""',
-                              height: '15px',
-                              width: '15px',
-                              left: selections.comparisonMode ? '22px' : '2.5px',
-                              bottom: '2.5px',
-                              backgroundColor: 'white',
-                              transition: '0.4s',
-                              borderRadius: '50%'
-                            }}
-                          />
-                        </span>
-                      </label>
-
-                      {/* Compare label */}
-                      <span
-                        className="font-medium"
-                        style={{
-                          color: selections.comparisonMode ? '#3A8518' : '#9CA3AF',
-                          fontSize: '12.6px'
-                        }}
-                      >
-                        {' '}Compare
-                      </span>
                     </div>
                   </div>
                   {expandedSections.has('segmentation') && (
@@ -1241,7 +1239,7 @@ export default function App() {
                               >
                                 <path d="M9 18l6-6-6-6" />
                               </svg>
-                              <h5 className="font-semibold text-brand-gray group-hover:text-brand-green transition-colors" style={{ fontSize: '12px' }}>{column}</h5>
+                              <h5 className="font-semibold text-brand-gray group-hover:text-brand-green transition-colors" style={{ fontSize: '12px', fontFamily: 'Space Grotesk, sans-serif' }}>{column}</h5>
                             </div>
                           </div>
                           {isExpanded && (
@@ -1335,73 +1333,114 @@ export default function App() {
                       )
                     })}
                   </div>
-                  </div>
+                  {selections.comparisonMode && (
+                    <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '14px', marginTop: '1px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <div className="flex items-center" style={{ gap: '2px' }}>
+                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px' }}>
+                          <input
+                            type="checkbox"
+                            checked={statSigFilter === 'statSigOnly'}
+                            onChange={(e) => {
+                              e.stopPropagation()
+                              const isDisabled = (selections.segments && selections.segments.length < 2) || (!selections.segments && selections.groups.length < 2)
+                              if (!isDisabled) {
+                                setSelections({ statSigFilter: statSigFilter === 'all' ? 'statSigOnly' : 'all' })
+                              }
+                            }}
+                            disabled={(selections.segments && selections.segments.length < 2) || (!selections.segments && selections.groups.length < 2)}
+                            style={{ opacity: 0, width: 0, height: 0 }}
+                          />
+                          <span
+                            className="slider round"
+                            style={{
+                              position: 'absolute',
+                              cursor: (selections.segments && selections.segments.length < 2) || (!selections.segments && selections.groups.length < 2) ? 'not-allowed' : 'pointer',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              backgroundColor: statSigFilter === 'statSigOnly' ? '#3A8518' : '#CCC',
+                              transition: '0.4s',
+                              borderRadius: '20px'
+                            }}
+                          >
+                            <span
+                              style={{
+                                position: 'absolute',
+                                content: '""',
+                                height: '15px',
+                                width: '15px',
+                                left: statSigFilter === 'statSigOnly' ? '22px' : '2.5px',
+                                top: '2.5px',
+                                backgroundColor: 'white',
+                                transition: '0.4s',
+                                borderRadius: '50%'
+                              }}
+                            />
+                          </span>
+                        </label>
+                        <span
+                          className="font-medium"
+                          style={{
+                            color: statSigFilter === 'statSigOnly' ? '#3A8518' : '#9CA3AF',
+                            fontSize: '12.6px'
+                          }}
+                        >
+                          {' '}Stat Sig Only
+                        </span>
+                      </div>
+                      <div className="flex items-center" style={{ gap: '2px' }}>
+                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px' }}>
+                          <input
+                            type="checkbox"
+                            checked={selections.hideAsterisks || false}
+                            onChange={(e) => {
+                              e.stopPropagation()
+                              setSelections({ hideAsterisks: e.target.checked })
+                            }}
+                            style={{ opacity: 0, width: 0, height: 0 }}
+                          />
+                          <span
+                            className="slider round"
+                            style={{
+                              position: 'absolute',
+                              cursor: 'pointer',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              backgroundColor: selections.hideAsterisks ? '#3A8518' : '#CCC',
+                              transition: '0.4s',
+                              borderRadius: '20px'
+                            }}
+                          >
+                            <span
+                              style={{
+                                position: 'absolute',
+                                content: '""',
+                                height: '15px',
+                                width: '15px',
+                                left: selections.hideAsterisks ? '22px' : '2.5px',
+                                top: '2.5px',
+                                backgroundColor: 'white',
+                                transition: '0.4s',
+                                borderRadius: '50%'
+                              }}
+                            />
+                          </span>
+                        </label>
+                        <span
+                          className="font-medium"
+                          style={{
+                            color: selections.hideAsterisks ? '#3A8518' : '#9CA3AF',
+                            fontSize: '12.6px'
+                          }}
+                        >
+                          {' '}Remove asterisks
+                        </span>
+                      </div>
+                    </div>
                   )}
-                </section>
-
-                <section className="space-y-3 rounded-xl bg-white p-5 shadow-sm">
-                  <div
-                    className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition"
-                    onClick={() => toggleSection('statSig')}
-                  >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      className="flex-shrink-0 transition-transform"
-                      style={{ transform: expandedSections.has('statSig') ? 'rotate(90deg)' : 'rotate(0deg)' }}
-                    >
-                      <path d="M9 18l6-6-6-6" />
-                    </svg>
-                    <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Stat Sig</h4>
-                  </div>
-                  {expandedSections.has('statSig') && (
-                  <div className="pl-[10px] space-y-2">
-                  <div className="space-y-1">
-                    <label className="flex items-center text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px', fontSize: '12px' }}>
-                      <input
-                        type="radio"
-                        name="statSigFilter"
-                        value="all"
-                        className="border-brand-light-gray text-brand-green focus:ring-brand-green"
-                        checked={statSigFilter === 'all'}
-                        onChange={(e) => setSelections({ statSigFilter: 'all' })}
-                      />
-                      <span>All Results</span>
-                    </label>
-                    <label
-                      className="flex items-center text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer"
-                      style={{
-                        gap: '4px',
-                        fontSize: '12px',
-                        opacity: (selections.segments && selections.segments.length < 2) || (!selections.segments && selections.groups.length < 2) ? 0.5 : 1,
-                        pointerEvents: (selections.segments && selections.segments.length < 2) || (!selections.segments && selections.groups.length < 2) ? 'none' : 'auto'
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name="statSigFilter"
-                        value="statSigOnly"
-                        className="border-brand-light-gray text-brand-green focus:ring-brand-green"
-                        checked={statSigFilter === 'statSigOnly'}
-                        onChange={(e) => setSelections({ statSigFilter: 'statSigOnly' })}
-                        disabled={(selections.segments && selections.segments.length < 2) || (!selections.segments && selections.groups.length < 2)}
-                      />
-                      <span>Stat Sig Only</span>
-                    </label>
-                  </div>
-                  <label className="flex items-center cursor-pointer" style={{ gap: '4px', fontSize: '12px' }}>
-                    <input
-                      type="checkbox"
-                      className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green"
-                      checked={selections.hideAsterisks || false}
-                      onChange={(e) => setSelections({ hideAsterisks: e.target.checked })}
-                    />
-                    <span className="font-semibold text-gray-700">Remove asterisks</span>
-                  </label>
                   </div>
                   )}
                 </section>
@@ -1488,109 +1527,6 @@ export default function App() {
                   </div>
                   {expandedSections.has('display') && (
                   <div className="pl-[10px] space-y-5">
-                  <div className="space-y-2" style={{ paddingBottom: '5px' }}>
-                    <div
-                      className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition"
-                      onClick={() => toggleDisplayGroup('chartType')}
-                    >
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        className="flex-shrink-0 transition-transform"
-                        style={{ transform: expandedDisplayGroups.has('chartType') ? 'rotate(90deg)' : 'rotate(0deg)' }}
-                      >
-                        <path d="M9 18l6-6-6-6" />
-                      </svg>
-                      <h5 className="text-2xl font-semibold text-brand-gray">Chart Type</h5>
-                    </div>
-                    {expandedDisplayGroups.has('chartType') && (
-                    <div className="pl-[10px] space-y-1">
-                      <label className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px' }}>
-                        <input
-                          type="radio"
-                          name="chartOrientation"
-                          value="vertical"
-                          className="border-brand-light-gray text-brand-green focus:ring-brand-green"
-                          checked={chartOrientation === 'vertical'}
-                          onChange={(e) => setChartOrientation('vertical')}
-                        />
-                        <span>Vertical</span>
-                      </label>
-                      <label className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px' }}>
-                        <input
-                          type="radio"
-                          name="chartOrientation"
-                          value="horizontal"
-                          className="border-brand-light-gray text-brand-green focus:ring-brand-green"
-                          checked={chartOrientation === 'horizontal'}
-                          onChange={(e) => setChartOrientation('horizontal')}
-                        />
-                        <span>Horizontal</span>
-                      </label>
-                    </div>
-                    )}
-                  </div>
-                  <div className="space-y-2" style={{ paddingBottom: '5px' }}>
-                    <div
-                      className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition"
-                      onClick={() => toggleDisplayGroup('sort')}
-                    >
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        className="flex-shrink-0 transition-transform"
-                        style={{ transform: expandedDisplayGroups.has('sort') ? 'rotate(90deg)' : 'rotate(0deg)' }}
-                      >
-                        <path d="M9 18l6-6-6-6" />
-                      </svg>
-                      <h5 className="text-2xl font-semibold text-brand-gray">Sort</h5>
-                    </div>
-                    {expandedDisplayGroups.has('sort') && (
-                    <div className="pl-[10px] space-y-1">
-                      <label className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px' }}>
-                        <input
-                          type="radio"
-                          name="sortOrder"
-                          value="descending"
-                          className="border-brand-light-gray text-brand-green focus:ring-brand-green"
-                          checked={selections.sortOrder === 'descending'}
-                          onChange={(e) => setSelections({ sortOrder: 'descending' })}
-                        />
-                        <span>Descending</span>
-                      </label>
-                      <label className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px' }}>
-                        <input
-                          type="radio"
-                          name="sortOrder"
-                          value="ascending"
-                          className="border-brand-light-gray text-brand-green focus:ring-brand-green"
-                          checked={selections.sortOrder === 'ascending'}
-                          onChange={(e) => setSelections({ sortOrder: 'ascending' })}
-                        />
-                        <span>Ascending</span>
-                      </label>
-                      <label className="flex items-center text-base text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px' }}>
-                        <input
-                          type="radio"
-                          name="sortOrder"
-                          value="default"
-                          className="border-brand-light-gray text-brand-green focus:ring-brand-green"
-                          checked={selections.sortOrder === 'default'}
-                          onChange={(e) => setSelections({ sortOrder: 'default' })}
-                        />
-                        <span>Original</span>
-                      </label>
-                    </div>
-                    )}
-                  </div>
                   <div className="space-y-2" style={{ paddingBottom: '5px' }}>
                     <div
                       className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition"
