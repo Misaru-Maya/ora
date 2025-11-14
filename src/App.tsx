@@ -1558,7 +1558,7 @@ export default function App() {
                           <path d="M4.5 2L8.5 6L4.5 10" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                         <h5 className="font-semibold text-brand-gray group-hover:text-brand-green transition-colors" style={{ fontSize: '12px', fontFamily: 'Space Grotesk, sans-serif' }}>
-                          Consumer Questions
+                          Consumer Questions (🚧 WIP)
                         </h5>
                       </div>
 
