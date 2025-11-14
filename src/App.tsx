@@ -869,8 +869,8 @@ export default function App() {
                   {(() => {
                     const activeFilters: Array<{type: 'segment' | 'product', column?: string, value: string, label: string}> = []
 
-                    // Add segment filters (excluding Overall)
-                    const selectedSegments = (selections.segments || []).filter(s => s.column !== 'Overall')
+                    // Add segment filters (including Overall)
+                    const selectedSegments = selections.segments || []
                     selectedSegments.forEach(segment => {
                       activeFilters.push({
                         type: 'segment',
@@ -892,6 +892,11 @@ export default function App() {
                     }
 
                     if (activeFilters.length === 0) return null
+
+                    // Check if only "Overall" is selected (no other filters)
+                    const onlyOverall = activeFilters.length === 1 &&
+                                       activeFilters[0].type === 'segment' &&
+                                       activeFilters[0].value === 'Overall'
 
                     return (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
@@ -937,27 +942,29 @@ export default function App() {
                             </div>
                           ))}
                         </div>
-                        <button
-                          onClick={() => {
-                            setSelections({ segments: [{ column: 'Overall', value: 'Overall' }], productGroups: [] })
-                          }}
-                          style={{
-                            alignSelf: 'flex-start',
-                            padding: '6px 12px',
-                            backgroundColor: 'white',
-                            border: '1px solid #3A8518',
-                            borderRadius: '6px',
-                            color: '#3A8518',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            fontFamily: 'Space Grotesk, sans-serif'
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0fdf4'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                        >
-                          Clear All
-                        </button>
+                        {!onlyOverall && (
+                          <button
+                            onClick={() => {
+                              setSelections({ segments: [{ column: 'Overall', value: 'Overall' }], productGroups: [] })
+                            }}
+                            style={{
+                              alignSelf: 'flex-start',
+                              padding: '6px 12px',
+                              backgroundColor: 'white',
+                              border: '1px solid #3A8518',
+                              borderRadius: '6px',
+                              color: '#3A8518',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              fontFamily: 'Space Grotesk, sans-serif'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0fdf4'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                          >
+                            Clear All
+                          </button>
+                        )}
                       </div>
                     )
                   })()}
