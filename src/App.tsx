@@ -224,8 +224,16 @@ export default function App() {
   // Questions available for segmentation dropdown
   const segmentationQuestions = useMemo(() => {
     if (!dataset) return []
-    return [...dataset.questions]
+    const filtered = [...dataset.questions]
       .filter(q => shouldIncludeInSegmentation(q, rowsRaw))
+    console.log(`[SEGMENTATION] Total questions: ${dataset.questions.length}, Filtered for segmentation: ${filtered.length}`)
+    filtered.forEach(q => {
+      console.log(`[SEGMENTATION] ✅ ${q.qid}: ${q.label} (type: ${q.type}, isLikert: ${q.isLikert})`)
+    })
+    dataset.questions.filter(q => !shouldIncludeInSegmentation(q, rowsRaw)).forEach(q => {
+      console.log(`[SEGMENTATION] ❌ Excluded ${q.qid}: ${q.label} (type: ${q.type}, isLikert: ${q.isLikert})`)
+    })
+    return filtered
   }, [dataset, rowsRaw])
 
   // Filter segmentation questions based on search term (search in both question label and answer options)

@@ -157,28 +157,38 @@ export function buildSeries({
 
     if (segmentQuestion) {
       // This is a consumer question used as a segment
+      console.log(`[FILTER] Consumer question segment: ${segmentQuestion.qid} (${segmentQuestion.type}), value: ${segment.value}`)
+
       if (segmentQuestion.type === 'single' && segmentQuestion.singleSourceColumn) {
         // Single-select question: filter by the value in the source column
+        console.log(`[FILTER] Single-select filtering by column: ${segmentQuestion.singleSourceColumn}`)
         filtered = rows.filter(r => stripQuotes(String(r[segmentQuestion.singleSourceColumn!])) === stripQuotes(segment.value))
+        console.log(`[FILTER] Filtered ${filtered.length} rows out of ${rows.length}`)
       } else if (segmentQuestion.type === 'multi') {
         // Multi-select question: find the column for this option
         const optionColumn = segmentQuestion.columns.find(col => col.optionLabel === segment.value)
+        console.log(`[FILTER] Multi-select option column:`, optionColumn)
         if (optionColumn) {
           // Filter rows where this option's column has a truthy value (1, "1", true, etc.)
           filtered = rows.filter(r => {
             const val = r[optionColumn.header]
             return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE'
           })
+          console.log(`[FILTER] Filtered ${filtered.length} rows out of ${rows.length} for column ${optionColumn.header}`)
         } else {
+          console.log(`[FILTER] ❌ Option column not found for: ${segment.value}`)
           filtered = []
         }
       } else {
         // Unsupported question type for segmentation
+        console.log(`[FILTER] ❌ Unsupported question type: ${segmentQuestion.type}`)
         filtered = []
       }
     } else {
       // Regular segment column (Age, Gender, etc.)
+      console.log(`[FILTER] Regular segment: ${segment.column} = ${segment.value}`)
       filtered = rows.filter(r => stripQuotes(String(r[segment.column])) === stripQuotes(segment.value))
+      console.log(`[FILTER] Filtered ${filtered.length} rows out of ${rows.length}`)
     }
 
     const respondentIds = uniq(filtered.map(r => stripQuotes(String(r[respIdCol] ?? '').trim())).filter(Boolean))
