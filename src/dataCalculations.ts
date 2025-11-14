@@ -161,22 +161,56 @@ export function buildSeries({
 
       if (segmentQuestion.type === 'single' && segmentQuestion.singleSourceColumn) {
         // Single-select question: filter by the value in the source column
-        console.log(`[FILTER] Single-select filtering by column: ${segmentQuestion.singleSourceColumn}`)
-        filtered = rows.filter(r => stripQuotes(String(r[segmentQuestion.singleSourceColumn!])) === stripQuotes(segment.value))
+        console.log(`[FILTER] Single-select filtering by column: ${segmentQuestion.singleSourceColumn}, looking for value: "${segment.value}"`)
+        filtered = rows.filter(r => {
+          const cellValue = stripQuotes(String(r[segmentQuestion.singleSourceColumn!]))
+          const targetValue = stripQuotes(segment.value)
+          return cellValue === targetValue
+        })
         console.log(`[FILTER] Filtered ${filtered.length} rows out of ${rows.length}`)
+
+        // Debug if no matches found
+        if (filtered.length === 0 && rows.length > 0) {
+          console.log(`[FILTER] ⚠️ No matches for single-select. Sampling first 5 values from column "${segmentQuestion.singleSourceColumn}":`)
+          rows.slice(0, 5).forEach((r, i) => {
+            const val = r[segmentQuestion.singleSourceColumn!]
+            console.log(`  Row ${i}: "${val}" (stripped: "${stripQuotes(String(val))}")`)
+          })
+          console.log(`[FILTER] Available options:`, segmentQuestion.columns.map(c => c.optionLabel))
+        }
       } else if (segmentQuestion.type === 'multi') {
         // Multi-select question: find the column for this option
         const optionColumn = segmentQuestion.columns.find(col => col.optionLabel === segment.value)
         console.log(`[FILTER] Multi-select option column:`, optionColumn)
         if (optionColumn) {
+          // Check for alternate headers (case-insensitive duplicates)
+          const headersToCheck = [optionColumn.header, ...(optionColumn.alternateHeaders || [])]
+          console.log(`[FILTER] Checking headers:`, headersToCheck)
+
           // Filter rows where this option's column has a truthy value (1, "1", true, etc.)
           filtered = rows.filter(r => {
-            const val = r[optionColumn.header]
-            return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE'
+            // Check all possible headers for this option
+            return headersToCheck.some(header => {
+              const val = r[header]
+              const isTruthy = val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes'
+              if (isTruthy) {
+                console.log(`[FILTER] Match found in header "${header}" with value:`, val)
+              }
+              return isTruthy
+            })
           })
-          console.log(`[FILTER] Filtered ${filtered.length} rows out of ${rows.length} for column ${optionColumn.header}`)
+          console.log(`[FILTER] Filtered ${filtered.length} rows out of ${rows.length} for option "${segment.value}"`)
+
+          // Sample first few rows to debug
+          if (filtered.length === 0 && rows.length > 0) {
+            console.log(`[FILTER] ⚠️ No matches found. Sampling first row:`, rows[0])
+            headersToCheck.forEach(header => {
+              console.log(`[FILTER] Header "${header}" values in first 5 rows:`, rows.slice(0, 5).map(r => r[header]))
+            })
+          }
         } else {
           console.log(`[FILTER] ❌ Option column not found for: ${segment.value}`)
+          console.log(`[FILTER] Available options:`, segmentQuestion.columns.map(c => c.optionLabel))
           filtered = []
         }
       } else {
