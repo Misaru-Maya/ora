@@ -192,6 +192,7 @@ export default function App() {
   const segmentInputRef = useRef<HTMLInputElement>(null)
   const [expandedSegmentGroups, setExpandedSegmentGroups] = useState<Set<string>>(new Set())
   const [questionDropdownOpen, setQuestionDropdownOpen] = useState(false)
+  const [questionSearchTerm, setQuestionSearchTerm] = useState('')
   const [expandedQuestionSegments, setExpandedQuestionSegments] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -221,6 +222,18 @@ export default function App() {
     return [...dataset.questions]
       .filter(q => shouldIncludeInSegmentation(q, rowsRaw))
   }, [dataset, rowsRaw])
+
+  // Filter segmentation questions based on search term (search in both question label and answer options)
+  const filteredSegmentationQuestions = useMemo(() => {
+    if (!questionSearchTerm.trim()) return segmentationQuestions
+    const searchLower = questionSearchTerm.toLowerCase()
+    return segmentationQuestions.filter(q => {
+      // Search in question label
+      if (q.label.toLowerCase().includes(searchLower)) return true
+      // Search in answer options
+      return q.columns.some(col => col.optionLabel.toLowerCase().includes(searchLower))
+    })
+  }, [segmentationQuestions, questionSearchTerm])
 
   const filteredQuestions = questions
   const statSigFilter = selections.statSigFilter || 'all'
@@ -1473,13 +1486,46 @@ export default function App() {
                                   backgroundColor: 'white',
                                   border: '1px solid #E5E7EB',
                                   borderRadius: '4px',
-                                  maxHeight: '200px',
-                                  overflowY: 'auto',
+                                  maxHeight: '250px',
                                   zIndex: 1000,
-                                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                  display: 'flex',
+                                  flexDirection: 'column'
                                 }}
                               >
-                                {segmentationQuestions.map((q) => (
+                                {/* Search Input */}
+                                <div style={{ padding: '8px', borderBottom: '1px solid #E5E7EB' }}>
+                                  <input
+                                    type="text"
+                                    placeholder="Search questions or answers..."
+                                    value={questionSearchTerm}
+                                    onChange={(e) => setQuestionSearchTerm(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                      width: '100%',
+                                      padding: '4px 8px',
+                                      fontSize: '11px',
+                                      border: '1px solid #E5E7EB',
+                                      borderRadius: '4px',
+                                      outline: 'none'
+                                    }}
+                                    onFocus={(e) => {
+                                      e.target.style.borderColor = '#3A8518'
+                                    }}
+                                    onBlur={(e) => {
+                                      e.target.style.borderColor = '#E5E7EB'
+                                    }}
+                                  />
+                                </div>
+
+                                {/* Questions List */}
+                                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                                {filteredSegmentationQuestions.length === 0 ? (
+                                  <div style={{ padding: '12px 8px', fontSize: '11px', color: '#6B7280', textAlign: 'center' }}>
+                                    No questions found
+                                  </div>
+                                ) : (
+                                  filteredSegmentationQuestions.map((q) => (
                                   <label
                                     key={q.qid}
                                     style={{
@@ -1512,7 +1558,8 @@ export default function App() {
                                     />
                                     <span>{q.label}</span>
                                   </label>
-                                ))}
+                                )))}
+                                </div>
                               </div>
                             )}
                           </div>
