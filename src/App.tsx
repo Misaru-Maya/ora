@@ -1486,7 +1486,7 @@ export default function App() {
                                   backgroundColor: 'white',
                                   border: '1px solid #E5E7EB',
                                   borderRadius: '4px',
-                                  maxHeight: '250px',
+                                  maxHeight: '850px',
                                   zIndex: 1000,
                                   boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                                   display: 'flex',
@@ -1519,7 +1519,7 @@ export default function App() {
                                 </div>
 
                                 {/* Questions List */}
-                                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                                <div style={{ maxHeight: '800px', overflowY: 'auto' }}>
                                 {filteredSegmentationQuestions.length === 0 ? (
                                   <div style={{ padding: '12px 8px', fontSize: '11px', color: '#6B7280', textAlign: 'center' }}>
                                     No questions found
