@@ -223,10 +223,9 @@ const StackedVerticalValueLabel: React.FC<LabelProps & { fill?: string }> = ({ x
 }
 
 // Custom X-axis tick with text wrapping (for vertical charts)
-const CustomXAxisTick: React.FC<any> = (props) => {
-  const { x, y, payload } = props
+const CustomXAxisTick: React.FC<any & { maxWidth?: number }> = (props) => {
+  const { x, y, payload, maxWidth = 100 } = props
   const text = payload.value || ''
-  const maxWidth = 100
   const lineHeight = 14
 
   // Simple word wrapping
@@ -272,8 +271,9 @@ const EditableYAxisTick: React.FC<any & {
   setEditInput: (value: string) => void
   onSave: (option: string, newLabel: string) => void
   data: SeriesDataPoint[]
+  maxWidth?: number
 }> = (props) => {
-  const { x, y, payload, editingOption, setEditingOption, editInput, setEditInput, onSave, data } = props
+  const { x, y, payload, editingOption, setEditingOption, editInput, setEditInput, onSave, data, maxWidth = 190 } = props
   const text = payload.value || ''
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -308,7 +308,7 @@ const EditableYAxisTick: React.FC<any & {
 
   if (isEditing) {
     return (
-      <foreignObject x={x - 190} y={y - 35} width={190} height={80}>
+      <foreignObject x={x - maxWidth} y={y - 35} width={maxWidth} height={80}>
         <textarea
           ref={inputRef as any}
           value={editInput}
@@ -341,7 +341,6 @@ const EditableYAxisTick: React.FC<any & {
   }
 
   // Word wrapping for long labels, respecting manual line breaks
-  const maxWidth = 190
   const lineHeight = 14
   const lines: string[] = []
 
@@ -409,10 +408,10 @@ const EditableXAxisTick: React.FC<any & {
   setEditInput: (value: string) => void
   onSave: (option: string, newLabel: string) => void
   data: SeriesDataPoint[]
+  maxWidth?: number
 }> = (props) => {
-  const { x, y, payload, editingOption, setEditingOption, editInput, setEditInput, onSave, data } = props
+  const { x, y, payload, editingOption, setEditingOption, editInput, setEditInput, onSave, data, maxWidth = 100 } = props
   const text = payload.value || ''
-  const maxWidth = 100
   const lineHeight = 14
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -446,8 +445,9 @@ const EditableXAxisTick: React.FC<any & {
   }
 
   if (isEditing) {
+    const editWidth = Math.min(maxWidth * 1.5, 250) // Wider for editing
     return (
-      <foreignObject x={x - 75} y={y} width={150} height={100}>
+      <foreignObject x={x - editWidth / 2} y={y} width={editWidth} height={100}>
         <textarea
           ref={inputRef as any}
           value={editInput}
@@ -616,9 +616,72 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
         barSize: VERTICAL_BAR_SIZE,
       }
 
+  // Calculate dynamic label widths based on chart layout
+  // For vertical charts: available width per option = (estimated chart width - margins) / number of options
+  // Using a multiplier to make labels wider when there's more space between bars
+  const calculateMaxLabelWidth = () => {
+    if (isHorizontal) {
+      // For horizontal charts, scale based on number of groups (more groups = narrower bars = more space for labels)
+      const baseWidth = 190
+      const scaleFactor = Math.max(1, Math.min(1.8, 1 + (barCategoryGap - 20) / 40))
+      return Math.floor(baseWidth * scaleFactor)
+    } else {
+      // For vertical charts, calculate based on available space per bar
+      // Estimate: typical chart container is ~1000px wide after margins
+      const estimatedChartWidth = 1000
+      const totalBarsInCategory = stacked ? 1 : groups.length
+      const totalBarWidth = barSize * totalBarsInCategory
+
+      // Calculate minimum spacing needed to prevent overlap
+      // Each bar category needs space for the bar(s) plus the label
+      const minLabelWidth = 60 // Minimum width for readability
+      const minSpacingBetweenLabels = 10 // Minimum gap between adjacent labels
+
+      // Calculate available width per category
+      const availableWidthPerCategory = estimatedChartWidth / data.length
+
+      // Max label width is the available space minus the bar width and spacing
+      // We use 85% of the remaining space to leave some buffer
+      const remainingSpaceForLabel = availableWidthPerCategory - totalBarWidth
+      const calculatedWidth = remainingSpaceForLabel * 0.85
+
+      // Ensure labels don't get too wide or too narrow
+      return Math.floor(Math.max(minLabelWidth, Math.min(200, calculatedWidth)))
+    }
+  }
+
+  const maxLabelWidth = calculateMaxLabelWidth()
+
+  // Calculate dynamic height for X-axis based on maximum lines needed
+  const calculateMaxLines = (text: string, maxWidth: number): number => {
+    const lineHeight = 14
+    const words = text.split(' ')
+    let lines = 0
+    let currentLine = ''
+
+    words.forEach((word: string) => {
+      const testLine = currentLine ? `${currentLine} ${word}` : word
+      if (testLine.length * 7 > maxWidth && currentLine) {
+        lines++
+        currentLine = word
+      } else {
+        currentLine = testLine
+      }
+    })
+    if (currentLine) lines++
+    return lines
+  }
+
+  const maxLinesNeeded = !isHorizontal
+    ? Math.max(...data.map(d => calculateMaxLines(d.optionDisplay, maxLabelWidth)), 3)
+    : 3 // Default for horizontal
+
+  // Calculate height with extra padding for better spacing
+  const xAxisHeight = !isHorizontal ? Math.max(70, 8 + maxLinesNeeded * 14 + 15) : 70
+
   // Always show legend when there are groups to display
   const showLegend = groups.length > 0
-  const horizontalAxisWidth = 200
+  const horizontalAxisWidth = Math.max(200, maxLabelWidth + 10) // Dynamic width for horizontal charts
   const legendOffset = 40
   const horizontalLegendAdjustment = 70
   const legendPaddingLeft =
@@ -854,6 +917,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                     setEditInput={setEditInput}
                     onSave={onSaveOptionLabel || (() => {})}
                     data={data}
+                    maxWidth={maxLabelWidth}
                   />
                 )}
                 axisLine={AXIS_LINE_STYLE}
@@ -865,7 +929,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
               <XAxis
                 type="category"
                 dataKey="optionDisplay"
-                height={70}
+                height={xAxisHeight}
                 tick={(props) => (
                   <EditableXAxisTick
                     {...props}
@@ -875,6 +939,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                     setEditInput={setEditInput}
                     onSave={onSaveOptionLabel || (() => {})}
                     data={data}
+                    maxWidth={maxLabelWidth}
                   />
                 )}
                 axisLine={AXIS_LINE_STYLE}
