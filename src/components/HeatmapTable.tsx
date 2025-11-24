@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faShuffle, faFilter } from '@fortawesome/free-solid-svg-icons'
 import { SeriesDataPoint, GroupSeriesMeta, customRound } from '../dataCalculations'
 
 // Utility function to determine text color based on background luminance
@@ -440,13 +442,93 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
     )
   }
 
-  // Filter buttons removed - using main chart filter button instead
-  const filterButtons = null
+  // Product filter button - will be rendered via portal in ChartGallery button area
+  const filterButtons = (
+    <div className="relative heatmap-dropdown-container">
+      <button
+        onClick={() => setShowProductFilter(!showProductFilter)}
+        className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"
+        style={{
+          height: '30px',
+          width: '30px',
+          backgroundColor: selectedProducts.length < allGroupsSorted.length ? '#C8E2BA' : '#EEF2F6',
+          border: selectedProducts.length < allGroupsSorted.length ? '1px solid #3A8518' : '1px solid #EEF2F6',
+          borderRadius: '3px',
+          cursor: 'pointer'
+        }}
+        title="Filter Products"
+      >
+        <FontAwesomeIcon icon={faShuffle} style={{ fontSize: '16px' }} />
+      </button>
+        {showProductFilter && (
+          <div className="absolute left-0 top-10 z-50 w-[20rem] shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}>
+            <div className="px-4 py-3" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
+              <div className="mb-2 flex justify-end gap-4 border-b pb-2" style={{ borderColor: '#80BDFF' }}>
+                <button
+                  className="text-xs text-brand-green underline hover:text-brand-green/80"
+                  style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', cursor: 'pointer' }}
+                  onClick={() => setSelectedProducts(allGroupsSorted.map(g => g.key))}
+                >
+                  Select all
+                </button>
+                <button
+                  className="text-xs text-brand-gray underline hover:text-brand-gray/80"
+                  style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', cursor: 'pointer' }}
+                  onClick={() => setSelectedProducts([])}
+                >
+                  Clear
+                </button>
+              </div>
+              <div className="max-h-60 overflow-y-auto" style={{ backgroundColor: '#EEF2F6' }}>
+                {allGroupsSorted.map((group, index) => (
+                  <label
+                    key={group.key}
+                    draggable
+                    onDragStart={() => handleProductDragStart(index)}
+                    onDragOver={(e) => handleProductDragOver(e, index)}
+                    onDragEnd={handleProductDragEnd}
+                    className={`flex items-center py-2 cursor-move hover:bg-gray-100 ${
+                      draggedProductIndex === index ? 'opacity-50 bg-gray-100' : ''
+                    }`}
+                    style={{ backgroundColor: draggedProductIndex === index ? '#e5e7eb' : '#EEF2F6', gap: '4px' }}
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      className="flex-shrink-0 text-gray-400"
+                    >
+                      <path d="M3 8h18M3 16h18" />
+                    </svg>
+                    <input
+                      type="checkbox"
+                      checked={selectedProducts.includes(group.key)}
+                      onChange={() => {
+                        if (selectedProducts.includes(group.key)) {
+                          setSelectedProducts(selectedProducts.filter(p => p !== group.key))
+                        } else {
+                          setSelectedProducts([...selectedProducts, group.key])
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green"
+                    />
+                    <span className="text-sm">{group.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+    </div>
+  )
 
   // Calculate optimal width for first column based on longest text
   const maxTextLength = Math.max(...sortedData.map(row => row.optionDisplay.length))
-  // Estimate width: roughly 8px per character, with min 150px and max 250px
-  const firstColumnWidth = Math.min(Math.max(maxTextLength * 8, 150), 250)
+  // Estimate width: roughly 16px per character (2x wider), with min 300px and max 500px
+  const firstColumnWidth = Math.min(Math.max(maxTextLength * 16, 300), 500)
 
   // Get portal target element
   const filterPortalTarget = portalReady && questionId ? document.getElementById(`heatmap-filters-${questionId}`) : null
@@ -454,7 +536,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
   return (
     <>
       {filterPortalTarget && createPortal(filterButtons, filterPortalTarget)}
-    <div className="w-full" style={{ paddingLeft: '20px', paddingRight: '20px', paddingBottom: '10px' }}>
+    <div className="w-full" style={{ paddingLeft: '2px', paddingRight: '20px', paddingBottom: '10px' }}>
       {questionLabel && (
         <div className="text-center" style={{ marginTop: '15px', marginBottom: '10px' }}>
           {editingQuestionLabel ? (
@@ -537,15 +619,31 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
                 width: `${firstColumnWidth}px`,
                 verticalAlign: 'middle'
               }}></th>
-              {sortedGroups.map(group => (
-                <th key={group.key} style={{
-                  backgroundColor: '#FFFFFF',
-                  padding: '8px 12px',
-                  textAlign: 'center',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  verticalAlign: 'middle'
-                }}>
+              {sortedGroups.map((group, index) => (
+                <th
+                  key={group.key}
+                  draggable
+                  onDragStart={() => handleProductDragStart(allGroupsSorted.findIndex(g => g.key === group.key))}
+                  onDragOver={(e) => handleProductDragOver(e, allGroupsSorted.findIndex(g => g.key === group.key))}
+                  onDragEnd={handleProductDragEnd}
+                  style={{
+                    backgroundColor: '#FFFFFF',
+                    padding: '8px 12px',
+                    textAlign: 'center',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    verticalAlign: 'middle',
+                    cursor: 'grab',
+                    userSelect: 'none',
+                    opacity: draggedProductIndex === allGroupsSorted.findIndex(g => g.key === group.key) ? 0.5 : 1
+                  }}
+                  onMouseDown={(e) => {
+                    (e.currentTarget as HTMLElement).style.cursor = 'grabbing'
+                  }}
+                  onMouseUp={(e) => {
+                    (e.currentTarget as HTMLElement).style.cursor = 'grab'
+                  }}
+                >
                   {stripQuotes(group.label)}
                 </th>
               ))}

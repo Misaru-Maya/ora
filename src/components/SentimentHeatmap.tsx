@@ -295,7 +295,8 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
             width: '30px',
             backgroundColor: selectedProducts.length < sortedProducts.length ? '#C8E2BA' : '#EEF2F6',
             border: selectedProducts.length < sortedProducts.length ? '1px solid #3A8518' : '1px solid #EEF2F6',
-            borderRadius: '3px'
+            borderRadius: '3px',
+            cursor: 'pointer'
           }}
           title="Filter Products"
         >
@@ -373,7 +374,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
   return (
     <>
       {filterPortalTarget && createPortal(filterButtons, filterPortalTarget)}
-      <div className="w-full" style={{ paddingLeft: '20px', paddingRight: '20px', paddingBottom: '10px' }}>
+      <div className="w-full" style={{ paddingLeft: '2px', paddingRight: '20px', paddingBottom: '10px' }}>
         {questionLabel && (
           <div className="text-center" style={{ marginTop: '15px', marginBottom: '10px' }}>
             {editingQuestionLabel ? (

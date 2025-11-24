@@ -39,7 +39,11 @@ interface ChartCardProps {
 const SORT_OPTIONS: CardSortOption[] = ['default', 'descending', 'ascending', 'alphabetical']
 
 const formatQuestionTitle = (question: QuestionDef): string => {
-  const base = question.label === 'When were you born?' ? 'How old are you?' : question.label
+  let base = question.label === 'When were you born?' ? 'How old are you?' : question.label
+
+  // Replace (positive) with Advocates: and (Negative) with Detractors: for product follow-up questions
+  base = base.replace(/\(positive\)/gi, 'Advocates:').replace(/\(negative\)/gi, 'Detractors:')
+
   const typeLabel = question.isLikert
     ? 'likert'
     : question.type === 'single'
@@ -130,6 +134,11 @@ const ChartCard: React.FC<ChartCardProps> = ({
     question.label.toLowerCase().includes('(sentiment)')
   )
 
+  // Check if this is a product follow-up question with positive/negative
+  const isProductFollowUpQuestion = canUseHeatmap &&
+    (question.label.toLowerCase().includes('(positive)') ||
+     question.label.toLowerCase().includes('(negative)'))
+
   // Debug logging
   console.log('Chart Debug:', {
     qid: question.qid,
@@ -139,11 +148,18 @@ const ChartCard: React.FC<ChartCardProps> = ({
     visibleOptionsCount,
     canUsePie,
     canUseStacked,
-    isSentimentQuestion
+    canUseHeatmap,
+    isProductQuestion,
+    hasProductColumn,
+    isOverallSegment,
+    isFilterMode,
+    isSentimentQuestion,
+    isProductFollowUpQuestion
   })
 
-  // Set initial chart variant - use heatmap for sentiment questions, bar for others
-  const initialChartVariant: 'bar' | 'pie' | 'stacked' | 'heatmap' = isSentimentQuestion ? 'heatmap' : 'bar'
+  // Set initial chart variant - use heatmap for sentiment questions and product follow-up questions, bar for others
+  const initialChartVariant: 'bar' | 'pie' | 'stacked' | 'heatmap' =
+    (isSentimentQuestion || isProductFollowUpQuestion) ? 'heatmap' : 'bar'
   const [chartVariant, setChartVariant] = useState<'bar' | 'pie' | 'stacked' | 'heatmap'>(initialChartVariant)
   const [heatmapFilters, setHeatmapFilters] = useState<{ products: string[], attributes: string[] }>({ products: [], attributes: [] })
   const [showHeatmapProductFilter, setShowHeatmapProductFilter] = useState(false)
@@ -161,7 +177,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
 
     if (questionChanged) {
       previousQuestionIdRef.current = question.qid
-      setCardSort(question.isLikert || isSentimentQuestion ? 'alphabetical' : 'default')
+      setCardSort(question.isLikert || isSentimentQuestion || isProductFollowUpQuestion ? 'alphabetical' : 'default')
 
       // Filter out excluded values from defaults
       const allOptions = series.data.map(d => d.option).filter(option => {
@@ -187,12 +203,12 @@ const ChartCard: React.FC<ChartCardProps> = ({
 
   useEffect(() => {
     // Set default chart variant when question changes
-    if (isSentimentQuestion) {
+    if (isSentimentQuestion || isProductFollowUpQuestion) {
       setChartVariant('heatmap')
     } else {
       setChartVariant('bar')
     }
-  }, [question.qid, isSentimentQuestion])
+  }, [question.qid, isSentimentQuestion, isProductFollowUpQuestion])
 
   useEffect(() => {
     if (!canUsePie && chartVariant === 'pie') {
@@ -590,25 +606,6 @@ const ChartCard: React.FC<ChartCardProps> = ({
               />
             </button>
           )}
-          {/* Swap Axes Button - for bar and stacked charts with multiple segments */}
-          {chartVariant !== 'heatmap' && (chartVariant === 'bar' || chartVariant === 'stacked') && series.groups.length > 1 && question.type !== 'ranking' && (
-            <button
-              onClick={() => setAxesSwapped(prev => !prev)}
-              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
-              style={{
-                height: '30px',
-                width: '30px',
-                backgroundColor: axesSwapped ? '#C8E2BA' : '#EBF3E7',
-                border: axesSwapped ? '1px solid #3A8518' : '1px solid #EBF3E7',
-                borderRadius: '3px'
-              }}
-              title="Swap X/Y axes"
-              aria-label="Swap X and Y axes"
-              type="button"
-            >
-              <FontAwesomeIcon icon={faRotate} style={{ fontSize: '16px' }} />
-            </button>
-          )}
           {/* Pie Legend Orientation Toggle - for pie charts */}
           {chartVariant !== 'heatmap' && chartVariant === 'pie' && canUsePie && (
             <button
@@ -630,6 +627,117 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 }}
               />
             </button>
+          )}
+          {/* Filter Icon Button - shows for all question types (ALWAYS FIRST) */}
+          <div className="relative" ref={filterMenuRef}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowFilter(!showFilter)
+                setShowSortMenu(false)
+                setShowStatSigMenu(false)
+              }}
+              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
+              style={{
+                height: '30px',
+                width: '30px',
+                backgroundColor: selectedOptions.length < series.data.length ? '#C8E2BA' : '#EBF3E7',
+                border: selectedOptions.length < series.data.length ? '1px solid #3A8518' : '1px solid #EBF3E7',
+                borderRadius: '3px'
+              }}
+              title="Filter Options"
+            >
+              <FontAwesomeIcon icon={faFilter} style={{ fontSize: '16px' }} />
+            </button>
+            {showFilter && (
+              <div className="absolute left-0 top-10 z-50 w-[32rem] shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', opacity: 1 }}>
+                <div className="px-4 py-3" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
+                  <div className="mb-2 flex justify-end gap-4 border-b pb-2" style={{ borderColor: '#80BDFF' }}>
+                    <button
+                      className="text-xs text-brand-green underline hover:text-brand-green/80"
+                      style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', cursor: 'pointer' }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        selectAllOptions()
+                      }}
+                    >
+                      Select all
+                    </button>
+                    <button
+                      className="text-xs text-brand-gray underline hover:text-brand-gray/80"
+                      style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', cursor: 'pointer' }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        deselectAllOptions()
+                      }}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="max-h-60 overflow-y-auto p-1.5" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
+                    {sortedOptionsForFilter.map((option, index) => (
+                      <label
+                        key={option.option}
+                        draggable
+                        onDragStart={() => handleOptionDragStart(index)}
+                        onDragOver={(e) => handleOptionDragOver(e, index)}
+                        onDragEnd={handleOptionDragEnd}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                        className={`flex w-full items-center cursor-move px-2 py-2 text-sm font-medium transition hover:bg-gray-100 rounded ${
+                          draggedOptionIndex === index ? 'opacity-50 bg-gray-100' : ''
+                        }`}
+                        style={{ backgroundColor: draggedOptionIndex === index ? '#e5e7eb' : '#EEF2F6', gap: '4px' }}
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          className="flex-shrink-0 text-gray-400"
+                          style={{ marginLeft: '-2px' }}
+                        >
+                          <path d="M3 8h18M3 16h18" />
+                        </svg>
+                        <input
+                          type="checkbox"
+                          checked={selectedOptions.includes(option.option)}
+                          onChange={(e) => toggleOption(option.option)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
+                        />
+                        <span className="text-gray-900">{option.optionDisplay}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Swap Axes Button - shows for all questions (ALWAYS SECOND) */}
+          {chartVariant !== 'heatmap' && (chartVariant === 'bar' || chartVariant === 'stacked') && series.groups.length > 1 && question.type !== 'ranking' && (
+            <button
+              onClick={() => setAxesSwapped(prev => !prev)}
+              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
+              style={{
+                height: '30px',
+                width: '30px',
+                backgroundColor: axesSwapped ? '#C8E2BA' : '#EBF3E7',
+                border: axesSwapped ? '1px solid #3A8518' : '1px solid #EBF3E7',
+                borderRadius: '3px'
+              }}
+              title="Swap X/Y axes"
+              aria-label="Swap X and Y axes"
+              type="button"
+            >
+              <FontAwesomeIcon icon={faRotate} style={{ fontSize: '16px' }} />
+            </button>
+          )}
+          {/* Heatmap product filter portal - positioned before sort button */}
+          {chartVariant === 'heatmap' && !isSentimentQuestion && (
+            <div id={`heatmap-filters-${question.qid}`}></div>
           )}
           {/* Sort Icon Dropdown */}
           {chartVariant !== 'heatmap' && question.type !== 'ranking' && (
@@ -698,96 +806,6 @@ const ChartCard: React.FC<ChartCardProps> = ({
             )}
           </div>
           )}
-          {/* Filter Icon Dropdown - shows for all question types */}
-          <div className="relative" ref={filterMenuRef}>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setShowFilter(!showFilter)
-                setShowSortMenu(false)
-                setShowStatSigMenu(false)
-              }}
-              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
-              style={{
-                height: '30px',
-                width: '30px',
-                backgroundColor: selectedOptions.length < series.data.length ? '#C8E2BA' : '#EBF3E7',
-                border: selectedOptions.length < series.data.length ? '1px solid #3A8518' : '1px solid #EBF3E7',
-                borderRadius: '3px'
-              }}
-              title="Filter Options"
-            >
-              <FontAwesomeIcon icon={faFilter} style={{ fontSize: '16px' }} />
-            </button>
-            {showFilter && (
-              <div className="absolute left-0 top-10 z-50 w-[32rem] shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', opacity: 1 }}>
-                <div className="px-4 py-3" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
-                  <div className="mb-2 flex justify-end gap-4 border-b pb-2" style={{ borderColor: '#80BDFF' }}>
-                    <button
-                      className="text-xs text-brand-green underline hover:text-brand-green/80"
-                      style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none' }}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        selectAllOptions()
-                      }}
-                    >
-                      Select all
-                    </button>
-                    <button
-                      className="text-xs text-brand-gray underline hover:text-brand-gray/80"
-                      style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none' }}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        deselectAllOptions()
-                      }}
-                    >
-                      Clear
-                    </button>
-                  </div>
-                  <div className="max-h-60 overflow-y-auto p-1.5" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
-                    {sortedOptionsForFilter.map((option, index) => (
-                      <label
-                        key={option.option}
-                        draggable
-                        onDragStart={() => handleOptionDragStart(index)}
-                        onDragOver={(e) => handleOptionDragOver(e, index)}
-                        onDragEnd={handleOptionDragEnd}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onClick={(e) => e.stopPropagation()}
-                        className={`flex w-full items-center cursor-move px-2 py-2 text-sm font-medium transition hover:bg-gray-100 rounded ${
-                          draggedOptionIndex === index ? 'opacity-50 bg-gray-100' : ''
-                        }`}
-                        style={{ backgroundColor: draggedOptionIndex === index ? '#e5e7eb' : '#EEF2F6', gap: '4px' }}
-                      >
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          className="flex-shrink-0 text-gray-400"
-                        >
-                          <path d="M3 8h18M3 16h18" />
-                        </svg>
-                        <input
-                          type="checkbox"
-                          checked={selectedOptions.includes(option.option)}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => {
-                            e.stopPropagation()
-                            toggleOption(option.option)
-                          }}
-                          className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
-                        />
-                        <span className="flex-1 text-gray-900 font-normal text-sm">{option.optionDisplay}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
           {/* Heatmap product filter portal */}
           {chartVariant === 'heatmap' && isSentimentQuestion && (
             <div id={`heatmap-filters-${question.qid}`}></div>
@@ -886,14 +904,15 @@ const ChartCard: React.FC<ChartCardProps> = ({
                     width: '30px',
                     backgroundColor: chartVariant === 'bar' ? '#D6E9FF' : '#EEF2F6',
                     border: chartVariant === 'bar' ? '1px solid #80BDFF' : '1px solid #EEF2F6',
-                    borderRadius: '3px'
+                    borderRadius: '3px',
+                    cursor: 'pointer'
                   }}
                   onClick={() => setChartVariant('bar')}
                   title="Bar chart"
                 >
                   <FontAwesomeIcon icon={faChartSimple} style={{ fontSize: '16px' }} />
                 </button>
-                {canUsePie && !isSentimentQuestion && (
+                {canUsePie && (
                   <button
                     className="flex items-center justify-center transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
                     style={{
@@ -901,7 +920,8 @@ const ChartCard: React.FC<ChartCardProps> = ({
                       width: '30px',
                       backgroundColor: chartVariant === 'pie' ? '#D6E9FF' : '#EEF2F6',
                       border: chartVariant === 'pie' ? '1px solid #80BDFF' : '1px solid #EEF2F6',
-                      borderRadius: '3px'
+                      borderRadius: '3px',
+                      cursor: 'pointer'
                     }}
                     onClick={() => setChartVariant('pie')}
                     title="Pie chart"
@@ -917,18 +937,16 @@ const ChartCard: React.FC<ChartCardProps> = ({
                       width: '30px',
                       backgroundColor: chartVariant === 'stacked' ? '#D6E9FF' : '#EEF2F6',
                       border: chartVariant === 'stacked' ? '1px solid #80BDFF' : '1px solid #EEF2F6',
-                      borderRadius: '3px'
+                      borderRadius: '3px',
+                      cursor: 'pointer'
                     }}
-                    onClick={() => {
-                      setChartVariant('stacked')
-                      setChartOrientation('horizontal')
-                    }}
+                    onClick={() => setChartVariant('stacked')}
                     title="Stacked chart"
                   >
                     <FontAwesomeIcon icon={faChartBar} style={{ fontSize: '16px' }} />
                   </button>
                 )}
-                {canUseHeatmap && (
+                {canUseHeatmap && (isSentimentQuestion || isProductFollowUpQuestion) && (
                   <button
                     className="flex items-center justify-center transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
                     style={{
@@ -936,7 +954,8 @@ const ChartCard: React.FC<ChartCardProps> = ({
                       width: '30px',
                       backgroundColor: chartVariant === 'heatmap' ? '#D6E9FF' : '#EEF2F6',
                       border: chartVariant === 'heatmap' ? '1px solid #80BDFF' : '1px solid #EEF2F6',
-                      borderRadius: '3px'
+                      borderRadius: '3px',
+                      cursor: 'pointer'
                     }}
                     onClick={() => setChartVariant('heatmap')}
                     title="Heatmap"
@@ -945,10 +964,6 @@ const ChartCard: React.FC<ChartCardProps> = ({
                   </button>
                 )}
               </div>
-              {/* Portal div moved to be next to filter button for sentiment questions */}
-              {chartVariant === 'heatmap' && !isSentimentQuestion && (
-                <div id={`heatmap-filters-${question.qid}`}></div>
-              )}
             </>
           )}
         </div>

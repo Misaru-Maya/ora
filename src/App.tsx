@@ -1958,6 +1958,60 @@ export default function App() {
                       </div>
                     </div>
                   )}
+                  {!selections.comparisonMode && (
+                    <div style={{ paddingTop: '14px', marginTop: '1px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <div className="flex items-center" style={{ gap: '2px' }}>
+                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '36px', height: '18px' }}>
+                          <input
+                            type="checkbox"
+                            checked={selections.hideAsterisks || false}
+                            onChange={(e) => {
+                              e.stopPropagation()
+                              setSelections({ hideAsterisks: e.target.checked })
+                            }}
+                            style={{ opacity: 0, width: 0, height: 0 }}
+                          />
+                          <span
+                            className="slider round"
+                            style={{
+                              position: 'absolute',
+                              cursor: 'pointer',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              backgroundColor: selections.hideAsterisks ? '#3A8518' : '#CCC',
+                              transition: '0.4s',
+                              borderRadius: '34px'
+                            }}
+                          >
+                            <span
+                              style={{
+                                position: 'absolute',
+                                content: '""',
+                                height: '13.5px',
+                                width: '13.5px',
+                                left: selections.hideAsterisks ? '20.25px' : '2.25px',
+                                top: '2.25px',
+                                backgroundColor: 'white',
+                                transition: '0.4s',
+                                borderRadius: '50%'
+                              }}
+                            />
+                          </span>
+                        </label>
+                        <span
+                          className="font-medium"
+                          style={{
+                            color: selections.hideAsterisks ? '#3A8518' : '#9CA3AF',
+                            fontSize: '12.6px'
+                          }}
+                        >
+                          {' '}Remove Asterisks
+                        </span>
+                      </div>
+                    </div>
+                  )}
                   </div>
                   )}
                 </section>

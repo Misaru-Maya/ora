@@ -611,8 +611,10 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
         barSize: HORIZONTAL_BAR_SIZE,
       }
     : {
+        // For vertical charts: adjust height and bar size dynamically
+        // Stacked charts should have same bar width as regular charts
         chartHeight: 320,
-        barCategoryGap: 24,
+        barCategoryGap: stacked ? 48 : 24,
         barSize: VERTICAL_BAR_SIZE,
       }
 
