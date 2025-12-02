@@ -251,17 +251,20 @@ export const RegressionAnalysisPanel: React.FC<RegressionAnalysisPanelProps> = (
                 justifyContent: 'center'
               }}
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2">
-                <path d="M3 3v18h18" />
-                <path d="M18 9l-5 5-4-4-3 3" />
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+                <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+                <path d="M7 21h10" />
+                <path d="M12 3v18" />
+                <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
               </svg>
             </div>
             <div>
               <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: '#111827' }}>
-                Demographic Adjustment
+                Apples-to-Apples Comparison
               </h2>
               <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#6b7280' }}>
-                Control for demographics to isolate true group differences
+                Compare groups fairly by accounting for demographic differences
               </p>
             </div>
           </div>
@@ -322,15 +325,15 @@ export const RegressionAnalysisPanel: React.FC<RegressionAnalysisPanelProps> = (
                 top: '100%',
                 left: 0,
                 marginTop: '8px',
-                backgroundColor: '#1f2937',
-                color: '#f9fafb',
+                backgroundColor: '#14532d',
+                color: '#f0fdf4',
                 padding: '14px 16px',
                 borderRadius: '8px',
                 fontSize: '13px',
                 lineHeight: '1.5',
                 width: '320px',
                 zIndex: 100,
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)',
+                boxShadow: '0 10px 25px -5px rgba(58, 133, 24, 0.3)',
                 opacity: 0,
                 visibility: 'hidden',
                 transition: 'opacity 0.2s, visibility 0.2s'
@@ -340,7 +343,7 @@ export const RegressionAnalysisPanel: React.FC<RegressionAnalysisPanelProps> = (
                 When comparing groups (e.g., Panel vs CRM), demographic differences can skew results.
               </p>
               <p style={{ margin: 0 }}>
-                This analysis <strong style={{ color: '#a5f3fc' }}>adjusts for demographics</strong> to show the "true" difference between groups, controlling for factors like Gender and Age.
+                This analysis <strong style={{ color: '#86efac' }}>adjusts for demographics</strong> to show the "true" difference between groups, controlling for factors like Gender and Age.
               </p>
               <div
                 style={{
@@ -349,7 +352,7 @@ export const RegressionAnalysisPanel: React.FC<RegressionAnalysisPanelProps> = (
                   left: '20px',
                   width: '12px',
                   height: '12px',
-                  backgroundColor: '#1f2937',
+                  backgroundColor: '#14532d',
                   transform: 'rotate(45deg)'
                 }}
               />
@@ -599,7 +602,7 @@ export const RegressionAnalysisPanel: React.FC<RegressionAnalysisPanelProps> = (
 
           {/* Step 3: Control Variables */}
           {(() => {
-            const step3Active = primaryColumn && referenceGroup && targetGroup
+            const step3Active = selectedQuestion && primaryColumn && referenceGroup && targetGroup
             return (
               <div style={{ marginBottom: '28px', position: 'relative' }}>
                 {/* Overlay when section is not yet accessible */}

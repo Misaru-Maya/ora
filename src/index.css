@@ -35,3 +35,22 @@ body {
   margin: 0;
   padding: 0;
 }
+
+/* Remove border/outline from Recharts SVG container */
+.recharts-wrapper,
+.recharts-surface {
+  outline: none !important;
+  border: none !important;
+}
+
+.recharts-wrapper svg {
+  outline: none !important;
+  border: none !important;
+}
+
+/* Remove any focus outline from chart containers */
+.recharts-responsive-container:focus,
+.recharts-wrapper:focus,
+.recharts-surface:focus {
+  outline: none !important;
+}

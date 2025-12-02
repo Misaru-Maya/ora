@@ -813,7 +813,21 @@ export function buildSeries({
     dataWithIndex.sort((a, b) => a.__index - b.__index)
   }
 
-  const data: SeriesDataPoint[] = dataWithIndex
+  // Filter to top 8 options based on overall descending order (by __overallValue)
+  // First, sort by __overallValue descending to determine top 8
+  const sortedByOverall = [...dataWithIndex].sort((a, b) => {
+    const aVal = (a as any)['__overallValue'] ?? 0
+    const bVal = (b as any)['__overallValue'] ?? 0
+    return bVal - aVal // Descending order
+  })
+
+  // Get the top 8 option names
+  const top8Options = new Set(sortedByOverall.slice(0, 8).map(item => item.option))
+
+  // Filter dataWithIndex to only include top 8 options (preserving original sort order)
+  const filteredData = dataWithIndex.filter(item => top8Options.has(item.option))
+
+  const data: SeriesDataPoint[] = filteredData
     .filter((item): item is SeriesDataPoint & { __index: number } => item !== null)
     .map(({ __index, __overallValue, ...rest }: any) => rest)
 

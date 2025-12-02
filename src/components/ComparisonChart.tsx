@@ -1,12 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import {
   BarChart,
   Bar,
   XAxis,
   YAxis,
-  Tooltip,
   LabelList,
   ResponsiveContainer,
+  Cell,
 } from 'recharts'
 import type { LabelProps } from 'recharts'
 import { customRound } from '../dataCalculations'
@@ -554,28 +555,136 @@ interface ComparisonChartProps {
 const CustomTooltip: React.FC<any> = ({ active, payload }) => {
   if (!active || !payload || payload.length === 0) return null
   const row = payload[0].payload as SeriesDataPoint
+
+  // Find the highest percentage group for highlighting
+  const maxPercent = Math.max(...row.groupSummaries.map(s => s.percent))
+
   return (
     <div
-      className="rounded-md border border-brand-pale-gray bg-white text-xs text-brand-gray shadow-lg"
-      style={{ backgroundColor: '#FFFFFF', opacity: 1, padding: '10px 14px' }}
+      style={{
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+        padding: '16px',
+        minWidth: '220px',
+        maxWidth: '320px'
+      }}
     >
-      <div className="mb-2 font-semibold" style={{ whiteSpace: 'pre-wrap' }}>{row.optionDisplay}</div>
-      <div className="space-y-1">
-        {row.groupSummaries.map(summary => (
-          <div key={summary.label} className="flex justify-between gap-4">
-            <span>{summary.label}</span>
-            <span>{customRound(summary.percent)}% ({summary.count}/{summary.denominator})</span>
-          </div>
-        ))}
+      {/* Title */}
+      <div style={{
+        fontSize: '14px',
+        fontWeight: 600,
+        color: '#374151',
+        marginBottom: '12px',
+        paddingBottom: '10px',
+        borderBottom: '1px solid #E5E7EB',
+        whiteSpace: 'pre-wrap',
+        lineHeight: '1.4'
+      }}>
+        {row.optionDisplay}
       </div>
-      {row.significance.length > 0 && (
-        <div className="mt-2 space-y-1">
-          <div className="font-semibold">Significance (χ², α=0.05)</div>
-          {row.significance.map(sig => (
-            <div key={sig.pair.join('-')}>
-              {sig.pair[0]} vs {sig.pair[1]}: {sig.significant ? 'Significant' : 'n.s.'} (χ²={sig.chiSquare.toFixed(2)})
+
+      {/* Group Results */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {row.groupSummaries.map(summary => {
+          const isHighest = summary.percent === maxPercent && row.groupSummaries.length > 1
+          return (
+            <div
+              key={summary.label}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '8px 10px',
+                backgroundColor: isHighest ? '#F0FDF4' : '#F9FAFB',
+                borderRadius: '8px',
+                gap: '12px'
+              }}
+            >
+              <span style={{
+                fontSize: '13px',
+                color: '#374151',
+                fontWeight: isHighest ? 600 : 400
+              }}>
+                {summary.label}
+              </span>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                <span style={{
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  color: isHighest ? '#3A8518' : '#374151'
+                }}>
+                  {customRound(summary.percent)}%
+                </span>
+                <span style={{
+                  fontSize: '11px',
+                  color: '#9CA3AF'
+                }}>
+                  ({summary.count}/{summary.denominator})
+                </span>
+              </div>
             </div>
-          ))}
+          )
+        })}
+      </div>
+
+      {/* Statistical Significance */}
+      {row.significance.length > 0 && (
+        <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            marginBottom: '8px'
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4" />
+              <path d="M12 8h.01" />
+            </svg>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#6B7280' }}>
+              Statistical Comparison
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {[...row.significance].sort((a, b) => (b.significant ? 1 : 0) - (a.significant ? 1 : 0)).map(sig => (
+              <div
+                key={sig.pair.join('-')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '12px',
+                  padding: '6px 8px',
+                  backgroundColor: sig.significant ? '#FEF3C7' : '#F9FAFB',
+                  borderRadius: '6px'
+                }}
+              >
+                <span style={{ color: '#374151' }}>
+                  {sig.pair[0]} vs {sig.pair[1]}
+                </span>
+                <span style={{
+                  fontWeight: 600,
+                  color: sig.significant ? '#D97706' : '#9CA3AF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  {sig.significant ? (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                      </svg>
+                      Stat Sig
+                    </>
+                  ) : (
+                    'Not Sig'
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -600,6 +709,109 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   const [legendEditInput, setLegendEditInput] = useState('')
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
   const [questionLabelInput, setQuestionLabelInput] = useState('')
+
+  // Click-based tooltip state
+  const [clickedData, setClickedData] = useState<SeriesDataPoint | null>(null)
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
+
+  // Dragging state for tooltip
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const chartContainerRef = useRef<HTMLDivElement>(null)
+
+  // Handle bar click to show tooltip
+  const handleBarClick = useCallback((dataPoint: SeriesDataPoint, event: React.MouseEvent) => {
+    event.stopPropagation()
+
+    // Position tooltip near the clicked bar
+    // Use the click position but adjust to ensure it doesn't go off-screen
+    const clickX = event.clientX
+    const clickY = event.clientY
+
+    // Calculate position: to the right of click if there's room, otherwise to the left
+    const tooltipWidth = 300
+    const tooltipHeight = 350 // Approximate max height
+    const padding = 15
+
+    let x = clickX + padding
+    let y = clickY + padding
+
+    // If tooltip would go off right edge, position to the left of click
+    if (x + tooltipWidth > window.innerWidth - padding) {
+      x = clickX - tooltipWidth - padding
+    }
+
+    // If tooltip would go off bottom, position above the click
+    if (y + tooltipHeight > window.innerHeight - padding) {
+      y = Math.max(padding, window.innerHeight - tooltipHeight - padding)
+    }
+
+    // Ensure x doesn't go negative
+    if (x < padding) {
+      x = padding
+    }
+
+    setTooltipPosition({ x, y })
+    setClickedData(dataPoint)
+  }, [])
+
+  // Close tooltip when clicking outside (but not when dragging)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isDragging) return
+      if (tooltipRef.current && !tooltipRef.current.contains(event.target as Node)) {
+        setClickedData(null)
+        setTooltipPosition(null)
+      }
+    }
+
+    if (clickedData) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [clickedData, isDragging])
+
+  // Handle drag start on tooltip header
+  const handleDragStart = useCallback((event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (!tooltipPosition) return
+
+    setIsDragging(true)
+    setDragOffset({
+      x: event.clientX - tooltipPosition.x,
+      y: event.clientY - tooltipPosition.y
+    })
+  }, [tooltipPosition])
+
+  // Handle mouse move during drag
+  useEffect(() => {
+    if (!isDragging) return
+
+    const handleMouseMove = (event: MouseEvent) => {
+      setTooltipPosition({
+        x: event.clientX - dragOffset.x,
+        y: event.clientY - dragOffset.y
+      })
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    document.body.style.cursor = 'grabbing'
+    document.body.style.userSelect = 'none'
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [isDragging, dragOffset])
 
   // Dynamic chart dimensions based on number of answer options
   const { chartHeight, barCategoryGap, barSize } = isHorizontal
@@ -690,7 +902,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
     (isHorizontal ? horizontalAxisWidth : 0) + legendOffset - (isHorizontal ? horizontalLegendAdjustment : 0)
 
   return (
-    <div className="w-full bg-white" style={{ paddingBottom: 0 }}>
+    <div ref={chartContainerRef} className="w-full bg-white" style={{ paddingBottom: 0, position: 'relative' }}>
       {questionLabel && (
         <div className="text-center" style={{
           marginTop: '15px',
@@ -957,7 +1169,6 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
               />
             </>
           )}
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(206, 214, 222, 0.2)' }} />
           {groups.map((group, index) => {
             const color = colors[index % colors.length]
             return (
@@ -969,7 +1180,16 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                 radius={isHorizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]}
                 barSize={barSize}
                 stackId={stacked ? 'stack' : undefined}
+                style={{ cursor: 'pointer' }}
+                onClick={(barData: any, _index: number, event: React.MouseEvent) => {
+                  if (barData && barData.payload) {
+                    handleBarClick(barData.payload as SeriesDataPoint, event)
+                  }
+                }}
               >
+                {data.map((entry, entryIndex) => (
+                  <Cell key={`cell-${entryIndex}`} cursor="pointer" />
+                ))}
                 {stacked ? (
                   <LabelList
                     dataKey={group.key}
@@ -989,6 +1209,180 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           })}
         </BarChart>
       </ResponsiveContainer>
+
+      {/* Click-based Tooltip Popup - rendered via portal to ensure it's above all content */}
+      {clickedData && tooltipPosition && createPortal(
+        <div
+          ref={tooltipRef}
+          style={{
+            position: 'fixed',
+            left: tooltipPosition.x,
+            top: tooltipPosition.y,
+            zIndex: 99999,
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.25)',
+            minWidth: '220px',
+            maxWidth: '320px',
+            overflow: 'hidden'
+          }}
+        >
+          {/* Draggable Header */}
+          <div
+            onMouseDown={handleDragStart}
+            style={{
+              padding: '12px 16px',
+              paddingRight: '36px',
+              backgroundColor: '#F9FAFB',
+              borderBottom: '1px solid #E5E7EB',
+              cursor: isDragging ? 'grabbing' : 'grab',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            {/* Drag handle icon */}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round">
+              <circle cx="9" cy="5" r="1" fill="#9CA3AF" />
+              <circle cx="9" cy="12" r="1" fill="#9CA3AF" />
+              <circle cx="9" cy="19" r="1" fill="#9CA3AF" />
+              <circle cx="15" cy="5" r="1" fill="#9CA3AF" />
+              <circle cx="15" cy="12" r="1" fill="#9CA3AF" />
+              <circle cx="15" cy="19" r="1" fill="#9CA3AF" />
+            </svg>
+            {/* Title */}
+            <div style={{
+              fontSize: '14px',
+              fontWeight: 600,
+              color: '#374151',
+              whiteSpace: 'pre-wrap',
+              lineHeight: '1.4',
+              flex: 1
+            }}>
+              {clickedData.optionDisplay}
+            </div>
+          </div>
+
+          {/* Close button */}
+          <button
+            onClick={() => {
+              setClickedData(null)
+              setTooltipPosition(null)
+            }}
+            style={{
+              position: 'absolute',
+              top: '10px',
+              right: '10px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px',
+              color: '#9CA3AF',
+              fontSize: '16px',
+              lineHeight: 1
+            }}
+            aria-label="Close"
+          >
+            ×
+          </button>
+
+          {/* Card Content */}
+          <div style={{ padding: '16px' }}>
+
+          {/* Group Results */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {(() => {
+              const maxPercent = Math.max(...clickedData.groupSummaries.map(s => s.percent))
+              return clickedData.groupSummaries.map((summary, idx) => {
+                const isHighest = summary.percent === maxPercent && maxPercent > 0
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      backgroundColor: isHighest ? '#F0FDF4' : '#F9FAFB',
+                      borderRadius: '8px',
+                      border: isHighest ? '1px solid #BBF7D0' : '1px solid transparent'
+                    }}
+                  >
+                    <span style={{ fontSize: '13px', color: '#374151', fontWeight: 500 }}>
+                      {summary.label}
+                    </span>
+                    <span style={{
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: isHighest ? '#166534' : '#374151'
+                    }}>
+                      {customRound(summary.percent)}% <span style={{ fontSize: '11px', fontWeight: 400, color: '#9CA3AF' }}>({summary.count}/{summary.denominator})</span>
+                    </span>
+                  </div>
+                )
+              })
+            })()}
+          </div>
+
+          {/* Statistical Comparison */}
+          {clickedData.significance && clickedData.significance.length > 0 && (
+            <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+              <div style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                color: '#6B7280',
+                marginBottom: '8px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Statistical Comparison
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {[...clickedData.significance].sort((a, b) => (b.significant ? 1 : 0) - (a.significant ? 1 : 0)).map((sig, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '6px 10px',
+                      backgroundColor: sig.significant ? '#FFFBEB' : '#F9FAFB',
+                      borderRadius: '6px',
+                      border: sig.significant ? '1px solid #FDE68A' : '1px solid #E5E7EB'
+                    }}
+                  >
+                    <span style={{ fontSize: '12px', color: '#374151' }}>
+                      {sig.pair[0]} vs {sig.pair[1]}
+                    </span>
+                    <span style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: sig.significant ? '#D97706' : '#9CA3AF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      {sig.significant ? (
+                        <>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                            <polyline points="22 4 12 14.01 9 11.01" />
+                          </svg>
+                          Stat Sig
+                        </>
+                      ) : (
+                        'Not Sig'
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

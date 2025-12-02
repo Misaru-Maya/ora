@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef, useTransition, useCallback } from 'react'
-import { CSVUpload } from './components/CSVUpload'
+import { CSVUpload, type CSVUploadHandle } from './components/CSVUpload'
 import { useORAStore } from './store'
 import type { QuestionDef } from './types'
 import { buildSeries } from './dataCalculations'
@@ -33,9 +33,9 @@ function autoDefaultGroups(rows: any[], segCol?: string, maxDefaults = 2): strin
   const vals = Array.from(new Set(rows.map(r => stripQuotesFromValue(String(r[segCol])))))
     .filter(v => v && v !== 'null' && v !== 'undefined' && !isExcludedValue(v))
 
-  // For Gender, exclude "Prefer not to say" from defaults
+  // For Gender, exclude "Prefer not to say" and "Other" from defaults
   const filteredVals = segCol === 'Gender'
-    ? vals.filter(v => v.toLowerCase() !== 'prefer not to say')
+    ? vals.filter(v => v.toLowerCase() !== 'prefer not to say' && v.toLowerCase() !== 'other')
     : vals
 
   const orderedVals = sortSegmentValues(filteredVals, segCol)
@@ -197,6 +197,7 @@ export default function App() {
   const [segmentInput, setSegmentInput] = useState('')
   const segmentInputRef = useRef<HTMLInputElement>(null)
   const questionDropdownRef = useRef<HTMLDivElement>(null)
+  const csvUploadRef = useRef<CSVUploadHandle>(null)
   const [expandedSegmentGroups, setExpandedSegmentGroups] = useState<Set<string>>(new Set())
   const [questionDropdownOpen, setQuestionDropdownOpen] = useState(false)
   const [questionSearchTerm, setQuestionSearchTerm] = useState('')
@@ -1030,14 +1031,226 @@ export default function App() {
 
   if (!dataset) {
     return (
-      <div className="min-h-screen bg-white">
-        <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
-          <div className="mx-auto flex w-full max-w-[960px] flex-col items-center gap-3 px-6 py-6">
-            <div className="w-full max-w-[500px]">
-              <CSVUpload variant="landing" />
+      <div
+        className="min-h-screen"
+        style={{
+          background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfeff 25%, #f0f9ff 50%, #faf5ff 75%, #fdf2f8 100%)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Animated gradient orbs for glassmorphic effect */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '-20%',
+            left: '-10%',
+            width: '50vw',
+            height: '50vw',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(58, 133, 24, 0.15) 0%, transparent 70%)',
+            filter: 'blur(60px)',
+            animation: 'float 20s ease-in-out infinite'
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '-30%',
+            right: '-15%',
+            width: '60vw',
+            height: '60vw',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(231, 203, 56, 0.12) 0%, transparent 70%)',
+            filter: 'blur(80px)',
+            animation: 'float 25s ease-in-out infinite reverse'
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            top: '40%',
+            right: '20%',
+            width: '30vw',
+            height: '30vw',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(165, 207, 142, 0.2) 0%, transparent 70%)',
+            filter: 'blur(50px)',
+            animation: 'float 15s ease-in-out infinite'
+          }}
+        />
+
+        {/* Main content */}
+        <div
+          className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6"
+          style={{ paddingTop: '60px', paddingBottom: '60px' }}
+        >
+          {/* Hero Section */}
+          <div className="text-center" style={{ marginBottom: '48px' }}>
+            <h1
+              style={{
+                fontSize: '56px',
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #3A8518 0%, #166534 50%, #14532d 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                marginBottom: '16px',
+                letterSpacing: '-1px',
+                fontFamily: 'Space Grotesk, sans-serif'
+              }}
+            >
+              ORA
+            </h1>
+            <p
+              style={{
+                fontSize: '20px',
+                color: '#4B5563',
+                fontWeight: 400,
+                maxWidth: '500px',
+                lineHeight: 1.6,
+                fontFamily: 'Space Grotesk, sans-serif'
+              }}
+            >
+              Transform survey data into actionable insights with beautiful visualizations
+            </p>
+          </div>
+
+          {/* Glassmorphic Upload Card - entire card is clickable */}
+          <div
+            onClick={() => csvUploadRef.current?.openFileBrowser()}
+            style={{
+              background: 'rgba(255, 255, 255, 0.7)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              borderRadius: '24px',
+              border: '1px solid rgba(255, 255, 255, 0.8)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+              padding: '48px',
+              width: '100%',
+              maxWidth: '520px',
+              textAlign: 'center',
+              cursor: 'pointer',
+              transition: 'transform 0.15s ease-out, box-shadow 0.15s ease-out'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.02)'
+              e.currentTarget.style.boxShadow = '0 30px 60px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.5) inset'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)'
+              e.currentTarget.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.5) inset'
+            }}
+          >
+            <CSVUpload ref={csvUploadRef} variant="landing" />
+          </div>
+
+          {/* Feature highlights */}
+          <div
+            style={{
+              display: 'flex',
+              gap: '24px',
+              marginTop: '64px',
+              flexWrap: 'wrap',
+              justifyContent: 'center'
+            }}
+          >
+            {/* Smart Charts */}
+            <div
+              style={{
+                background: 'rgba(255, 255, 255, 0.5)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                borderRadius: '16px',
+                border: '1px solid rgba(255, 255, 255, 0.6)',
+                padding: '24px 28px',
+                textAlign: 'center',
+                minWidth: '180px'
+              }}
+            >
+              <div style={{ marginBottom: '12px' }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="3" y="12" width="4" height="9" rx="1" fill="#3A8518" />
+                  <rect x="10" y="8" width="4" height="13" rx="1" fill="#A5CF8E" />
+                  <rect x="17" y="4" width="4" height="17" rx="1" fill="#E7CB38" />
+                </svg>
+              </div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
+                Smart Charts
+              </div>
+              <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                Auto-generated visualizations
+              </div>
+            </div>
+
+            {/* Statistical Analysis */}
+            <div
+              style={{
+                background: 'rgba(255, 255, 255, 0.5)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                borderRadius: '16px',
+                border: '1px solid rgba(255, 255, 255, 0.6)',
+                padding: '24px 28px',
+                textAlign: 'center',
+                minWidth: '180px'
+              }}
+            >
+              <div style={{ marginBottom: '12px' }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="9" stroke="#DC2626" strokeWidth="2" fill="white" />
+                  <circle cx="12" cy="12" r="6" stroke="#DC2626" strokeWidth="2" fill="white" />
+                  <circle cx="12" cy="12" r="3" fill="#DC2626" />
+                  <path d="M12 3V1" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M20 8L22 6" stroke="#22C55E" strokeWidth="2" strokeLinecap="round" />
+                  <circle cx="22" cy="5" r="2" fill="#22C55E" />
+                </svg>
+              </div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
+                Statistical Analysis
+              </div>
+              <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                Chi-square significance testing
+              </div>
+            </div>
+
+            {/* Segment Comparison */}
+            <div
+              style={{
+                background: 'rgba(255, 255, 255, 0.5)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                borderRadius: '16px',
+                border: '1px solid rgba(255, 255, 255, 0.6)',
+                padding: '24px 28px',
+                textAlign: 'center',
+                minWidth: '180px'
+              }}
+            >
+              <div style={{ marginBottom: '12px' }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="M21 21l-4.35-4.35" />
+                </svg>
+              </div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
+                Segment Comparison
+              </div>
+              <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                Compare groups side-by-side
+              </div>
             </div>
           </div>
-        </header>
+        </div>
+
+        {/* CSS animation for floating orbs */}
+        <style>{`
+          @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -30px) scale(1.05); }
+            66% { transform: translate(-20px, 20px) scale(0.95); }
+          }
+        `}</style>
       </div>
     )
   }
@@ -1066,21 +1279,7 @@ export default function App() {
             <div style={{ flexShrink: 0 }}>
               <CSVUpload />
             </div>
-            {summary && (
-              <span
-                className="font-medium"
-                style={{
-                  color: '#374151',
-                  fontSize: '14px',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                {cleanFileName(summary.fileName)}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center" style={{ paddingRight: '24px', gap: '16px' }}>
-            {/* Demographic Adjustment Button */}
+            {/* Apples-to-Apples Comparison Button */}
             {dataset && (
               <button
                 onClick={() => setShowRegressionPanel(true)}
@@ -1088,11 +1287,11 @@ export default function App() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '6px',
+                  gap: '4px',
                   padding: '12px 24px',
                   backgroundColor: '#FFFFFF',
                   border: 'none',
-                  borderRadius: '8px',
+                  borderRadius: '10px',
                   color: '#3A8518',
                   fontSize: '12px',
                   fontWeight: '500',
@@ -1111,11 +1310,28 @@ export default function App() {
                 }}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 3v18h18" />
-                  <path d="m19 9-5 5-4-4-3 3" />
+                  <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+                  <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+                  <path d="M7 21h10" />
+                  <path d="M12 3v18" />
+                  <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
                 </svg>
-                Demographic Adjustment
+                Apples-to-Apples
               </button>
+            )}
+          </div>
+          <div className="flex items-center" style={{ paddingRight: '24px', gap: '16px' }}>
+            {summary && (
+              <span
+                className="font-medium"
+                style={{
+                  color: '#374151',
+                  fontSize: '14px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {cleanFileName(summary.fileName)}
+              </span>
             )}
             <div
               className="flex items-center gap-1"
@@ -1256,14 +1472,14 @@ export default function App() {
             <>
               {/* Filter Summary Card */}
               <div
-                className="rounded-xl bg-white"
+                className="shadow-sm"
                 style={{
-                  marginBottom: '16px',
+                  marginBottom: '10px',
                   width: '100%',
                   overflow: 'hidden',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                  border: '1px solid #e5e7eb',
-                  padding: '16px 18px'
+                  padding: '16px 18px',
+                  borderRadius: '12px',
+                  backgroundColor: 'white'
                 }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', width: '100%' }}>
@@ -1316,12 +1532,11 @@ export default function App() {
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '6px',
-                                padding: '6px 10px',
-                                backgroundColor: '#E8F5E9',
-                                borderRadius: '6px',
+                                padding: '6px 12px',
+                                backgroundColor: '#F0FDF4',
+                                borderRadius: '8px',
                                 fontSize: '12px',
-                                color: '#374151',
-                                border: '1px solid #C8E6C9'
+                                color: '#374151'
                               }}
                             >
                               <span>{filter.label}</span>
@@ -1359,17 +1574,17 @@ export default function App() {
                             }}
                             style={{
                               padding: '6px 14px',
-                              backgroundColor: 'white',
-                              border: '1px solid #D1D5DB',
-                              borderRadius: '6px',
+                              backgroundColor: '#F9FAFB',
+                              border: 'none',
+                              borderRadius: '8px',
                               color: '#374151',
                               fontSize: '12px',
                               fontWeight: '500',
                               cursor: 'pointer',
                               fontFamily: 'Space Grotesk, sans-serif'
                             }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F3F4F6'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
                           >
                             Clear All
                           </button>
@@ -1431,41 +1646,89 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-[10px]">
-                <section className="space-y-3 rounded-xl bg-white p-5 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div
-                      className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition"
-                      onClick={() => toggleSection('segmentation')}
-                    >
+              <div className="flex flex-col" style={{ gap: '10px' }}>
+                <section
+                  className="rounded-xl bg-white shadow-sm"
+                >
+                  <div
+                    className="flex items-center justify-between cursor-pointer"
+                    onClick={() => toggleSection('segmentation')}
+                    style={{
+                      padding: '14px 16px',
+                      backgroundColor: 'white',
+                      borderRadius: '12px',
+                      transition: 'background-color 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#E8F5E9'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'white'
+                    }}
+                  >
+                    <div className="flex items-center" style={{ gap: '10px' }}>
                       <svg
-                        width="12"
-                        height="12"
+                        width="16"
+                        height="16"
                         viewBox="0 0 24 24"
                         fill="none"
-                        stroke="currentColor"
+                        stroke="#3A8518"
                         strokeWidth="2"
-                        className="flex-shrink-0 transition-transform"
-                        style={{ transform: expandedSections.has('segmentation') ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                       >
-                        <path d="M9 18l6-6-6-6" />
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                       </svg>
-                      <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Segmentation</h4>
+                      <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#374151', letterSpacing: '0.025em' }}>Segmentation</h4>
                     </div>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#9CA3AF"
+                      strokeWidth="2"
+                      className="flex-shrink-0 transition-transform"
+                      style={{ transform: expandedSections.has('segmentation') ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                    >
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
                   </div>
                   {expandedSections.has('segmentation') && (
-                    <div className="pl-[10px]">
-                  <div className="max-h-96 space-y-5 overflow-y-auto rounded-lg bg-white px-2 py-2">
+                    <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '0 0 12px 12px' }}>
+                  <div className="max-h-96 space-y-4 overflow-y-auto">
                     {/* Overall option with Clear all button */}
-                    <div className="space-y-1 pl-[10px]" style={{ paddingBottom: '10px', paddingTop: '4px' }}>
+                    <div style={{ paddingBottom: '12px' }}>
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center" style={{ gap: '5px' }}>
-                          <input
-                            type="checkbox"
-                            className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0 cursor-pointer"
-                            checked={isSegmentSelected('Overall', 'Overall')}
-                            onChange={() => toggleSegment('Overall', 'Overall')}
-                          />
+                        <label className="flex items-center cursor-pointer" style={{ gap: '10px' }}>
+                          <div
+                            onClick={(e) => {
+                              e.preventDefault()
+                              toggleSegment('Overall', 'Overall')
+                            }}
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              borderRadius: '4px',
+                              border: isSegmentSelected('Overall', 'Overall') ? '2px solid #3A8518' : '2px solid #D1D5DB',
+                              backgroundColor: isSegmentSelected('Overall', 'Overall') ? '#3A8518' : 'white',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.15s ease',
+                              flexShrink: 0,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {isSegmentSelected('Overall', 'Overall') && (
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            )}
+                          </div>
                           {editingSegment === 'Overall' ? (
                             <textarea
                               ref={segmentInputRef as any}
@@ -1504,19 +1767,20 @@ export default function App() {
                                 e.currentTarget.style.color = '#3A8518'
                               }}
                               onMouseLeave={(e) => {
-                                e.currentTarget.style.color = ''
+                                e.currentTarget.style.color = '#374151'
                               }}
                               style={{
-                                fontSize: '12px',
+                                fontSize: '13px',
                                 fontFamily: 'Space Grotesk, sans-serif',
                                 fontWeight: '600',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                color: '#374151'
                               }}
                             >
                               {getGroupDisplayLabel('Overall')}
                             </span>
                           )}
-                        </div>
+                        </label>
                       </div>
                     </div>
 
@@ -1557,62 +1821,112 @@ export default function App() {
                       const isExpanded = expandedSegmentGroups.has(column)
 
                       return (
-                        <div key={column} className="space-y-2" style={{ paddingBottom: '5px' }}>
-                          <div className="flex items-center justify-between">
-                            <div
-                              className="flex items-center gap-1 cursor-pointer transition flex-1 group"
-                              onClick={() => toggleSegmentGroup(column)}
+                        <div key={column} style={{ paddingBottom: '4px' }}>
+                          <div
+                            className="flex items-center justify-between cursor-pointer"
+                            onClick={() => toggleSegmentGroup(column)}
+                            style={{
+                              padding: '8px 12px',
+                              backgroundColor: isExpanded ? '#F0FDF4' : '#F9FAFB',
+                              borderRadius: '8px',
+                              marginBottom: isExpanded ? '8px' : '0',
+                              transition: 'all 0.15s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#E8F5E9'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = isExpanded ? '#F0FDF4' : '#F9FAFB'
+                            }}
+                          >
+                            <h5 style={{ fontSize: '12px', fontWeight: 600, color: '#374151', fontFamily: 'Space Grotesk, sans-serif' }}>{column}</h5>
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="#6B7280"
+                              strokeWidth="2"
+                              className="flex-shrink-0 transition-transform"
+                              style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
                             >
-                              <svg
-                                width="12"
-                                height="12"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                className="flex-shrink-0 transition-transform group-hover:text-brand-green"
-                                style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
-                              >
-                                <path d="M9 18l6-6-6-6" />
-                              </svg>
-                              <h5 className="font-semibold text-brand-gray group-hover:text-brand-green transition-colors" style={{ fontSize: '12px', fontFamily: 'Space Grotesk, sans-serif' }}>{column}</h5>
-                            </div>
+                              <path d="M6 9l6 6 6-6" />
+                            </svg>
                           </div>
                           {isExpanded && (
-                            <div className="pl-[10px]">
+                            <div style={{ paddingLeft: '12px' }}>
                             {/* Select all checkbox */}
-                            <div className="flex items-center mb-2" style={{ gap: '5px' }}>
-                              <input
-                                type="checkbox"
-                                className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0 cursor-pointer"
-                                checked={(() => {
-                                  // Check if all values in this column are selected
-                                  const selectedInColumn = (selections.segments || []).filter(s => s.column === column)
-                                  return selectedInColumn.length === values.length
-                                })()}
-                                onChange={() => {
+                            <label className="flex items-center cursor-pointer" style={{ gap: '10px', marginBottom: '10px' }}>
+                              <div
+                                onClick={(e) => {
+                                  e.preventDefault()
                                   const selectedInColumn = (selections.segments || []).filter(s => s.column === column)
                                   if (selectedInColumn.length === values.length) {
-                                    // Deselect all - go back to Overall
                                     handleClearColumn(column)
                                   } else {
-                                    // Select all
                                     handleSelectAllInColumn(column, values)
                                   }
                                 }}
-                              />
-                              <label className="text-brand-gray cursor-pointer" style={{ fontSize: '12px', fontFamily: 'Space Grotesk, sans-serif' }}>
+                                style={{
+                                  width: '18px',
+                                  height: '18px',
+                                  borderRadius: '4px',
+                                  border: (() => {
+                                    const selectedInColumn = (selections.segments || []).filter(s => s.column === column)
+                                    return selectedInColumn.length === values.length ? '2px solid #3A8518' : '2px solid #D1D5DB'
+                                  })(),
+                                  backgroundColor: (() => {
+                                    const selectedInColumn = (selections.segments || []).filter(s => s.column === column)
+                                    return selectedInColumn.length === values.length ? '#3A8518' : 'white'
+                                  })(),
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'all 0.15s ease',
+                                  flexShrink: 0,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {(() => {
+                                  const selectedInColumn = (selections.segments || []).filter(s => s.column === column)
+                                  return selectedInColumn.length === values.length && (
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                      <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                  )
+                                })()}
+                              </div>
+                              <span style={{ fontSize: '12px', color: '#6B7280', fontFamily: 'Space Grotesk, sans-serif' }}>
                                 Select all
-                              </label>
-                            </div>
+                              </span>
+                            </label>
                             {values.map(value => (
-                              <div key={value} className="flex items-center" style={{ gap: '5px' }}>
-                                <input
-                                  type="checkbox"
-                                  className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0 cursor-pointer"
-                                  checked={isSegmentSelected(column, value)}
-                                  onChange={() => toggleSegment(column, value)}
-                                />
+                              <label key={value} className="flex items-center cursor-pointer" style={{ gap: '10px', marginBottom: '6px' }}>
+                                <div
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    toggleSegment(column, value)
+                                  }}
+                                  style={{
+                                    width: '18px',
+                                    height: '18px',
+                                    borderRadius: '4px',
+                                    border: isSegmentSelected(column, value) ? '2px solid #3A8518' : '2px solid #D1D5DB',
+                                    backgroundColor: isSegmentSelected(column, value) ? '#3A8518' : 'white',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'all 0.15s ease',
+                                    flexShrink: 0,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  {isSegmentSelected(column, value) && (
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                      <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                  )}
+                                </div>
                                 {editingSegment === value ? (
                                   <textarea
                                     ref={segmentInputRef as any}
@@ -1629,20 +1943,22 @@ export default function App() {
                                     style={{
                                       fontSize: '12px',
                                       fontFamily: 'Space Grotesk, sans-serif',
-                                      padding: '2px 4px',
+                                      padding: '4px 8px',
                                       border: '1px solid #3A8518',
-                                      borderRadius: '3px',
+                                      borderRadius: '4px',
                                       outline: 'none',
                                       resize: 'none',
                                       lineHeight: '1.2',
-                                      height: '22px',
+                                      height: '26px',
                                       overflow: 'hidden',
-                                      width: '100px'
+                                      width: '120px'
                                     }}
                                   />
                                 ) : (
                                   <span
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
                                       setEditingSegment(value)
                                       setSegmentInput(getGroupDisplayLabel(value))
                                     }}
@@ -1650,18 +1966,19 @@ export default function App() {
                                       e.currentTarget.style.color = '#3A8518'
                                     }}
                                     onMouseLeave={(e) => {
-                                      e.currentTarget.style.color = ''
+                                      e.currentTarget.style.color = '#374151'
                                     }}
                                     style={{
                                       fontSize: '12px',
                                       fontFamily: 'Space Grotesk, sans-serif',
-                                      cursor: 'pointer'
+                                      cursor: 'pointer',
+                                      color: '#374151'
                                     }}
                                   >
                                     {getGroupDisplayLabel(value)}
                                   </span>
                                 )}
-                              </div>
+                              </label>
                             ))}
                           </div>
                           )}
@@ -1671,81 +1988,95 @@ export default function App() {
                   </div>
 
                     {/* Consumer Questions Segmentation */}
-                    <div style={{ paddingTop: '14px', marginTop: '1px' }}>
+                    <div style={{ paddingTop: '8px' }}>
                       <div
-                        className="group"
-                        style={{
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          paddingBottom: '6px',
-                          borderBottom: '1px solid #E5E7EB'
-                        }}
+                        className="flex items-center justify-between cursor-pointer"
                         onClick={() => {
                           const isExpanded = expandedSections.has('consumerQuestions')
                           setExpandedSections(prev => {
                             const next = new Set(prev)
                             if (isExpanded) {
                               next.delete('consumerQuestions')
-                              // Close dropdown when collapsing
                               setQuestionDropdownOpen(false)
                             } else {
                               next.add('consumerQuestions')
-                              // Open dropdown when expanding
                               setQuestionDropdownOpen(true)
                             }
                             return next
                           })
                         }}
+                        style={{
+                          padding: '8px 12px',
+                          backgroundColor: expandedSections.has('consumerQuestions') ? '#F0FDF4' : '#F9FAFB',
+                          borderRadius: '8px',
+                          marginBottom: expandedSections.has('consumerQuestions') ? '8px' : '0',
+                          transition: 'all 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#E8F5E9'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = expandedSections.has('consumerQuestions') ? '#F0FDF4' : '#F9FAFB'
+                        }}
                       >
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 12 12"
-                          fill="none"
-                          style={{
-                            transform: expandedSections.has('consumerQuestions') ? 'rotate(90deg)' : 'rotate(0deg)',
-                            transition: 'transform 0.2s ease'
-                          }}
-                        >
-                          <path d="M4.5 2L8.5 6L4.5 10" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                        <h5 className="font-semibold text-brand-gray group-hover:text-brand-green transition-colors" style={{ fontSize: '12px', fontFamily: 'Space Grotesk, sans-serif' }}>
+                        <h5 style={{ fontSize: '12px', fontWeight: 600, color: '#374151', fontFamily: 'Space Grotesk, sans-serif' }}>
                           Consumer Questions
                         </h5>
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#6B7280"
+                          strokeWidth="2"
+                          className="flex-shrink-0 transition-transform"
+                          style={{ transform: expandedSections.has('consumerQuestions') ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                        >
+                          <path d="M6 9l6 6 6-6" />
+                        </svg>
                       </div>
 
                       {expandedSections.has('consumerQuestions') && (
-                        <div style={{ marginTop: '8px' }}>
+                        <div style={{ paddingLeft: '12px' }}>
                           {/* Questions Dropdown */}
-                          <div ref={questionDropdownRef} style={{ position: 'relative', marginBottom: '8px', flexShrink: 0 }}>
+                          <div ref={questionDropdownRef} style={{ position: 'relative', marginBottom: '12px', flexShrink: 0 }}>
                             <div
                               onClick={() => setQuestionDropdownOpen(!questionDropdownOpen)}
                               style={{
-                                padding: '6px 8px',
+                                padding: '10px 14px',
                                 border: '1px solid #E5E7EB',
-                                borderRadius: '4px',
+                                borderRadius: '8px',
                                 cursor: 'pointer',
-                                fontSize: '11px',
+                                fontSize: '12px',
                                 backgroundColor: 'white',
                                 display: 'flex',
                                 justifyContent: 'space-between',
-                                alignItems: 'center'
+                                alignItems: 'center',
+                                color: '#374151',
+                                transition: 'all 0.15s ease',
+                                boxShadow: questionDropdownOpen ? '0 0 0 2px rgba(58, 133, 24, 0.2)' : 'none'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = '#3A8518'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = '#E5E7EB'
                               }}
                             >
-                              <span>Select Questions</span>
+                              <span style={{ fontWeight: 500 }}>Select Questions</span>
                               <svg
-                                width="12"
-                                height="12"
-                                viewBox="0 0 12 12"
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
                                 fill="none"
+                                stroke="#6B7280"
+                                strokeWidth="2"
                                 style={{
                                   transform: questionDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                                   transition: 'transform 0.2s ease'
                                 }}
                               >
-                                <path d="M2 4L6 8L10 4" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M6 9l6 6 6-6" />
                               </svg>
                             </div>
 
@@ -1756,18 +2087,19 @@ export default function App() {
                                   top: '100%',
                                   left: 0,
                                   right: 0,
-                                  marginTop: '2px',
+                                  marginTop: '4px',
                                   backgroundColor: 'white',
                                   border: '1px solid #E5E7EB',
-                                  borderRadius: '4px',
+                                  borderRadius: '8px',
                                   zIndex: 1000,
-                                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                                   display: 'flex',
-                                  flexDirection: 'column'
+                                  flexDirection: 'column',
+                                  overflow: 'hidden'
                                 }}
                               >
                                 {/* Search Input */}
-                                <div style={{ padding: '8px', borderBottom: '1px solid #E5E7EB' }}>
+                                <div style={{ padding: '10px', borderBottom: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}>
                                   <input
                                     type="text"
                                     placeholder="Search questions or answers..."
@@ -1779,17 +2111,20 @@ export default function App() {
                                     onClick={(e) => e.stopPropagation()}
                                     style={{
                                       width: '100%',
-                                      padding: '4px 8px',
-                                      fontSize: '11px',
+                                      padding: '8px 12px',
+                                      fontSize: '12px',
                                       border: '1px solid #E5E7EB',
-                                      borderRadius: '4px',
-                                      outline: 'none'
+                                      borderRadius: '6px',
+                                      outline: 'none',
+                                      transition: 'border-color 0.15s ease'
                                     }}
                                     onFocus={(e) => {
                                       e.target.style.borderColor = '#3A8518'
+                                      e.target.style.boxShadow = '0 0 0 2px rgba(58, 133, 24, 0.1)'
                                     }}
                                     onBlur={(e) => {
                                       e.target.style.borderColor = '#E5E7EB'
+                                      e.target.style.boxShadow = 'none'
                                     }}
                                   />
                                 </div>
@@ -1954,9 +2289,9 @@ export default function App() {
                       )}
                     </div>
                   {selections.comparisonMode && (
-                    <div style={{ paddingTop: '14px', marginTop: '1px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <div className="flex items-center" style={{ gap: '2px' }}>
-                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '36px', height: '18px' }}>
+                    <div style={{ paddingTop: '16px', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid #E5E7EB' }}>
+                      <div className="flex items-center" style={{ gap: '10px' }}>
+                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px', flexShrink: 0 }}>
                           <input
                             type="checkbox"
                             checked={statSigFilter === 'statSigOnly'}
@@ -1965,7 +2300,6 @@ export default function App() {
                               const isDisabled = (selections.segments && selections.segments.length < 2) || (!selections.segments && selections.groups.length < 2)
                               if (!isDisabled) {
                                 const newStatSigFilter = statSigFilter === 'all' ? 'statSigOnly' : 'all'
-                                // If turning off Stat Sig Only, also turn off Remove Asterisks
                                 if (newStatSigFilter === 'all') {
                                   setSelections({ statSigFilter: newStatSigFilter, hideAsterisks: false })
                                 } else {
@@ -1985,38 +2319,39 @@ export default function App() {
                               left: 0,
                               right: 0,
                               bottom: 0,
-                              backgroundColor: statSigFilter === 'statSigOnly' ? '#3A8518' : '#CCC',
-                              transition: '0.4s',
-                              borderRadius: '34px'
+                              backgroundColor: statSigFilter === 'statSigOnly' ? '#3A8518' : '#D1D5DB',
+                              transition: '0.3s',
+                              borderRadius: '11px'
                             }}
                           >
                             <span
                               style={{
                                 position: 'absolute',
                                 content: '""',
-                                height: '13.5px',
-                                width: '13.5px',
-                                left: statSigFilter === 'statSigOnly' ? '20.25px' : '2.25px',
-                                top: '2.25px',
+                                height: '18px',
+                                width: '18px',
+                                left: statSigFilter === 'statSigOnly' ? '20px' : '2px',
+                                top: '2px',
                                 backgroundColor: 'white',
-                                transition: '0.4s',
-                                borderRadius: '50%'
+                                transition: '0.3s',
+                                borderRadius: '50%',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
                               }}
                             />
                           </span>
                         </label>
                         <span
-                          className="font-medium"
                           style={{
-                            color: statSigFilter === 'statSigOnly' ? '#3A8518' : '#9CA3AF',
-                            fontSize: '12.6px'
+                            color: statSigFilter === 'statSigOnly' ? '#374151' : '#6B7280',
+                            fontSize: '13px',
+                            fontWeight: 500
                           }}
                         >
-                          {' '}Stat Sig Only
+                          Stat Sig Only
                         </span>
                       </div>
-                      <div className="flex items-center" style={{ gap: '2px' }}>
-                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '36px', height: '18px' }}>
+                      <div className="flex items-center" style={{ gap: '10px' }}>
+                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px', flexShrink: 0 }}>
                           <input
                             type="checkbox"
                             checked={selections.hideAsterisks || false}
@@ -2035,42 +2370,43 @@ export default function App() {
                               left: 0,
                               right: 0,
                               bottom: 0,
-                              backgroundColor: selections.hideAsterisks ? '#3A8518' : '#CCC',
-                              transition: '0.4s',
-                              borderRadius: '34px'
+                              backgroundColor: selections.hideAsterisks ? '#3A8518' : '#D1D5DB',
+                              transition: '0.3s',
+                              borderRadius: '11px'
                             }}
                           >
                             <span
                               style={{
                                 position: 'absolute',
                                 content: '""',
-                                height: '13.5px',
-                                width: '13.5px',
-                                left: selections.hideAsterisks ? '20.25px' : '2.25px',
-                                top: '2.25px',
+                                height: '18px',
+                                width: '18px',
+                                left: selections.hideAsterisks ? '20px' : '2px',
+                                top: '2px',
                                 backgroundColor: 'white',
-                                transition: '0.4s',
-                                borderRadius: '50%'
+                                transition: '0.3s',
+                                borderRadius: '50%',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
                               }}
                             />
                           </span>
                         </label>
                         <span
-                          className="font-medium"
                           style={{
-                            color: selections.hideAsterisks ? '#3A8518' : '#9CA3AF',
-                            fontSize: '12.6px'
+                            color: selections.hideAsterisks ? '#374151' : '#6B7280',
+                            fontSize: '13px',
+                            fontWeight: 500
                           }}
                         >
-                          {' '}Remove Asterisks
+                          Remove Asterisks
                         </span>
                       </div>
                     </div>
                   )}
                   {!selections.comparisonMode && (
-                    <div style={{ paddingTop: '14px', marginTop: '1px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <div className="flex items-center" style={{ gap: '2px' }}>
-                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '36px', height: '18px' }}>
+                    <div style={{ paddingTop: '16px', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid #E5E7EB' }}>
+                      <div className="flex items-center" style={{ gap: '10px' }}>
+                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px', flexShrink: 0 }}>
                           <input
                             type="checkbox"
                             checked={selections.hideAsterisks || false}
@@ -2089,34 +2425,35 @@ export default function App() {
                               left: 0,
                               right: 0,
                               bottom: 0,
-                              backgroundColor: selections.hideAsterisks ? '#3A8518' : '#CCC',
-                              transition: '0.4s',
-                              borderRadius: '34px'
+                              backgroundColor: selections.hideAsterisks ? '#3A8518' : '#D1D5DB',
+                              transition: '0.3s',
+                              borderRadius: '11px'
                             }}
                           >
                             <span
                               style={{
                                 position: 'absolute',
                                 content: '""',
-                                height: '13.5px',
-                                width: '13.5px',
-                                left: selections.hideAsterisks ? '20.25px' : '2.25px',
-                                top: '2.25px',
+                                height: '18px',
+                                width: '18px',
+                                left: selections.hideAsterisks ? '20px' : '2px',
+                                top: '2px',
                                 backgroundColor: 'white',
-                                transition: '0.4s',
-                                borderRadius: '50%'
+                                transition: '0.3s',
+                                borderRadius: '50%',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
                               }}
                             />
                           </span>
                         </label>
                         <span
-                          className="font-medium"
                           style={{
-                            color: selections.hideAsterisks ? '#3A8518' : '#9CA3AF',
-                            fontSize: '12.6px'
+                            color: selections.hideAsterisks ? '#374151' : '#6B7280',
+                            fontSize: '13px',
+                            fontWeight: 500
                           }}
                         >
-                          {' '}Remove Asterisks
+                          Remove Asterisks
                         </span>
                       </div>
                     </div>
@@ -2126,59 +2463,125 @@ export default function App() {
                 </section>
 
                 {productColumn && productValues.length > 0 && (
-                  <section className="space-y-3 rounded-xl bg-white p-5 shadow-sm">
+                  <section
+                    className="rounded-xl bg-white shadow-sm"
+                  >
                     <div
-                      className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition"
+                      className="flex items-center justify-between cursor-pointer"
                       onClick={() => toggleSection('products')}
+                      style={{
+                        padding: '14px 16px',
+                        backgroundColor: 'white',
+                        borderRadius: '12px',
+                        transition: 'background-color 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#E8F5E9'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'white'
+                      }}
                     >
+                      <div className="flex items-center" style={{ gap: '10px' }}>
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#3A8518"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                          <line x1="3" y1="6" x2="21" y2="6" />
+                          <path d="M16 10a4 4 0 0 1-8 0" />
+                        </svg>
+                        <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#374151', letterSpacing: '0.025em' }}>Products</h4>
+                      </div>
                       <svg
-                        width="12"
-                        height="12"
+                        width="16"
+                        height="16"
                         viewBox="0 0 24 24"
                         fill="none"
-                        stroke="currentColor"
+                        stroke="#9CA3AF"
                         strokeWidth="2"
                         className="flex-shrink-0 transition-transform"
-                        style={{ transform: expandedSections.has('products') ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                        style={{ transform: expandedSections.has('products') ? 'rotate(180deg)' : 'rotate(0deg)' }}
                       >
-                        <path d="M9 18l6-6-6-6" />
+                        <path d="M6 9l6 6 6-6" />
                       </svg>
-                      <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Products</h4>
                     </div>
                     {expandedSections.has('products') && (
-                    <div className="pl-[10px]">
-                    <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg bg-white px-2 py-2">
+                    <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '0 0 12px 12px' }}>
+                    <div className="max-h-48 space-y-2 overflow-y-auto">
                       {/* Select all checkbox */}
-                      <div className="flex items-center mb-2" style={{ gap: '4px', paddingTop: '4px' }}>
-                        <input
-                          type="checkbox"
-                          className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0 cursor-pointer"
-                          checked={selections.productGroups.length === productValues.length}
-                          onChange={() => {
+                      <label className="flex items-center cursor-pointer" style={{ gap: '10px', marginBottom: '8px' }}>
+                        <div
+                          onClick={(e) => {
+                            e.preventDefault()
                             if (selections.productGroups.length === productValues.length) {
                               handleClearProducts()
                             } else {
                               handleSelectAllProducts()
                             }
                           }}
-                        />
-                        <label className="text-brand-gray cursor-pointer" style={{ fontSize: '12px', fontFamily: 'Space Grotesk, sans-serif' }}>
+                          style={{
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '4px',
+                            border: selections.productGroups.length === productValues.length ? '2px solid #3A8518' : '2px solid #D1D5DB',
+                            backgroundColor: selections.productGroups.length === productValues.length ? '#3A8518' : 'white',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.15s ease',
+                            flexShrink: 0,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {selections.productGroups.length === productValues.length && (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                        </div>
+                        <span style={{ fontSize: '12px', color: '#6B7280', fontFamily: 'Space Grotesk, sans-serif' }}>
                           Select all
-                        </label>
-                      </div>
+                        </span>
+                      </label>
                       {productValues.map(value => (
-                        <label key={value} className="flex items-center text-brand-gray rounded px-2 py-1 transition-colors hover:bg-gray-50 cursor-pointer" style={{ gap: '4px', fontSize: '12px' }}>
-                          <input
-                            type="checkbox"
-                            className="rounded border-brand-light-gray text-brand-green focus:ring-brand-green flex-shrink-0"
-                            checked={selections.productGroups.includes(value)}
-                            onChange={() => toggleProductGroup(value)}
-                          />
-                          <span>{value}</span>
+                        <label key={value} className="flex items-center cursor-pointer" style={{ gap: '10px', marginBottom: '4px' }}>
+                          <div
+                            onClick={(e) => {
+                              e.preventDefault()
+                              toggleProductGroup(value)
+                            }}
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              borderRadius: '4px',
+                              border: selections.productGroups.includes(value) ? '2px solid #3A8518' : '2px solid #D1D5DB',
+                              backgroundColor: selections.productGroups.includes(value) ? '#3A8518' : 'white',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.15s ease',
+                              flexShrink: 0,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {selections.productGroups.includes(value) && (
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            )}
+                          </div>
+                          <span style={{ fontSize: '12px', color: '#374151', fontFamily: 'Space Grotesk, sans-serif' }}>{value}</span>
                         </label>
                       ))}
                       {productValues.length === 0 && (
-                        <div className="text-xs text-brand-gray/60">No product values detected.</div>
+                        <div style={{ fontSize: '12px', color: '#9CA3AF' }}>No product values detected.</div>
                       )}
                     </div>
                     </div>
@@ -2186,30 +2589,62 @@ export default function App() {
                   </section>
                 )}
 
-                <section className="space-y-4 rounded-xl bg-white p-5 shadow-sm">
+                <section
+                  className="rounded-xl bg-white shadow-sm"
+                >
                   <div
-                    className="flex items-center gap-1 cursor-pointer hover:text-brand-green transition"
+                    className="flex items-center justify-between cursor-pointer"
                     onClick={() => toggleSection('display')}
+                    style={{
+                      padding: '14px 16px',
+                      backgroundColor: 'white',
+                      borderRadius: '12px',
+                      transition: 'background-color 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#E8F5E9'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'white'
+                    }}
                   >
+                    <div className="flex items-center" style={{ gap: '10px' }}>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#3A8518"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="13.5" cy="6.5" r="2.5" />
+                        <circle cx="6" cy="12" r="2.5" />
+                        <circle cx="18" cy="12" r="2.5" />
+                        <circle cx="8.5" cy="18.5" r="2.5" />
+                        <circle cx="15.5" cy="18.5" r="2.5" />
+                      </svg>
+                      <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#374151', letterSpacing: '0.025em' }}>Display</h4>
+                    </div>
                     <svg
-                      width="12"
-                      height="12"
+                      width="16"
+                      height="16"
                       viewBox="0 0 24 24"
                       fill="none"
-                      stroke="currentColor"
+                      stroke="#9CA3AF"
                       strokeWidth="2"
                       className="flex-shrink-0 transition-transform"
-                      style={{ transform: expandedSections.has('display') ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                      style={{ transform: expandedSections.has('display') ? 'rotate(180deg)' : 'rotate(0deg)' }}
                     >
-                      <path d="M9 18l6-6-6-6" />
+                      <path d="M6 9l6 6 6-6" />
                     </svg>
-                    <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Display</h4>
                   </div>
                   {expandedSections.has('display') && (
-                  <div className="pl-[10px] space-y-5">
-                    <div style={{ marginBottom: '10px', paddingTop: '4px' }}>
-                      <div className="flex items-center" style={{ gap: '2px' }}>
-                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '36px', height: '18px' }}>
+                  <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '0 0 12px 12px' }}>
+                    <div style={{ marginBottom: '16px' }}>
+                      <div className="flex items-center" style={{ gap: '10px' }}>
+                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px', flexShrink: 0 }}>
                           <input
                             type="checkbox"
                             checked={(() => {
@@ -2237,60 +2672,62 @@ export default function App() {
                               backgroundColor: (() => {
                                 const defaultColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
                                 const currentColors = selections.chartColors || defaultColors
-                                return JSON.stringify(currentColors) === JSON.stringify(defaultColors) ? '#3A8518' : '#CCC'
+                                return JSON.stringify(currentColors) === JSON.stringify(defaultColors) ? '#3A8518' : '#D1D5DB'
                               })(),
-                              transition: '0.4s',
-                              borderRadius: '34px'
+                              transition: '0.3s',
+                              borderRadius: '11px'
                             }}
                           >
                             <span
                               style={{
                                 position: 'absolute',
                                 content: '""',
-                                height: '13.5px',
-                                width: '13.5px',
+                                height: '18px',
+                                width: '18px',
                                 left: (() => {
                                   const defaultColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
                                   const currentColors = selections.chartColors || defaultColors
-                                  return JSON.stringify(currentColors) === JSON.stringify(defaultColors) ? '20.25px' : '2.25px'
+                                  return JSON.stringify(currentColors) === JSON.stringify(defaultColors) ? '20px' : '2px'
                                 })(),
-                                top: '2.25px',
+                                top: '2px',
                                 backgroundColor: 'white',
-                                transition: '0.4s',
-                                borderRadius: '50%'
+                                transition: '0.3s',
+                                borderRadius: '50%',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
                               }}
                             />
                           </span>
                         </label>
                         <span
-                          className="font-medium"
                           style={{
                             color: (() => {
                               const defaultColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
                               const currentColors = selections.chartColors || defaultColors
-                              return JSON.stringify(currentColors) === JSON.stringify(defaultColors) ? '#3A8518' : '#9CA3AF'
+                              return JSON.stringify(currentColors) === JSON.stringify(defaultColors) ? '#374151' : '#6B7280'
                             })(),
-                            fontSize: '12.6px'
+                            fontSize: '13px',
+                            fontWeight: 500
                           }}
                         >
-                          {' '}Default colors
+                          Default colors
                         </span>
                       </div>
                     </div>
-                    <div className="flex flex-col" style={{ gap: '12px' }}>
+                    <div className="flex flex-col" style={{ gap: '10px' }}>
                       {(selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088']).slice(0, 6).map((color, index) => (
-                        <div key={index} className="flex items-center" style={{ gap: '8px' }}>
+                        <div key={index} className="flex items-center" style={{ gap: '10px' }}>
                           <label className="cursor-pointer">
                             <div
                               style={{
                                 backgroundColor: color,
-                                width: '32px',
-                                height: '32px',
-                                minWidth: '32px',
-                                minHeight: '32px',
-                                borderRadius: '3px',
-                                border: '2px solid #e5e7eb',
-                                cursor: 'pointer'
+                                width: '36px',
+                                height: '36px',
+                                minWidth: '36px',
+                                minHeight: '36px',
+                                borderRadius: '8px',
+                                border: '1px solid #E5E7EB',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                               }}
                             />
                             <input
@@ -2324,12 +2761,22 @@ export default function App() {
                                 setSelections({ chartColors: newColors })
                               }
                             }}
-                            className="text-xs border border-gray-300 rounded px-2 py-1.5"
                             style={{
                               width: '90px',
                               fontSize: '12px',
                               fontFamily: 'monospace',
-                              textAlign: 'center'
+                              textAlign: 'center',
+                              padding: '8px 10px',
+                              border: '1px solid #E5E7EB',
+                              borderRadius: '8px',
+                              outline: 'none',
+                              transition: 'border-color 0.15s ease'
+                            }}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = '#3A8518'
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = '#E5E7EB'
                             }}
                             placeholder="#000000"
                           />
@@ -2377,8 +2824,8 @@ export default function App() {
             transition: 'left 0.3s ease, width 0.3s ease'
           }}
         >
-          <div className="pt-8 pr-8 pb-8 pl-24">
-            <div className="rounded-2xl bg-white p-6 shadow-sm min-h-[460px]">
+          <div className="pt-4 pr-4 pb-4 pl-2">
+            <div className="rounded-2xl bg-white p-3 shadow-sm min-h-[460px]">
               {dataset ? (
                 filteredDataset && ((selections.segments && selections.segments.length > 0) || (selections.segmentColumn && orderedGroups.length > 0)) ? (
                   <ChartGallery
