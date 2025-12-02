@@ -156,7 +156,7 @@ export const RegressionAnalysisPanel: React.FC<RegressionAnalysisPanelProps> = (
 
   // Run analysis
   const handleRunAnalysis = () => {
-    if (!primaryColumn || !referenceGroup || !targetGroup || selectedControls.length === 0) {
+    if (!selectedQuestion || !primaryColumn || !referenceGroup || !targetGroup || selectedControls.length === 0) {
       return
     }
 
