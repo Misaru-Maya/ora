@@ -191,10 +191,18 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       })
 
       // For ranking questions, show all options by default
-      // For other questions with more than 10 options, keep only the top 10 by default
-      const selectedDefaults = question.type === 'ranking'
-        ? allOptions
-        : (allOptions.length > 10 ? allOptions.slice(0, 10) : allOptions)
+      // For other questions, select only the top 8 options by default (marked with __isTop8)
+      // Users can manually select other options from the filter dropdown
+      let selectedDefaults: string[]
+      if (question.type === 'ranking') {
+        selectedDefaults = allOptions
+      } else {
+        // Use __isTop8 flag to determine default selection
+        const top8Options = series.data
+          .filter((d: any) => d.__isTop8 && !isExcludedValue(d.optionDisplay || d.option))
+          .map(d => d.option)
+        selectedDefaults = top8Options.length > 0 ? top8Options : allOptions.slice(0, 8)
+      }
       setSelectedOptions(selectedDefaults)
 
       // Reset custom order when question changes

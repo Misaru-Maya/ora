@@ -813,23 +813,24 @@ export function buildSeries({
     dataWithIndex.sort((a, b) => a.__index - b.__index)
   }
 
-  // Filter to top 8 options based on overall descending order (by __overallValue)
-  // First, sort by __overallValue descending to determine top 8
+  // Sort by __overallValue descending to determine top 8 for default selection
   const sortedByOverall = [...dataWithIndex].sort((a, b) => {
     const aVal = (a as any)['__overallValue'] ?? 0
     const bVal = (b as any)['__overallValue'] ?? 0
     return bVal - aVal // Descending order
   })
 
-  // Get the top 8 option names
+  // Get the top 8 option names (used for default selection in ChartGallery)
   const top8Options = new Set(sortedByOverall.slice(0, 8).map(item => item.option))
 
-  // Filter dataWithIndex to only include top 8 options (preserving original sort order)
-  const filteredData = dataWithIndex.filter(item => top8Options.has(item.option))
-
-  const data: SeriesDataPoint[] = filteredData
+  // Return ALL options (not filtered), preserving original sort order
+  // The ChartGallery component will handle default selection of top 8
+  const data: SeriesDataPoint[] = dataWithIndex
     .filter((item): item is SeriesDataPoint & { __index: number } => item !== null)
-    .map(({ __index, __overallValue, ...rest }: any) => rest)
+    .map(({ __index, __overallValue, ...rest }: any) => ({
+      ...rest,
+      __isTop8: top8Options.has(rest.option) // Mark top 8 options for default selection
+    }))
 
   return {
     data,
