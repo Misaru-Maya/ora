@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState, memo } from 'react'
 import html2canvas from 'html2canvas'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSort, faFilter, faStar, faRotate, faChartSimple, faArrowUpShortWide, faArrowDownWideShort, faArrowUpAZ, faChartPie, faTableCellsLarge, faBars, faChartBar } from '@fortawesome/free-solid-svg-icons'
@@ -7,8 +7,13 @@ import { SingleSelectPieChart } from './SingleSelectPieChart'
 import { HeatmapTable } from './HeatmapTable'
 import { SentimentHeatmap } from './SentimentHeatmap'
 import { RankingDisplay } from './RankingDisplay'
-import { BuildSeriesResult, buildSeries } from '../dataCalculations'
-import { ParsedCSV, QuestionDef, SortOrder, SegmentDef } from '../types'
+import { buildSeries } from '../dataCalculations'
+import type { BuildSeriesResult } from '../dataCalculations'
+import type { ParsedCSV, QuestionDef, SortOrder, SegmentDef } from '../types'
+
+// Performance: Disable console logs in production
+const isDev = process.env.NODE_ENV === 'development'
+const devLog = isDev ? console.log : () => {}
 
 type CardSortOption = 'default' | 'descending' | 'ascending' | 'alphabetical'
 
@@ -56,14 +61,14 @@ const formatQuestionTitle = (question: QuestionDef): string => {
   return `${base} (${typeLabel})`
 }
 
-const ChartCard: React.FC<ChartCardProps> = ({
+const ChartCard: React.FC<ChartCardProps> = memo(({
   question,
   series,
   orientation,
   displayLabel,
   filterSignificantOnly = false,
   dataset,
-  segmentColumn,
+  segmentColumn: _segmentColumn,
   sortOrder,
   hideAsterisks = false,
   comparisonMode = true,
@@ -86,7 +91,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
   const chartContentRef = useRef<HTMLDivElement | null>(null)
 
   // Screenshot handler - captures only chart content without buttons
-  const handleScreenshot = async () => {
+  const _handleScreenshot = async () => {
     if (!chartContentRef.current) return
     try {
       const canvas = await html2canvas(chartContentRef.current, {
@@ -140,7 +145,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
      question.label.toLowerCase().includes('(negative)'))
 
   // Debug logging
-  console.log('Chart Debug:', {
+  devLog('Chart Debug:', {
     qid: question.qid,
     questionType: question.type,
     groupsLength: series.groups.length,
@@ -161,14 +166,14 @@ const ChartCard: React.FC<ChartCardProps> = ({
   const initialChartVariant: 'bar' | 'pie' | 'stacked' | 'heatmap' =
     (isSentimentQuestion || isProductFollowUpQuestion) ? 'heatmap' : 'bar'
   const [chartVariant, setChartVariant] = useState<'bar' | 'pie' | 'stacked' | 'heatmap'>(initialChartVariant)
-  const [heatmapFilters, setHeatmapFilters] = useState<{ products: string[], attributes: string[] }>({ products: [], attributes: [] })
-  const [showHeatmapProductFilter, setShowHeatmapProductFilter] = useState(false)
-  const [showHeatmapAttributeFilter, setShowHeatmapAttributeFilter] = useState(false)
+  const [_heatmapFilters, _setHeatmapFilters] = useState<{ products: string[], attributes: string[] }>({ products: [], attributes: [] })
+  const [_showHeatmapProductFilter, _setShowHeatmapProductFilter] = useState(false)
+  const [_showHeatmapAttributeFilter, _setShowHeatmapAttributeFilter] = useState(false)
   const sortMenuRef = useRef<HTMLDivElement | null>(null)
   const filterMenuRef = useRef<HTMLDivElement | null>(null)
   const statSigMenuRef = useRef<HTMLDivElement | null>(null)
-  const heatmapProductFilterRef = useRef<HTMLDivElement | null>(null)
-  const heatmapAttributeFilterRef = useRef<HTMLDivElement | null>(null)
+  const _heatmapProductFilterRef = useRef<HTMLDivElement | null>(null)
+  const _heatmapAttributeFilterRef = useRef<HTMLDivElement | null>(null)
   const previousQuestionIdRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -195,7 +200,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
       // Reset custom order when question changes
       setCustomOptionOrder([])
     }
-  }, [series, question.qid, question.isLikert, question.type, isSentimentQuestion])
+  }, [series, question.qid, question.isLikert, question.type, isSentimentQuestion, isProductFollowUpQuestion])
 
   useEffect(() => {
     setChartOrientation(orientation)
@@ -591,7 +596,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 setChartOrientation(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')
               }}
               className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
-              style={{ height: '30px', width: '30px', backgroundColor: '#EBF3E7', border: '1px solid #EBF3E7', borderRadius: '3px' }}
+              style={{ height: '30px', width: '30px', backgroundColor: '#EBF3E7', border: '1px solid #EBF3E7', borderRadius: '3px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)' }}
               title={`Switch to ${chartOrientation === 'horizontal' ? 'vertical' : 'horizontal'} orientation`}
               aria-label="Toggle chart orientation"
               type="button"
@@ -613,7 +618,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 setPieLegendOrientation(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')
               }}
               className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
-              style={{ height: '30px', width: '30px', backgroundColor: '#EBF3E7', border: '1px solid #EBF3E7', borderRadius: '3px' }}
+              style={{ height: '30px', width: '30px', backgroundColor: '#EBF3E7', border: '1px solid #EBF3E7', borderRadius: '3px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)' }}
               title={`Switch to ${pieLegendOrientation === 'horizontal' ? 'vertical' : 'horizontal'} legend`}
               aria-label="Toggle legend orientation"
               type="button"
@@ -643,7 +648,8 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 width: '30px',
                 backgroundColor: selectedOptions.length < series.data.length ? '#C8E2BA' : '#EBF3E7',
                 border: selectedOptions.length < series.data.length ? '1px solid #3A8518' : '1px solid #EBF3E7',
-                borderRadius: '3px'
+                borderRadius: '3px',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
               }}
               title="Filter Options"
             >
@@ -704,7 +710,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
                         <input
                           type="checkbox"
                           checked={selectedOptions.includes(option.option)}
-                          onChange={(e) => toggleOption(option.option)}
+                          onChange={(_e) => toggleOption(option.option)}
                           onClick={(e) => e.stopPropagation()}
                           className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
                         />
@@ -726,7 +732,8 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 width: '30px',
                 backgroundColor: axesSwapped ? '#C8E2BA' : '#EBF3E7',
                 border: axesSwapped ? '1px solid #3A8518' : '1px solid #EBF3E7',
-                borderRadius: '3px'
+                borderRadius: '3px',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
               }}
               title="Swap X/Y axes"
               aria-label="Swap X and Y axes"
@@ -755,7 +762,8 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 width: '30px',
                 backgroundColor: cardSort !== 'default' ? '#C8E2BA' : '#EBF3E7',
                 border: cardSort !== 'default' ? '1px solid #3A8518' : '1px solid #EBF3E7',
-                borderRadius: '3px'
+                borderRadius: '3px',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
               }}
               title="Sort"
             >
@@ -826,7 +834,8 @@ const ChartCard: React.FC<ChartCardProps> = ({
                 width: '30px',
                 backgroundColor: filterSignificantOnly || statSigFilter === 'statSigOnly' ? '#C8E2BA' : '#EBF3E7',
                 border: filterSignificantOnly || statSigFilter === 'statSigOnly' ? '1px solid #3A8518' : '1px solid #EBF3E7',
-                borderRadius: '3px'
+                borderRadius: '3px',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
               }}
               title="Statistical Significance Filter"
               aria-label="Toggle stat significance filter menu"
@@ -896,7 +905,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
           )}
           {(canUsePie || canUseStacked || canUseHeatmap) && question.type !== 'ranking' && (
             <>
-              <div className="flex items-center gap-0.5" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}>
+              <div className="flex items-center gap-0.5" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)' }}>
                 <button
                   className="flex items-center justify-center transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
                   style={{
@@ -940,7 +949,10 @@ const ChartCard: React.FC<ChartCardProps> = ({
                       borderRadius: '3px',
                       cursor: 'pointer'
                     }}
-                    onClick={() => setChartVariant('stacked')}
+                    onClick={() => {
+                      setChartVariant('stacked')
+                      setChartOrientation('horizontal') // Stacked charts always default to horizontal
+                    }}
                     title="Stacked chart"
                   >
                     <FontAwesomeIcon icon={faChartBar} style={{ fontSize: '16px' }} />
@@ -980,7 +992,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
         transformOrigin: 'top center'
       }}>
       {(() => {
-        console.log('Render Debug:', {
+        devLog('Render Debug:', {
           qid: question.qid,
           hasData,
           chartVariant,
@@ -1002,7 +1014,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
 
         // Render ranking questions with RankingDisplay component
         if (question.type === 'ranking') {
-          console.log('Rendering ranking display for question:', question.qid)
+          devLog('Rendering ranking display for question:', question.qid)
           return (
             <RankingDisplay
               data={processedData}
@@ -1014,7 +1026,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
         }
 
         if (chartVariant === 'pie' && canUsePie) {
-          console.log('Rendering pie chart with group:', series.groups[0])
+          devLog('Rendering pie chart with group:', series.groups[0])
           return (
             <SingleSelectPieChart
               data={processedData}
@@ -1030,7 +1042,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
         }
 
         if (chartVariant === 'stacked' && canUseStacked) {
-          console.log('Rendering stacked chart with orientation:', chartOrientation, 'axesSwapped:', axesSwapped)
+          devLog('Rendering stacked chart with orientation:', chartOrientation, 'axesSwapped:', axesSwapped)
 
           // Use transposed data if axes are swapped
           const dataToUse = axesSwapped ? transposedData : processedData
@@ -1062,8 +1074,8 @@ const ChartCard: React.FC<ChartCardProps> = ({
             key: dataPoint.option
           }))
 
-          console.log('Stacked data:', stackedData)
-          console.log('Stacked groups:', stackedGroups)
+          devLog('Stacked data:', stackedData)
+          devLog('Stacked groups:', stackedGroups)
 
           return (
             <ComparisonChart
@@ -1081,7 +1093,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
         }
 
         if (chartVariant === 'heatmap' && canUseHeatmap) {
-          console.log('Rendering heatmap')
+          devLog('Rendering heatmap')
 
           // Find the Product Title column for heatmap grouping
           // Look for "Product Title", "Product Name", "Style", etc.
@@ -1096,7 +1108,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
           })
 
           if (!productColumn) {
-            console.log('❌ No product column found for heatmap')
+            devLog('❌ No product column found for heatmap')
             return (
               <div className="py-10 text-center text-xs text-brand-gray/60">
                 Product column not found. Expected "Product Title" or similar column.
@@ -1110,7 +1122,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
           ).sort()
 
           if (allProducts.length === 0) {
-            console.log('❌ No products found in product column')
+            devLog('❌ No products found in product column')
             return (
               <div className="py-10 text-center text-xs text-brand-gray/60">
                 No products found in {productColumn}.
@@ -1131,7 +1143,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
             question.label.toLowerCase().includes('(sentiment)')
           )
 
-          console.log('📊 Heatmap Debug:', {
+          devLog('📊 Heatmap Debug:', {
             productColumn,
             allProductsCount: allProducts.length,
             allProducts: allProducts.slice(0, 5),
@@ -1141,7 +1153,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
 
           // If this is the sentiment question, render the SentimentHeatmap
           if (isSentimentQuestion) {
-            console.log('📊 Rendering SentimentHeatmap for sentiment question')
+            devLog('📊 Rendering SentimentHeatmap for sentiment question')
             return (
               <div style={{ marginBottom: '20px' }}>
                 <SentimentHeatmap
@@ -1170,7 +1182,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
             sortOrder
           })
 
-          console.log('📊 Heatmap Series Built:', {
+          devLog('📊 Heatmap Series Built:', {
             dataLength: heatmapSeries.data.length,
             groupsLength: heatmapSeries.groups.length,
             groups: heatmapSeries.groups,
@@ -1219,7 +1231,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
       </div>
     </div>
   )
-}
+})
 
 interface ChartGalleryProps {
   questions: QuestionDef[]
@@ -1318,7 +1330,7 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
   // Create a wrapper div with ref for each chart
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2" style={{ paddingTop: '20px' }}>
         {renderableEntries.map(({ question, series }) => {
           return (
             <div

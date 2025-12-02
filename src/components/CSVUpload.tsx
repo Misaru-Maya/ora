@@ -1,5 +1,6 @@
 import React, { useRef, useState, useCallback, useMemo } from 'react'
-import Papa, { ParseResult } from 'papaparse'
+import Papa from 'papaparse'
+import type { ParseResult } from 'papaparse'
 import { parseCSVToDataset } from '../csvParser'
 import { useORAStore } from '../store'
 
@@ -77,26 +78,26 @@ export const CSVUpload: React.FC<CSVUploadProps> = ({ variant = 'compact' }) => 
   const containerClasses = useMemo(() => {
     const base = isLanding
       ? 'relative overflow-hidden rounded-[20px] bg-white shadow-[0_12px_60px_-30px_rgba(15,23,42,0.35)]'
-      : 'relative overflow-hidden rounded-[16px] bg-white border-2 border-dashed border-[#82BC62]'
+      : 'relative overflow-hidden rounded-[10px] bg-white shadow-[0_0_0_1px_rgba(58,133,24,0.3),0_2px_8px_-2px_rgba(58,133,24,0.15)]'
 
     const hover = isLanding
       ? 'transition-transform duration-200 ease-out hover:shadow-[0_40px_80px_-35px_rgba(15,23,42,0.35)]'
-      : 'transition-colors duration-150 ease-out hover:bg-[#FAFCFE]'
+      : 'transition-all duration-150 ease-out hover:bg-[#F0FDF4] hover:shadow-[0_0_0_1px_rgba(58,133,24,0.5),0_4px_12px_-2px_rgba(58,133,24,0.25)]'
 
     const active = isLanding
       ? isDragOver
         ? 'ring-4 ring-brand-green/30 shadow-[0_45px_90px_-35px_rgba(22,163,74,0.5)] scale-[1.01]'
         : ''
       : isDragOver
-        ? 'bg-brand-pale-green/40 ring-2 ring-brand-green/20'
+        ? 'bg-[#E8F5E9] shadow-[0_0_0_2px_rgba(58,133,24,0.4),0_4px_12px_-2px_rgba(58,133,24,0.3)]'
         : ''
 
-    return [base, hover, active, 'cursor-pointer focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-green/30']
+    return [base, hover, active, 'cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/30']
       .filter(Boolean)
       .join(' ')
   }, [isDragOver, isLanding])
 
-  const paddingClasses = isLanding ? 'px-32 py-24 text-center' : 'px-6 py-5 text-center'
+  const paddingClasses = isLanding ? 'px-32 py-24 text-center' : 'px-8 py-5 text-center'
 
   const handleBrowse = useCallback(() => {
     if (isLoading) return
@@ -123,8 +124,19 @@ export const CSVUpload: React.FC<CSVUploadProps> = ({ variant = 'compact' }) => 
         tabIndex={0}
         aria-label={isLoading ? 'Processing CSV' : 'Click or drop a CSV to upload'}
       >
-        <div className={paddingClasses}>
-          <h2 className="text-xl font-semibold text-brand-gray">Upload your CSV</h2>
+        <div className={isLanding ? paddingClasses : 'text-center'} style={isLanding ? undefined : { padding: '12px 24px' }}>
+          {isLanding ? (
+            <h2 className="text-xl font-semibold text-brand-gray">Upload your CSV</h2>
+          ) : (
+            <div className="flex items-center justify-center" style={{ gap: '4px' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3A8518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: '#3A8518' }}>Upload CSV</span>
+            </div>
+          )}
           {isLanding && (
             <p className="mt-3 text-sm text-brand-gray/70">
               Supports CSV files · Drag & drop or click to browse

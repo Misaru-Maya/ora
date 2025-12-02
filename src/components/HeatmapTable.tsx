@@ -1,8 +1,13 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react'
+import React, { useState, useMemo, useEffect, memo } from 'react'
 import { createPortal } from 'react-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faShuffle, faFilter } from '@fortawesome/free-solid-svg-icons'
-import { SeriesDataPoint, GroupSeriesMeta, customRound } from '../dataCalculations'
+import { faShuffle } from '@fortawesome/free-solid-svg-icons'
+import type { SeriesDataPoint, GroupSeriesMeta } from '../dataCalculations'
+
+// Performance: Disable console logs in production
+const isDev = process.env.NODE_ENV === 'development'
+const devLog = isDev ? console.log : () => {}
+const devWarn = isDev ? console.warn : () => {}
 
 // Utility function to determine text color based on background luminance
 function getContrastTextColor(hexColor: string): string {
@@ -65,7 +70,7 @@ const YELLOW_PALETTE = {
   t80: '#FFFFFF', // Lightest yellow/white for smallest values
 }
 
-import { ParsedCSV } from '../types'
+import type { ParsedCSV } from '../types'
 
 interface HeatmapTableProps {
   data: SeriesDataPoint[]
@@ -108,13 +113,13 @@ const getColor = (value: number, sentiment: 'positive' | 'negative', minVal: num
   return { bg: bgColor, text: textColor }
 }
 
-export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false, optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel }) => {
+export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel }) => {
   const [editingOption, setEditingOption] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
   const [questionLabelInput, setQuestionLabelInput] = useState('')
 
-  console.log('🔥 HeatmapTable Received:', {
+  devLog('🔥 HeatmapTable Received:', {
     dataLength: data.length,
     groupsLength: groups.length,
     groups: groups.map(g => ({ key: g.key, label: g.label })),
@@ -135,11 +140,11 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
     )
 
     if (!sentimentColumn) {
-      console.warn('⚠️ No sentiment column found')
+      devWarn('⚠️ No sentiment column found')
       return null
     }
 
-    console.log('📊 Found sentiment column:', sentimentColumn)
+    devLog('📊 Found sentiment column:', sentimentColumn)
 
     // Calculate sentiment score for each product
     return (productKey: string) => {
@@ -153,7 +158,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
       const productRows = dataset.rows.filter(row => row[productColumn] === productLabel)
 
       if (productRows.length === 0) {
-        console.warn(`⚠️ No rows found for product: ${productLabel}`)
+        devWarn(`⚠️ No rows found for product: ${productLabel}`)
         return 0
       }
 
@@ -178,7 +183,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
       })
 
       if (validResponses === 0) {
-        console.warn(`⚠️ No valid ratings for product: ${productLabel}`)
+        devWarn(`⚠️ No valid ratings for product: ${productLabel}`)
         return 0
       }
 
@@ -186,7 +191,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
       const detractorPercent = (detractors / validResponses) * 100
       const sentimentScore = (advocatePercent - detractorPercent + 100) / 2
 
-      console.log(`📊 Product: ${productLabel}, Advocates: ${advocates}/${validResponses} (${advocatePercent.toFixed(1)}%), Detractors: ${detractors}/${validResponses} (${detractorPercent.toFixed(1)}%), Score: ${sentimentScore.toFixed(1)}`)
+      devLog(`📊 Product: ${productLabel}, Advocates: ${advocates}/${validResponses} (${advocatePercent.toFixed(1)}%), Detractors: ${detractors}/${validResponses} (${detractorPercent.toFixed(1)}%), Score: ${sentimentScore.toFixed(1)}`)
 
       return sentimentScore
     }
@@ -224,9 +229,9 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
 
   // State for filtering
   const [selectedProducts, setSelectedProducts] = useState<string[]>(defaultProductSelection)
-  const [selectedAttributes, setSelectedAttributes] = useState<string[]>(data.map(d => d.option))
+  const [selectedAttributes] = useState<string[]>(data.map(d => d.option))
   const [showProductFilter, setShowProductFilter] = useState(false)
-  const [showAttributeFilter, setShowAttributeFilter] = useState(false)
+  const [, setShowAttributeFilter] = useState(false)
 
   // Update selected products when default selection changes (e.g., on data reload)
   useEffect(() => {
@@ -305,11 +310,11 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
   // Drag handlers for attribute filter
   const [customAttributeOrder, setCustomAttributeOrder] = useState<string[] | null>(null)
 
-  const handleAttributeDragStart = (index: number) => {
+  const _handleAttributeDragStart = (index: number) => {
     setDraggedAttributeIndex(index)
   }
 
-  const handleAttributeDragOver = (e: React.DragEvent, index: number) => {
+  const _handleAttributeDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault()
     if (draggedAttributeIndex === null || draggedAttributeIndex === index) return
 
@@ -322,12 +327,12 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
     setDraggedAttributeIndex(index)
   }
 
-  const handleAttributeDragEnd = () => {
+  const _handleAttributeDragEnd = () => {
     setDraggedAttributeIndex(null)
   }
 
   // Filter data and strip asterisks if needed
-  const filteredGroups = groups.filter(g => selectedProducts.includes(g.key))
+  const _filteredGroups = groups.filter(g => selectedProducts.includes(g.key))
   const baseFilteredData = data.filter(d => selectedAttributes.includes(d.option)).map(d => {
     if (hideAsterisks && d.optionDisplay.endsWith('*')) {
       return { ...d, optionDisplay: d.optionDisplay.slice(0, -1) }
@@ -387,6 +392,23 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
     return defaultSortedGroups
   }, [customColumnOrder, defaultSortedGroups])
 
+  // All groups ordered by custom column order (for the filter dropdown)
+  // This ensures the dropdown order matches the displayed column order
+  const allGroupsOrdered = useMemo(() => {
+    if (customColumnOrder) {
+      const validOrder = customColumnOrder
+        .map(key => allGroupsSorted.find(g => g.key === key))
+        .filter((g): g is GroupSeriesMeta => g !== undefined)
+
+      // Add any groups not in custom order at the end
+      const keysInCustomOrder = new Set(customColumnOrder)
+      const remainingGroups = allGroupsSorted.filter(g => !keysInCustomOrder.has(g.key))
+
+      return [...validOrder, ...remainingGroups]
+    }
+    return allGroupsSorted
+  }, [customColumnOrder, allGroupsSorted])
+
   // Calculate min/max for color scaling
   const { minValue, maxValue } = useMemo(() => {
     let min = Infinity
@@ -426,7 +448,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
     })
   }, [filteredData, sortedGroups])
 
-  console.log('🔥 HeatmapTable Rendering:', {
+  devLog('🔥 HeatmapTable Rendering:', {
     sortedGroupsLength: sortedGroups.length,
     sortedDataLength: sortedData.length,
     sortedGroups: sortedGroups.map(g => g.key),
@@ -451,8 +473,8 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
         style={{
           height: '30px',
           width: '30px',
-          backgroundColor: selectedProducts.length < allGroupsSorted.length ? '#C8E2BA' : '#EEF2F6',
-          border: selectedProducts.length < allGroupsSorted.length ? '1px solid #3A8518' : '1px solid #EEF2F6',
+          backgroundColor: selectedProducts.length < allGroupsOrdered.length ? '#C8E2BA' : '#EEF2F6',
+          border: selectedProducts.length < allGroupsOrdered.length ? '1px solid #3A8518' : '1px solid #EEF2F6',
           borderRadius: '3px',
           cursor: 'pointer'
         }}
@@ -467,7 +489,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
                 <button
                   className="text-xs text-brand-green underline hover:text-brand-green/80"
                   style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', cursor: 'pointer' }}
-                  onClick={() => setSelectedProducts(allGroupsSorted.map(g => g.key))}
+                  onClick={() => setSelectedProducts(allGroupsOrdered.map(g => g.key))}
                 >
                   Select all
                 </button>
@@ -480,7 +502,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
                 </button>
               </div>
               <div className="max-h-60 overflow-y-auto" style={{ backgroundColor: '#EEF2F6' }}>
-                {allGroupsSorted.map((group, index) => (
+                {allGroupsOrdered.map((group, index) => (
                   <label
                     key={group.key}
                     draggable
@@ -515,7 +537,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
                       }}
                       className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green"
                     />
-                    <span className="text-sm">{group.label}</span>
+                    <span className="text-sm">{stripQuotes(group.label)}</span>
                   </label>
                 ))}
               </div>
@@ -619,7 +641,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
                 width: `${firstColumnWidth}px`,
                 verticalAlign: 'middle'
               }}></th>
-              {sortedGroups.map((group, index) => (
+              {sortedGroups.map((group, _index) => (
                 <th
                   key={group.key}
                   draggable
@@ -761,4 +783,4 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ data, groups, questi
     </div>
     </>
   )
-}
+})

@@ -23,13 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
-# TypeScript
-*.tsbuildinfo
+# Nested repo
+ora-slc/
 
-# Build artifacts
-assets/
-gh-pages-deploy/
-
-# Backup files
-*\ 2.*
-.vercel
+# SSH keys
+*.pub
+ora-slc ssh-keygen*

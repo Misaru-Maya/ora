@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { ParsedCSV, Selections } from './types'
+import type { ParsedCSV, Selections } from './types'
 
 interface ORAState {
   dataset: ParsedCSV | null

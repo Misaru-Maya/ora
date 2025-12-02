@@ -1,9 +1,14 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react'
+import React, { useEffect, useMemo, useState, useRef, useTransition, useCallback } from 'react'
 import { CSVUpload } from './components/CSVUpload'
 import { useORAStore } from './store'
-import { QuestionDef, SortOrder } from './types'
+import type { QuestionDef } from './types'
 import { buildSeries } from './dataCalculations'
 import { ChartGallery } from './components/ChartGallery'
+import { RegressionAnalysisPanel } from './components/RegressionAnalysisPanel'
+
+// Performance: Disable console logs in production
+const isDev = process.env.NODE_ENV === 'development'
+const devLog = isDev ? console.log : () => {}
 
 const EXCLUDED_VALUES = ['other', 'not specified', 'none of the above', 'skip']
 
@@ -127,7 +132,7 @@ function autoDefaultProducts(rows: any[], column: string): string[] {
 }
 
 // Filter for segmentation dropdown: exclude ranking questions only
-function shouldIncludeInSegmentation(question: QuestionDef, rows: any[]): boolean {
+function shouldIncludeInSegmentation(question: QuestionDef, _rows: any[]): boolean {
   // Exclude ranking questions
   if (question.type === 'ranking') {
     return false
@@ -143,48 +148,48 @@ function shouldIncludeQuestion(question: QuestionDef): boolean {
 
   // Filter out zipcode questions
   if (labelLower.includes('zip') || labelLower.includes('postal')) {
-    console.log(`[FILTER] ❌ Excluding ${question.qid} (${question.type}): zipcode`)
+    devLog(`[FILTER] ❌ Excluding ${question.qid} (${question.type}): zipcode`)
     return false
   }
 
   // Always include multi, single, scale, and ranking questions even if their labels contain tokens
   const labelHasTypeToken = ['(multi)', '(single)', '(scale)', '(ranking)'].some(token => labelLower.includes(token))
   if (labelHasTypeToken) {
-    console.log(`[FILTER] ✅ Including ${question.qid} (${question.type}): type token in label`)
+    devLog(`[FILTER] ✅ Including ${question.qid} (${question.type}): type token in label`)
     return true
   }
 
   // Treat questions containing "(text)" in the label or column headers as free-text, exclude them
   if (labelLower.includes('(text)')) {
-    console.log(`[FILTER] ❌ Excluding ${question.qid} (${question.type}): text in label`)
+    devLog(`[FILTER] ❌ Excluding ${question.qid} (${question.type}): text in label`)
     return false
   }
 
   const columnHasTextToken = question.columns.some(col => col.header.toLowerCase().includes('(text)') || col.optionLabel.toLowerCase().includes('(text)'))
   if (columnHasTextToken) {
-    console.log(`[FILTER] ❌ Excluding ${question.qid} (${question.type}): text in column`)
+    devLog(`[FILTER] ❌ Excluding ${question.qid} (${question.type}): text in column`)
     return false
   }
 
   if (question.singleSourceColumn) {
     const singleLower = question.singleSourceColumn.toLowerCase()
     if (singleLower.includes('(text)')) {
-      console.log(`[FILTER] ❌ Excluding ${question.qid} (${question.type}): text in source column`)
+      devLog(`[FILTER] ❌ Excluding ${question.qid} (${question.type}): text in source column`)
       return false
     }
     if (['(multi)', '(single)', '(scale)', '(ranking)'].some(token => singleLower.includes(token))) {
-      console.log(`[FILTER] ✅ Including ${question.qid} (${question.type}): type token in source`)
+      devLog(`[FILTER] ✅ Including ${question.qid} (${question.type}): type token in source`)
       return true
     }
   }
 
-  console.log(`[FILTER] ✅ Including ${question.qid} (${question.type}): passed all checks`)
+  devLog(`[FILTER] ✅ Including ${question.qid} (${question.type}): passed all checks`)
   return true
 }
 
 export default function App() {
   const { dataset, selections, setSelections } = useORAStore()
-  const [chartOrientation, setChartOrientation] = useState<'horizontal' | 'vertical'>('vertical')
+  const [chartOrientation] = useState<'horizontal' | 'vertical'>('vertical')
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [sidebarWidth, setSidebarWidth] = useState(288)
   const [isResizing, setIsResizing] = useState(false)
@@ -196,6 +201,15 @@ export default function App() {
   const [questionDropdownOpen, setQuestionDropdownOpen] = useState(false)
   const [questionSearchTerm, setQuestionSearchTerm] = useState('')
   const [expandedQuestionSegments, setExpandedQuestionSegments] = useState<Set<string>>(new Set())
+  const [showRegressionPanel, setShowRegressionPanel] = useState(false)
+
+  // Performance: Use transition for non-urgent updates to keep UI responsive
+  const [isPending, startTransition] = useTransition()
+
+  // Debug: log when regression panel state changes
+  useEffect(() => {
+    devLog('[REGRESSION] showRegressionPanel changed to:', showRegressionPanel, 'dataset exists:', !!dataset, 'questions count:', dataset?.questions?.length)
+  }, [showRegressionPanel, dataset])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -238,18 +252,19 @@ export default function App() {
     if (!dataset) return []
     const filtered = [...dataset.questions]
       .filter(q => shouldIncludeInSegmentation(q, rowsRaw))
-    console.log(`[SEGMENTATION] Total questions: ${dataset.questions.length}, Filtered for segmentation: ${filtered.length}`)
+    devLog(`[SEGMENTATION] Total questions: ${dataset.questions.length}, Filtered for segmentation: ${filtered.length}`)
     filtered.forEach(q => {
-      console.log(`[SEGMENTATION] ✅ ${q.qid}: ${q.label} (type: ${q.type}, isLikert: ${q.isLikert})`)
+      devLog(`[SEGMENTATION] ✅ ${q.qid}: ${q.label} (type: ${q.type}, isLikert: ${q.isLikert})`)
     })
     dataset.questions.filter(q => !shouldIncludeInSegmentation(q, rowsRaw)).forEach(q => {
-      console.log(`[SEGMENTATION] ❌ Excluded ${q.qid}: ${q.label} (type: ${q.type}, isLikert: ${q.isLikert})`)
+      devLog(`[SEGMENTATION] ❌ Excluded ${q.qid}: ${q.label} (type: ${q.type}, isLikert: ${q.isLikert})`)
     })
     return filtered
   }, [dataset, rowsRaw])
 
   // Filter segmentation questions based on search term (search in both question label and answer options)
-  const filteredSegmentationQuestions = useMemo(() => {
+  // Using inline computation to ensure reactivity
+  const filteredSegmentationQuestions = (() => {
     if (!questionSearchTerm.trim()) return segmentationQuestions
     const searchLower = questionSearchTerm.toLowerCase()
     return segmentationQuestions.filter(q => {
@@ -258,7 +273,7 @@ export default function App() {
       // Search in answer options
       return q.columns.some(col => col.optionLabel.toLowerCase().includes(searchLower))
     })
-  }, [segmentationQuestions, questionSearchTerm])
+  })()
 
   const filteredQuestions = questions
   const statSigFilter = selections.statSigFilter || 'all'
@@ -375,7 +390,7 @@ export default function App() {
   const useAllProducts = !selections.productColumn || selections.productGroups.length === 0 || selections.productGroups.length === productValues.length
 
   const rows = useMemo(() => {
-    console.log('[ROWS CALC] Starting rows calculation, rowsRaw.length:', rowsRaw.length)
+    devLog('[ROWS CALC] Starting rows calculation, rowsRaw.length:', rowsRaw.length)
     let filtered = rowsRaw
 
     // Apply product filter
@@ -383,19 +398,19 @@ export default function App() {
       filtered = filtered.filter(row =>
         selections.productGroups.includes(normalizeProductValue(row[selections.productColumn!]))
       )
-      console.log('[ROWS CALC] After product filter:', filtered.length)
+      devLog('[ROWS CALC] After product filter:', filtered.length)
     }
 
     // Apply segment filters with AND logic between categories, OR logic within categories
     // Only apply filtering in Filter mode (comparisonMode = false)
     const isFilterMode = !(selections.comparisonMode ?? true)
-    console.log('[ROWS CALC] isFilterMode:', isFilterMode, 'segments:', selections.segments)
+    devLog('[ROWS CALC] isFilterMode:', isFilterMode, 'segments:', selections.segments)
     if (isFilterMode && selections.segments && selections.segments.length > 0) {
       // Filter out "Overall" segments as they don't apply filtering
       const actualSegments = selections.segments.filter(seg => seg.value !== 'Overall')
 
       if (actualSegments.length > 0) {
-        console.log('[ROWS CALC] Applying segment filter, actualSegments:', actualSegments)
+        devLog('[ROWS CALC] Applying segment filter, actualSegments:', actualSegments)
         // Group segments by column (category)
         const segmentsByColumn = actualSegments.reduce((acc, segment) => {
           if (!acc[segment.column]) {
@@ -405,7 +420,7 @@ export default function App() {
           return acc
         }, {} as Record<string, string[]>)
 
-        console.log('[ROWS CALC] segmentsByColumn:', segmentsByColumn)
+        devLog('[ROWS CALC] segmentsByColumn:', segmentsByColumn)
 
         let matchedRows = 0
         let totalChecked = 0
@@ -418,7 +433,7 @@ export default function App() {
 
             if (consumerQuestion) {
               if (totalChecked === 1) {
-                console.log('[ROWS CALC] First row - Consumer question:', consumerQuestion.qid, 'type:', consumerQuestion.type, 'values:', values)
+                devLog('[ROWS CALC] First row - Consumer question:', consumerQuestion.qid, 'type:', consumerQuestion.type, 'values:', values)
               }
               // Consumer question - use appropriate filtering logic
               if (consumerQuestion.type === 'single' && consumerQuestion.singleSourceColumn) {
@@ -430,20 +445,20 @@ export default function App() {
                 const result = values.some(value => {
                   const optionColumn = consumerQuestion.columns.find(col => col.optionLabel === value)
                   if (totalChecked === 1) {
-                    console.log('[ROWS CALC] First row - Looking for option:', value, 'optionColumn:', optionColumn)
+                    devLog('[ROWS CALC] First row - Looking for option:', value, 'optionColumn:', optionColumn)
                   }
                   if (optionColumn) {
                     const headersToCheck = [optionColumn.header, ...(optionColumn.alternateHeaders || [])]
                     if (totalChecked === 1) {
-                      console.log('[ROWS CALC] First row - Headers to check:', headersToCheck)
+                      devLog('[ROWS CALC] First row - Headers to check:', headersToCheck)
                       headersToCheck.forEach(h => {
-                        console.log('[ROWS CALC] First row - Header', h, '=', row[h])
+                        devLog('[ROWS CALC] First row - Header', h, '=', row[h])
                       })
                       // Show actual column names in row that might match
                       const rowKeys = Object.keys(row).filter(k => k.toLowerCase().includes('lululemon'))
-                      console.log('[ROWS CALC] First row - Actual columns containing "lululemon":', rowKeys)
+                      devLog('[ROWS CALC] First row - Actual columns containing "lululemon":', rowKeys)
                       rowKeys.forEach(k => {
-                        console.log('[ROWS CALC] First row - Actual column', k, '=', row[k])
+                        devLog('[ROWS CALC] First row - Actual column', k, '=', row[k])
                       })
                     }
                     return headersToCheck.some(header => {
@@ -466,12 +481,12 @@ export default function App() {
           if (matches) matchedRows++
           return matches
         })
-        console.log('[ROWS CALC] Matched', matchedRows, 'out of', totalChecked, 'rows')
-        console.log('[ROWS CALC] After segment filter:', filtered.length)
+        devLog('[ROWS CALC] Matched', matchedRows, 'out of', totalChecked, 'rows')
+        devLog('[ROWS CALC] After segment filter:', filtered.length)
       }
     }
 
-    console.log('[ROWS CALC] Final filtered.length:', filtered.length)
+    devLog('[ROWS CALC] Final filtered.length:', filtered.length)
     return filtered
   }, [useAllProducts, rowsRaw, selections.productGroups, selections.productColumn, selections.segments, selections.comparisonMode, dataset])
 
@@ -544,7 +559,7 @@ export default function App() {
     const selectedSegments = selections.segments || []
 
     if (selectedSegments.length > 0) {
-      console.log('[RESPONDENT COUNT] Selected segments:', selectedSegments)
+      devLog('[RESPONDENT COUNT] Selected segments:', selectedSegments)
 
       // Group segments by column for proper OR logic within same question
       const segmentsByColumn = new Map<string, string[]>()
@@ -555,7 +570,7 @@ export default function App() {
         segmentsByColumn.set(seg.column, values)
       })
 
-      console.log('[RESPONDENT COUNT] Segments by column:', Array.from(segmentsByColumn.entries()))
+      devLog('[RESPONDENT COUNT] Segments by column:', Array.from(segmentsByColumn.entries()))
 
       // Filter rows where they match at least one value from EACH column group (AND across columns, OR within column)
       filteredRows = rows.filter(row => {
@@ -600,13 +615,13 @@ export default function App() {
         })
       })
 
-      console.log('[RESPONDENT COUNT] Filtered rows:', filteredRows.length, 'out of', rows.length)
+      devLog('[RESPONDENT COUNT] Filtered rows:', filteredRows.length, 'out of', rows.length)
     }
 
     const uniqueRespondents = uniq(
       filteredRows.map(r => stripQuotes(String(r[respIdCol] ?? '').trim())).filter(Boolean)
     )
-    console.log('[RESPONDENT COUNT] Unique respondents:', uniqueRespondents.length)
+    devLog('[RESPONDENT COUNT] Unique respondents:', uniqueRespondents.length)
     return uniqueRespondents.length
   }, [dataset, rows, selections.segments])
 
@@ -616,7 +631,7 @@ export default function App() {
     [selections.segments]
   )
 
-  const { data, groups } = useMemo(() => {
+  const { data: _data, groups: _groups } = useMemo(() => {
     if (!filteredDataset || !currentQuestion) {
       return { data: [], groups: [] }
     }
@@ -702,7 +717,7 @@ export default function App() {
     }
   }, [productValues, rowsRaw, selections.productColumn, selections.productGroups, setSelections])
 
-  const toggleGroup = (value: string) => {
+  const _toggleGroup = (value: string) => {
     const current = new Set(selections.groups)
     if (current.has(value)) {
       current.delete(value)
@@ -712,41 +727,44 @@ export default function App() {
     setSelections({ groups: Array.from(current) })
   }
 
-  const toggleSegment = (column: string, value: string) => {
+  const toggleSegment = useCallback((column: string, value: string) => {
     const currentSegments = selections.segments || []
     const existingIndex = currentSegments.findIndex(
       s => s.column === column && s.value === value
     )
     const isFilterMode = !(selections.comparisonMode ?? true)
 
-    if (existingIndex >= 0) {
-      // Remove segment
-      const newSegments = [...currentSegments]
-      newSegments.splice(existingIndex, 1)
+    // Use startTransition for heavy filter updates to keep UI responsive
+    startTransition(() => {
+      if (existingIndex >= 0) {
+        // Remove segment
+        const newSegments = [...currentSegments]
+        newSegments.splice(existingIndex, 1)
 
-      // If removing brings us below 2 segments and stat sig is on, turn it off
-      if (newSegments.length < 2 && selections.statSigFilter === 'statSigOnly') {
-        setSelections({ segments: newSegments, statSigFilter: 'all' })
+        // If removing brings us below 2 segments and stat sig is on, turn it off
+        if (newSegments.length < 2 && selections.statSigFilter === 'statSigOnly') {
+          setSelections({ segments: newSegments, statSigFilter: 'all' })
+        } else {
+          setSelections({ segments: newSegments })
+        }
       } else {
-        setSelections({ segments: newSegments })
-      }
-    } else {
-      // Add segment
-      let newSegments = [...currentSegments, { column, value }]
+        // Add segment
+        let newSegments = [...currentSegments, { column, value }]
 
-      // If selecting Overall, remove all other segments
-      if (value === 'Overall') {
-        setSelections({ segments: [{ column: 'Overall', value: 'Overall' }] })
-      } else if (isFilterMode) {
-        // In Filter mode only: remove Overall when selecting other segments
-        newSegments = newSegments.filter(s => s.value !== 'Overall')
-        setSelections({ segments: newSegments })
-      } else {
-        // In Compare mode: keep Overall, allow multiple selections
-        setSelections({ segments: newSegments })
+        // If selecting Overall, remove all other segments
+        if (value === 'Overall') {
+          setSelections({ segments: [{ column: 'Overall', value: 'Overall' }] })
+        } else if (isFilterMode) {
+          // In Filter mode only: remove Overall when selecting other segments
+          newSegments = newSegments.filter(s => s.value !== 'Overall')
+          setSelections({ segments: newSegments })
+        } else {
+          // In Compare mode: keep Overall, allow multiple selections
+          setSelections({ segments: newSegments })
+        }
       }
-    }
-  }
+    })
+  }, [selections.segments, selections.comparisonMode, selections.statSigFilter, setSelections, startTransition])
 
   const isSegmentSelected = (column: string, value: string) => {
     return (selections.segments || []).some(
@@ -754,35 +772,39 @@ export default function App() {
     )
   }
 
-  const handleSelectAllInColumn = (column: string, values: string[]) => {
+  const handleSelectAllInColumn = useCallback((column: string, values: string[]) => {
     const currentSegments = selections.segments || []
     const isFilterMode = !(selections.comparisonMode ?? true)
 
-    // Remove existing segments from this column
-    const otherSegments = currentSegments.filter(s => s.column !== column)
-    // Add all values from this column
-    let newSegments = [...otherSegments, ...values.map(value => ({ column, value }))]
+    startTransition(() => {
+      // Remove existing segments from this column
+      const otherSegments = currentSegments.filter(s => s.column !== column)
+      // Add all values from this column
+      let newSegments = [...otherSegments, ...values.map(value => ({ column, value }))]
 
-    // In Filter mode only: remove Overall when selecting other segments
-    if (isFilterMode) {
-      newSegments = newSegments.filter(s => s.value !== 'Overall')
-    }
+      // In Filter mode only: remove Overall when selecting other segments
+      if (isFilterMode) {
+        newSegments = newSegments.filter(s => s.value !== 'Overall')
+      }
 
-    setSelections({ segments: newSegments })
-  }
+      setSelections({ segments: newSegments })
+    })
+  }, [selections.segments, selections.comparisonMode, setSelections, startTransition])
 
-  const handleClearColumn = (column: string) => {
+  const handleClearColumn = useCallback((column: string) => {
     const currentSegments = selections.segments || []
     // Remove all segments from this column
     const newSegments = currentSegments.filter(s => s.column !== column)
 
-    // If removing brings us below 2 segments and stat sig is on, turn it off
-    if (newSegments.length < 2 && selections.statSigFilter === 'statSigOnly') {
-      setSelections({ segments: newSegments, statSigFilter: 'all' })
-    } else {
-      setSelections({ segments: newSegments })
-    }
-  }
+    startTransition(() => {
+      // If removing brings us below 2 segments and stat sig is on, turn it off
+      if (newSegments.length < 2 && selections.statSigFilter === 'statSigOnly') {
+        setSelections({ segments: newSegments, statSigFilter: 'all' })
+      } else {
+        setSelections({ segments: newSegments })
+      }
+    })
+  }, [selections.segments, selections.statSigFilter, setSelections, startTransition])
 
   const toggleSegmentGroup = (column: string) => {
     const newExpanded = new Set(expandedSegmentGroups)
@@ -794,7 +816,7 @@ export default function App() {
     setExpandedSegmentGroups(newExpanded)
   }
 
-  const toggleQuestionForSegmentation = (qid: string) => {
+  const _toggleQuestionForSegmentation = (qid: string) => {
     const currentQuestionSegments = selections.questionSegments || []
     const isSelected = currentQuestionSegments.includes(qid)
 
@@ -816,7 +838,7 @@ export default function App() {
     }
   }
 
-  const toggleQuestionSegmentGroup = (qid: string) => {
+  const _toggleQuestionSegmentGroup = (qid: string) => {
     const newExpanded = new Set(expandedQuestionSegments)
     if (newExpanded.has(qid)) {
       newExpanded.delete(qid)
@@ -836,7 +858,7 @@ export default function App() {
     setExpandedSections(newExpanded)
   }
 
-  const toggleDisplayGroup = (groupName: string) => {
+  const _toggleDisplayGroup = (groupName: string) => {
     const newExpanded = new Set(expandedDisplayGroups)
     if (newExpanded.has(groupName)) {
       newExpanded.delete(groupName)
@@ -846,11 +868,11 @@ export default function App() {
     setExpandedDisplayGroups(newExpanded)
   }
 
-  const handleSegmentDragStart = (index: number) => {
+  const _handleSegmentDragStart = (index: number) => {
     setDraggedSegmentIndex(index)
   }
 
-  const handleSegmentDragOver = (e: React.DragEvent, index: number) => {
+  const _handleSegmentDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault()
     if (draggedSegmentIndex === null || draggedSegmentIndex === index) return
 
@@ -873,7 +895,7 @@ export default function App() {
     setDraggedSegmentIndex(index)
   }
 
-  const handleSegmentDragEnd = () => {
+  const _handleSegmentDragEnd = () => {
     setDraggedSegmentIndex(null)
   }
 
@@ -887,7 +909,7 @@ export default function App() {
     setSelections({ productGroups: Array.from(current) })
   }
 
-  const handleSegmentColumnChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+  const _handleSegmentColumnChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const nextSegment = event.target.value
     const defaults = autoDefaultGroups(rowsRaw, nextSegment)
 
@@ -899,13 +921,13 @@ export default function App() {
     }
   }
 
-  const handleSelectAllSegments = () => {
+  const _handleSelectAllSegments = () => {
     const allValues = selections.segmentColumn === 'Overall'
       ? ['Overall']
       : [...(selections.segmentColumn !== 'Overall' ? ['Overall'] : []), ...segmentValues]
     setSelections({ groups: allValues })
   }
-  const handleClearSegments = () => setSelections({ groups: [] })
+  const _handleClearSegments = () => setSelections({ groups: [] })
 
   const getGroupDisplayLabel = (groupValue: string) => {
     const key = getGroupKey(groupValue)
@@ -955,7 +977,7 @@ export default function App() {
     })
   }
 
-  const handleSaveSegmentColumnLabel = (column: string, newLabel: string) => {
+  const _handleSaveSegmentColumnLabel = (column: string, newLabel: string) => {
     if (!newLabel.trim()) return
     setSelections({
       segmentColumnLabels: {
@@ -966,7 +988,7 @@ export default function App() {
     setEditingSegment(null)
   }
 
-  const getSegmentColumnDisplayLabel = (column: string) => {
+  const _getSegmentColumnDisplayLabel = (column: string) => {
     return selections.segmentColumnLabels?.[column] || column
   }
 
@@ -1022,34 +1044,100 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-white" style={{ margin: 0, padding: 0 }}>
-      {/* Fixed Header */}
+      {/* Fixed Header - Glassmorphic Design */}
       <header
-        className="fixed top-0 left-0 right-0 z-50 border-b border-gray-200"
+        className="fixed top-0 left-0 right-0 z-50"
         style={{
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'rgba(248, 250, 252, 0.85)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
           width: '100vw',
           height: '72px',
           margin: 0,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          borderBottom: '1px solid rgba(229, 231, 235, 0.8)',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)'
         }}
       >
-        <div className="flex w-full items-center justify-between px-4">
-          <div className="flex justify-start items-center" style={{ paddingLeft: '30px', gap: '10px' }}>
-            <div style={{ width: '240px', flexShrink: 0 }}>
+        <div className="flex w-full items-center justify-between">
+          <div className="flex items-center" style={{ gap: '20px', paddingLeft: '24px' }}>
+            <div style={{ flexShrink: 0 }}>
               <CSVUpload />
             </div>
             {summary && (
-              <span className="text-brand-gray font-bold truncate" style={{ fontSize: '14px', display: 'block' }} title={cleanFileName(summary.fileName)}>
+              <span
+                className="font-medium"
+                style={{
+                  color: '#374151',
+                  fontSize: '14px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
                 {cleanFileName(summary.fileName)}
               </span>
             )}
           </div>
-          <div className="flex-shrink-0" style={{ paddingRight: '30px' }}>
-            <h2 className="text-lg font-semibold text-brand-gray">
-              ✨ORA✨
-            </h2>
+          <div className="flex items-center" style={{ paddingRight: '24px', gap: '16px' }}>
+            {/* Demographic Adjustment Button */}
+            {dataset && (
+              <button
+                onClick={() => setShowRegressionPanel(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '12px 24px',
+                  backgroundColor: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#3A8518',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  fontFamily: 'Space Grotesk, sans-serif',
+                  transition: 'all 0.15s ease-out',
+                  boxShadow: '0 0 0 1px rgba(58,133,24,0.3), 0 2px 8px -2px rgba(58,133,24,0.15)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#F0FDF4'
+                  e.currentTarget.style.boxShadow = '0 0 0 1px rgba(58,133,24,0.5), 0 4px 12px -2px rgba(58,133,24,0.25)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#FFFFFF'
+                  e.currentTarget.style.boxShadow = '0 0 0 1px rgba(58,133,24,0.3), 0 2px 8px -2px rgba(58,133,24,0.15)'
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 3v18h18" />
+                  <path d="m19 9-5 5-4-4-3 3" />
+                </svg>
+                Demographic Adjustment
+              </button>
+            )}
+            <div
+              className="flex items-center gap-1"
+              style={{
+                padding: '6px 12px',
+                backgroundColor: 'transparent',
+                borderRadius: '8px'
+              }}
+            >
+              <span style={{ fontSize: '16px' }}>✨</span>
+              <span
+                className="font-bold"
+                style={{
+                  color: '#3A8518',
+                  fontSize: '20px',
+                  letterSpacing: '1px'
+                }}
+              >
+                ORA
+              </span>
+              <span style={{ fontSize: '16px' }}>✨</span>
+            </div>
           </div>
         </div>
       </header>
@@ -1060,26 +1148,35 @@ export default function App() {
         {!sidebarVisible && (
           <button
             onClick={() => setSidebarVisible(true)}
-            className="flex flex-shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            className="flex items-center justify-center transition-all"
             style={{
               position: 'fixed',
               left: '16px',
               top: '88px',
               zIndex: 50,
-              height: '45px',
-              width: '45px',
+              height: '36px',
+              width: '36px',
               backgroundColor: '#FFFFFF',
-              border: '1px solid #e5e7eb',
-              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-              cursor: 'pointer'
+              border: '1px solid #E5E7EB',
+              borderRadius: '8px',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+              cursor: 'pointer',
+              color: '#6B7280'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#F9FAFB'
+              e.currentTarget.style.borderColor = '#D1D5DB'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#FFFFFF'
+              e.currentTarget.style.borderColor = '#E5E7EB'
             }}
             title="Show sidebar"
             aria-label="Show sidebar"
           >
             <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="29"
-              height="29"
+              width="18"
+              height="18"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -1089,7 +1186,7 @@ export default function App() {
             >
               <rect x="3" y="3" width="18" height="18" rx="2" />
               <path d="M9 3v18" />
-              <path d="m6 9 3 3-3 3" />
+              <path d="m14 9 3 3-3 3" />
             </svg>
           </button>
         )}
@@ -1098,7 +1195,7 @@ export default function App() {
         {sidebarVisible && (
           <>
             <aside
-              className="overflow-y-auto border-r border-gray-200"
+              className="overflow-y-auto"
               style={{
                 width: `${sidebarWidth}px`,
                 minWidth: `${sidebarWidth}px`,
@@ -1106,70 +1203,93 @@ export default function App() {
                 position: 'fixed',
                 left: 0,
                 top: '72px',
-                backgroundColor: '#FAFCFE',
-                paddingTop: '16px',
+                backgroundColor: '#f8fafc',
+                paddingTop: '20px',
                 paddingBottom: '24px',
                 paddingLeft: '16px',
-                paddingRight: '16px'
+                paddingRight: '16px',
+                borderRight: '1px solid #e5e7eb'
               }}
             >
               {/* Hide sidebar button - upper right corner */}
               <button
                 onClick={() => setSidebarVisible(false)}
-                className="flex items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                className="flex items-center justify-center transition-all"
                 style={{
                   position: 'absolute',
-                  right: '8px',
-                  top: '8px',
+                  right: '12px',
+                  top: '12px',
                   height: '28px',
                   width: '28px',
                   backgroundColor: '#FFFFFF',
-                  border: 'none',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '6px',
                   cursor: 'pointer',
-                  zIndex: 10
+                  zIndex: 10,
+                  color: '#9CA3AF'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#F3F4F6'
+                  e.currentTarget.style.color = '#6B7280'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#FFFFFF'
+                  e.currentTarget.style.color = '#9CA3AF'
                 }}
                 title="Hide sidebar"
                 aria-label="Hide sidebar"
               >
                 <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="18"
-                  height="18"
+                  width="14"
+                  height="14"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="1.5"
+                  strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <path d="M9 3v18" />
-                  <path d="m14 9-3 3 3 3" />
+                  <path d="m15 18-6-6 6-6" />
                 </svg>
               </button>
           {summary && (
             <>
-              {/* Filter Summary */}
-              <div className="rounded-lg bg-white px-4 py-3 shadow-sm" style={{ fontSize: '13px', marginBottom: '20px', width: '100%', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-                  {/* Respondent Count */}
-                  <div className="text-brand-gray font-bold" style={{ fontSize: '14px' }}>
-                    {filteredRespondentCount} of {summary.uniqueRespondents} respondents
+              {/* Filter Summary Card */}
+              <div
+                className="rounded-xl bg-white"
+                style={{
+                  marginBottom: '16px',
+                  width: '100%',
+                  overflow: 'hidden',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                  border: '1px solid #e5e7eb',
+                  padding: '16px 18px'
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', width: '100%' }}>
+                  {/* Respondent Count Header */}
+                  <div>
+                    <span className="text-sm" style={{ color: '#374151' }}>
+                      <span className="font-semibold">{filteredRespondentCount.toLocaleString()}</span>
+                      <span style={{ color: '#6B7280' }}> of {summary.uniqueRespondents.toLocaleString()} respondents</span>
+                    </span>
                   </div>
 
                   {/* Active Filters */}
                   {(() => {
                     const activeFilters: Array<{type: 'segment' | 'product', column?: string, value: string, label: string}> = []
 
-                    // Add segment filters (including Overall)
+                    // Add segment filters (excluding Overall for chip display)
                     const selectedSegments = selections.segments || []
                     selectedSegments.forEach(segment => {
-                      activeFilters.push({
-                        type: 'segment',
-                        column: segment.column,
-                        value: segment.value,
-                        label: getGroupDisplayLabel(segment.value)
-                      })
+                      if (segment.value !== 'Overall') {
+                        activeFilters.push({
+                          type: 'segment',
+                          column: segment.column,
+                          value: segment.value,
+                          label: getGroupDisplayLabel(segment.value)
+                        })
+                      }
                     })
 
                     // Add product filters
@@ -1185,39 +1305,26 @@ export default function App() {
 
                     if (activeFilters.length === 0) return null
 
-                    // Check if only "Overall" is selected (no other filters)
-                    const onlyOverall = activeFilters.length === 1 &&
-                                       activeFilters[0].type === 'segment' &&
-                                       activeFilters[0].value === 'Overall'
-
                     return (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', width: '100%' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', width: '100%' }}>
+                        {/* Filter Chips */}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', width: '100%' }}>
                           {activeFilters.map((filter, idx) => (
                             <div
                               key={idx}
-                              className="filter-chip"
                               style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '4px',
-                                padding: '4px 8px',
-                                backgroundColor: '#f3f4f6',
-                                borderRadius: '4px',
+                                gap: '6px',
+                                padding: '6px 10px',
+                                backgroundColor: '#E8F5E9',
+                                borderRadius: '6px',
                                 fontSize: '12px',
                                 color: '#374151',
-                                maxWidth: '100%',
-                                cursor: 'pointer',
-                                transition: 'background-color 0.2s'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#EBF3E7'
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#f3f4f6'
+                                border: '1px solid #C8E6C9'
                               }}
                             >
-                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{filter.label}</span>
+                              <span>{filter.label}</span>
                               <button
                                 onClick={() => {
                                   if (filter.type === 'segment' && filter.column) {
@@ -1236,89 +1343,88 @@ export default function App() {
                                   color: '#6b7280'
                                 }}
                               >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                   <path d="M18 6L6 18M6 6l12 12" />
                                 </svg>
                               </button>
                             </div>
                           ))}
                         </div>
-                        {!onlyOverall && (
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <button
-                              onClick={() => {
-                                setSelections({ segments: [{ column: 'Overall', value: 'Overall' }], productGroups: [] })
-                              }}
-                              style={{
-                                padding: '5.7px 12px',
-                                backgroundColor: 'white',
-                                border: '1px solid #3A8518',
-                                borderRadius: '34px',
-                                color: '#3A8518',
-                                fontSize: '12px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                fontFamily: 'Space Grotesk, sans-serif'
-                              }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0fdf4'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                            >
-                              Clear All
-                            </button>
 
-                            {/* Filter/Compare Mode Toggle */}
-                            <div className="flex items-center" style={{ gap: '2px' }}>
-                              <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '44px', height: '22px' }}>
-                                <input
-                                  type="checkbox"
-                                  checked={selections.comparisonMode ?? true}
-                                  onChange={(e) => {
-                                    e.stopPropagation()
-                                    setSelections({ comparisonMode: !selections.comparisonMode })
-                                  }}
-                                  style={{ opacity: 0, width: 0, height: 0 }}
-                                />
-                                <span
-                                  className="slider round"
-                                  style={{
-                                    position: 'absolute',
-                                    cursor: 'pointer',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    bottom: 0,
-                                    backgroundColor: selections.comparisonMode ? '#3A8518' : '#CCC',
-                                    transition: '0.4s',
-                                    borderRadius: '34px'
-                                  }}
-                                >
-                                  <span
-                                    style={{
-                                      position: 'absolute',
-                                      content: '""',
-                                      height: '16.5px',
-                                      width: '16.5px',
-                                      left: selections.comparisonMode ? '24.5px' : '2.75px',
-                                      top: '2.75px',
-                                      backgroundColor: 'white',
-                                      transition: '0.4s',
-                                      borderRadius: '50%'
-                                    }}
-                                  />
-                                </span>
-                              </label>
+                        {/* Clear All + Compare Toggle Row */}
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                          <button
+                            onClick={() => {
+                              setSelections({ segments: [{ column: 'Overall', value: 'Overall' }], productGroups: [] })
+                            }}
+                            style={{
+                              padding: '6px 14px',
+                              backgroundColor: 'white',
+                              border: '1px solid #D1D5DB',
+                              borderRadius: '6px',
+                              color: '#374151',
+                              fontSize: '12px',
+                              fontWeight: '500',
+                              cursor: 'pointer',
+                              fontFamily: 'Space Grotesk, sans-serif'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                          >
+                            Clear All
+                          </button>
+
+                          {/* Compare Toggle */}
+                          <div className="flex items-center" style={{ gap: '6px' }}>
+                            <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px' }}>
+                              <input
+                                type="checkbox"
+                                checked={selections.comparisonMode ?? true}
+                                onChange={(e) => {
+                                  e.stopPropagation()
+                                  setSelections({ comparisonMode: !selections.comparisonMode })
+                                }}
+                                style={{ opacity: 0, width: 0, height: 0 }}
+                              />
                               <span
-                                className="font-medium"
                                 style={{
-                                  color: selections.comparisonMode ? '#3A8518' : '#9CA3AF',
-                                  fontSize: '12.6px'
+                                  position: 'absolute',
+                                  cursor: 'pointer',
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  bottom: 0,
+                                  backgroundColor: selections.comparisonMode ? '#3A8518' : '#D1D5DB',
+                                  transition: '0.3s',
+                                  borderRadius: '11px'
                                 }}
                               >
-                                {' '}Compare
+                                <span
+                                  style={{
+                                    position: 'absolute',
+                                    height: '18px',
+                                    width: '18px',
+                                    left: selections.comparisonMode ? '20px' : '2px',
+                                    top: '2px',
+                                    backgroundColor: 'white',
+                                    transition: '0.3s',
+                                    borderRadius: '50%',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                  }}
+                                />
                               </span>
-                            </div>
+                            </label>
+                            <span
+                              style={{
+                                color: '#374151',
+                                fontSize: '12px',
+                                fontWeight: '500'
+                              }}
+                            >
+                              Compare
+                            </span>
                           </div>
-                        )}
+                        </div>
                       </div>
                     )
                   })()}
@@ -1425,7 +1531,7 @@ export default function App() {
                         if (b.toLowerCase() === 'country') return 1
                         return 0
                       })
-                      .map((column, index) => {
+                      .map((column, _index) => {
                       const rawValues = Array.from(new Set(rowsRaw.map(r => stripQuotesFromValue(String(r[column])))))
                         .filter(v => {
                           if (!v || v === 'null' || v === 'undefined') return false
@@ -1666,7 +1772,10 @@ export default function App() {
                                     type="text"
                                     placeholder="Search questions or answers..."
                                     value={questionSearchTerm}
-                                    onChange={(e) => setQuestionSearchTerm(e.target.value)}
+                                    onChange={(e) => {
+                                      e.stopPropagation()
+                                      setQuestionSearchTerm(e.target.value)
+                                    }}
                                     onClick={(e) => e.stopPropagation()}
                                     style={{
                                       width: '100%',
@@ -2230,6 +2339,7 @@ export default function App() {
                   </div>
                   )}
                 </section>
+
               </div>
             </>
           )}
@@ -2304,6 +2414,16 @@ export default function App() {
           </div>
         </main>
       </div>
+
+      {/* Regression Analysis Panel */}
+      {showRegressionPanel && dataset && dataset.questions.length > 0 && (
+        <RegressionAnalysisPanel
+          dataset={dataset}
+          questions={dataset.questions}
+          currentSegments={selections.segments || []}
+          onClose={() => setShowRegressionPanel(false)}
+        />
+      )}
     </div>
   )
 }

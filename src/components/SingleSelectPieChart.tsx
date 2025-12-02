@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import { SeriesDataPoint, GroupSeriesMeta, customRound } from '../dataCalculations'
+import type { SeriesDataPoint, GroupSeriesMeta } from '../dataCalculations'
 
 const PIE_COLORS = [
   '#3A8518',
@@ -32,7 +32,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
   questionLabel,
   legendOrientation = 'horizontal',
   colors = PIE_COLORS,
-  optionLabels = {},
+  optionLabels: _optionLabels = {},
   onSaveOptionLabel,
   onSaveQuestionLabel
 }) => {
@@ -274,7 +274,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
                   startAngle={90}
                   endAngle={450}
                 >
-                  {reversedPieData.map((entry, index) => {
+                  {reversedPieData.map((_entry, index) => {
                     const colorIndex = pieData.length - 1 - index
                     return (
                       <Cell key={`cell-${index}`} fill={colors[colorIndex % colors.length]} />

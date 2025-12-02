@@ -1,4 +1,8 @@
-import { ParsedCSV, QuestionDef, SortOrder, SegmentDef } from './types'
+import type { ParsedCSV, QuestionDef, SortOrder, SegmentDef } from './types'
+
+// Performance: Disable console logs in production
+const isDev = process.env.NODE_ENV === 'development'
+const devLog = isDev ? console.log : () => {}
 
 // Custom rounding function using standard rounding (>0.5)
 export function customRound(value: number): number {
@@ -157,35 +161,35 @@ export function buildSeries({
 
     if (segmentQuestion) {
       // This is a consumer question used as a segment
-      console.log(`[FILTER] Consumer question segment: ${segmentQuestion.qid} (${segmentQuestion.type}), value: ${segment.value}`)
+      devLog(`[FILTER] Consumer question segment: ${segmentQuestion.qid} (${segmentQuestion.type}), value: ${segment.value}`)
 
       if (segmentQuestion.type === 'single' && segmentQuestion.singleSourceColumn) {
         // Single-select question: filter by the value in the source column
-        console.log(`[FILTER] Single-select filtering by column: ${segmentQuestion.singleSourceColumn}, looking for value: "${segment.value}"`)
+        devLog(`[FILTER] Single-select filtering by column: ${segmentQuestion.singleSourceColumn}, looking for value: "${segment.value}"`)
         filtered = rows.filter(r => {
           const cellValue = stripQuotes(String(r[segmentQuestion.singleSourceColumn!]))
           const targetValue = stripQuotes(segment.value)
           return cellValue === targetValue
         })
-        console.log(`[FILTER] Filtered ${filtered.length} rows out of ${rows.length}`)
+        devLog(`[FILTER] Filtered ${filtered.length} rows out of ${rows.length}`)
 
         // Debug if no matches found
         if (filtered.length === 0 && rows.length > 0) {
-          console.log(`[FILTER] ⚠️ No matches for single-select. Sampling first 5 values from column "${segmentQuestion.singleSourceColumn}":`)
+          devLog(`[FILTER] ⚠️ No matches for single-select. Sampling first 5 values from column "${segmentQuestion.singleSourceColumn}":`)
           rows.slice(0, 5).forEach((r, i) => {
             const val = r[segmentQuestion.singleSourceColumn!]
-            console.log(`  Row ${i}: "${val}" (stripped: "${stripQuotes(String(val))}")`)
+            devLog(`  Row ${i}: "${val}" (stripped: "${stripQuotes(String(val))}")`)
           })
-          console.log(`[FILTER] Available options:`, segmentQuestion.columns.map(c => c.optionLabel))
+          devLog(`[FILTER] Available options:`, segmentQuestion.columns.map(c => c.optionLabel))
         }
       } else if (segmentQuestion.type === 'multi') {
         // Multi-select question: find the column for this option
         const optionColumn = segmentQuestion.columns.find(col => col.optionLabel === segment.value)
-        console.log(`[FILTER] Multi-select option column:`, optionColumn)
+        devLog(`[FILTER] Multi-select option column:`, optionColumn)
         if (optionColumn) {
           // Check for alternate headers (case-insensitive duplicates)
           const headersToCheck = [optionColumn.header, ...(optionColumn.alternateHeaders || [])]
-          console.log(`[FILTER] Checking headers:`, headersToCheck)
+          devLog(`[FILTER] Checking headers:`, headersToCheck)
 
           // Filter rows where this option's column has a truthy value (1, "1", true, etc.)
           filtered = rows.filter(r => {
@@ -194,35 +198,35 @@ export function buildSeries({
               const val = r[header]
               const isTruthy = val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes'
               if (isTruthy) {
-                console.log(`[FILTER] Match found in header "${header}" with value:`, val)
+                devLog(`[FILTER] Match found in header "${header}" with value:`, val)
               }
               return isTruthy
             })
           })
-          console.log(`[FILTER] Filtered ${filtered.length} rows out of ${rows.length} for option "${segment.value}"`)
+          devLog(`[FILTER] Filtered ${filtered.length} rows out of ${rows.length} for option "${segment.value}"`)
 
           // Sample first few rows to debug
           if (filtered.length === 0 && rows.length > 0) {
-            console.log(`[FILTER] ⚠️ No matches found. Sampling first row:`, rows[0])
+            devLog(`[FILTER] ⚠️ No matches found. Sampling first row:`, rows[0])
             headersToCheck.forEach(header => {
-              console.log(`[FILTER] Header "${header}" values in first 5 rows:`, rows.slice(0, 5).map(r => r[header]))
+              devLog(`[FILTER] Header "${header}" values in first 5 rows:`, rows.slice(0, 5).map(r => r[header]))
             })
           }
         } else {
-          console.log(`[FILTER] ❌ Option column not found for: ${segment.value}`)
-          console.log(`[FILTER] Available options:`, segmentQuestion.columns.map(c => c.optionLabel))
+          devLog(`[FILTER] ❌ Option column not found for: ${segment.value}`)
+          devLog(`[FILTER] Available options:`, segmentQuestion.columns.map(c => c.optionLabel))
           filtered = []
         }
       } else {
         // Unsupported question type for segmentation
-        console.log(`[FILTER] ❌ Unsupported question type: ${segmentQuestion.type}`)
+        devLog(`[FILTER] ❌ Unsupported question type: ${segmentQuestion.type}`)
         filtered = []
       }
     } else {
       // Regular segment column (Age, Gender, etc.)
-      console.log(`[FILTER] Regular segment: ${segment.column} = ${segment.value}`)
+      devLog(`[FILTER] Regular segment: ${segment.column} = ${segment.value}`)
       filtered = rows.filter(r => stripQuotes(String(r[segment.column])) === stripQuotes(segment.value))
-      console.log(`[FILTER] Filtered ${filtered.length} rows out of ${rows.length}`)
+      devLog(`[FILTER] Filtered ${filtered.length} rows out of ${rows.length}`)
     }
 
     const respondentIds = uniq(filtered.map(r => stripQuotes(String(r[respIdCol] ?? '').trim())).filter(Boolean))
@@ -273,7 +277,7 @@ export function buildSeries({
     }
 
     // Calculate counts for each selected segment
-    for (const [groupLabel, info] of groupInfo.entries()) {
+    for (const [_groupLabel, info] of groupInfo.entries()) {
       const counts: Record<string, number> = {}
 
       // COUNT AT RESPONDENT LEVEL: Count unique respondents (changed from row-level)
@@ -321,7 +325,7 @@ export function buildSeries({
     return stripQuotes(String(value).trim())
   }
 
-  const shouldExcludeLabel = (label: string) => {
+  const _shouldExcludeLabel = (label: string) => {
     const normalized = normalizeValue(label).toLowerCase()
     return !normalized || EXCLUDED_LABELS.some(ex => normalized === ex || normalized.includes(ex))
   }

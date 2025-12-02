@@ -4,10 +4,14 @@
 //   [Q1] (multi): Option A, [Q1] (multi): Option B, ...
 // Segment columns (Audience, Gender, Country, etc.) are all non-question columns
 // except Respondent Id and obvious ids.
-import { ParsedCSV, QuestionDef, QuestionOptionColumn } from './types'
+import type { ParsedCSV, QuestionDef, QuestionOptionColumn } from './types'
+
+// Performance: Disable console logs in production
+const isDev = process.env.NODE_ENV === 'development'
+const devLog = isDev ? console.log : () => {}
+const devWarn = isDev ? console.warn : () => {}
 
 const QUESTION_HEADER_RE = /^\[\s*(?:Q)?(\d+)\s*\]\s*(?:\[\(\s*([^)]+?)\s*\)\]|\(\s*([^)]+?)\s*\))\s*(.*)$/i
-const LEADING_TRAILING_QUOTES = /^["'](.*)["']$/
 
 const POSSIBLE_ID_COLUMNS = new Set([
   'respondent id', 'respondent_id', 'participant id', 'participant_id',
@@ -36,9 +40,15 @@ function stripQuestionPrefix(label: string): string {
 }
 
 function cleanHeader(header: string): string {
-  const trimmed = header.trim()
-  const match = trimmed.match(LEADING_TRAILING_QUOTES)
-  return match ? match[1].trim() : trimmed
+  let result = header.trim()
+  // Remove multiple layers of quotes (some CSV exports have triple quotes)
+  while ((result.startsWith('"') && result.endsWith('"')) ||
+         (result.startsWith("'") && result.endsWith("'"))) {
+    result = result.slice(1, -1).trim()
+  }
+  // Also handle escaped double quotes within the string
+  result = result.replace(/""/g, '"')
+  return result
 }
 
 function extractBaseAndOption(header: string): { base: string, option?: string } {
@@ -48,15 +58,27 @@ function extractBaseAndOption(header: string): { base: string, option?: string }
   const isLikelyMulti = lower.includes('(multi') || lower.includes('(ranking')
 
   if (isLikelyMulti) {
-    const quotedOptionRegex = /":\s*"([^"]+)"\s*$/
+    // Pattern 1: "Question? ": "Option" or Question? ": "Option"
+    // Handles: [3] [(multi)] Which brands...? ": "Lululemon"
+    const quotedOptionRegex = /[?!.]\s*"?:\s*"([^"]+)"?\s*$/
     const quotedMatch = quotedOptionRegex.exec(header)
     if (quotedMatch && quotedMatch.index !== undefined) {
       option = quotedMatch[1].trim()
-      base = header.slice(0, quotedMatch.index).replace(/["\s]+$/, '').trim()
+      // Keep the question mark but remove the ": "Option" part
+      base = header.slice(0, quotedMatch.index + 1).replace(/["\s]+$/, '').trim()
       return { base, option }
     }
 
-    // For ranking/multi questions with format: "...Example: text... : Option"
+    // Pattern 2: Question ": "Option" (no question mark)
+    const colonQuoteRegex = /\s*"?:\s*"([^"]+)"?\s*$/
+    const colonQuoteMatch = colonQuoteRegex.exec(header)
+    if (colonQuoteMatch && colonQuoteMatch.index !== undefined) {
+      option = colonQuoteMatch[1].trim()
+      base = header.slice(0, colonQuoteMatch.index).replace(/["\s]+$/, '').trim()
+      return { base, option }
+    }
+
+    // Pattern 3: For ranking/multi questions with format: "...Example: text... : Option"
     // Find the LAST colon that precedes the option value
     // But exclude colons that are part of "Example:" explanatory text
     const lastColonIndex = header.lastIndexOf(' : ')
@@ -73,7 +95,7 @@ function extractBaseAndOption(header: string): { base: string, option?: string }
         return { base, option }
       }
     }
-	  }
+  }
 
   const remainder = header.slice(base.length).trim()
   if (!option && remainder) {
@@ -109,12 +131,12 @@ function parseQuestionHeader(header: string): {
 }
 
 export function parseCSVToDataset(rows: Record<string, any>[], fileName: string): ParsedCSV {
-  console.log('[CSV Parser] Starting CSV parse...')
+  devLog('[CSV Parser] Starting CSV parse...')
   if (!rows.length) throw new Error('No rows found in CSV file.')
 
   let columns = Object.keys(rows[0])
   if (!columns.length) throw new Error('No columns found in CSV file.')
-  console.log(`[CSV Parser] Found ${columns.length} columns, ${rows.length} rows`)
+  devLog(`[CSV Parser] Found ${columns.length} columns, ${rows.length} rows`)
   
   // Check for required respondent ID column
   const hasRespondentId = columns.some(c => 
@@ -262,7 +284,7 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
         // For RANKING questions, skip the text summary column completely
         // We need the individual numeric columns, not the pipe-separated ordered text
         if (questionType === 'ranking') {
-          console.log(`[RANKING DEBUG] Skipping BASE column for ${qid}: "${col.substring(0, 80)}..."`)
+          devLog(`[RANKING DEBUG] Skipping BASE column for ${qid}: "${col.substring(0, 80)}..."`)
           segmentCandidateSet.delete(col)
           continue
         }
@@ -296,10 +318,10 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
 
           // If there's already a text summary column, keep the one with more data
           if (q.textSummaryColumn) {
-            console.log(`[DEBUG] Found another text summary column for ${qid}: ${col} (will evaluate which has more data)`)
+            devLog(`[DEBUG] Found another text summary column for ${qid}: ${col} (will evaluate which has more data)`)
           } else {
             q.textSummaryColumn = col
-            console.log(`[DEBUG] Found text summary column for ${qid}: ${col}`)
+            devLog(`[DEBUG] Found text summary column for ${qid}: ${col}`)
           }
 
           segmentCandidateSet.delete(col)
@@ -307,7 +329,7 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
         }
 
         // If it's not a text summary, skip this column (it's likely a duplicate header without options)
-        console.warn(`[DEBUG] Skipping multi-select column with no distinct option and no pipe-separated data: ${col}`)
+        devWarn(`[DEBUG] Skipping multi-select column with no distinct option and no pipe-separated data: ${col}`)
         segmentCandidateSet.delete(col)
         continue
       }
@@ -322,7 +344,7 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
 
       // Log ranking option processing
       if (questionType === 'ranking') {
-        console.log(`[RANKING DEBUG] Processing option for ${qid}: "${optionLabel}"`)
+        devLog(`[RANKING DEBUG] Processing option for ${qid}: "${optionLabel}"`)
       }
 
       // Track this option case-insensitively
@@ -353,20 +375,20 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
   // Now build the columns array for multi-select and ranking questions from the deduplicated map
   for (const [questionKey, optionsMap] of multiOptionMap.entries()) {
     const q = qMap.get(questionKey)!
-    q.columns = Array.from(optionsMap.entries()).map(([normalized, { displayLabel, headers }]) => ({
+    q.columns = Array.from(optionsMap.entries()).map(([_normalized, { displayLabel, headers }]) => ({
       header: headers[0], // Use first header as the primary
       optionLabel: displayLabel,
       alternateHeaders: headers.slice(1) // Store additional headers for data lookup
     }))
     const logType = q.type === 'ranking' ? '[RANKING DEBUG]' : '[DEBUG]'
-    console.log(`${logType} Question ${questionKey} has ${q.columns.length} options:`, q.columns.map(c => c.optionLabel))
+    devLog(`${logType} Question ${questionKey} has ${q.columns.length} options:`, q.columns.map(c => c.optionLabel))
   }
 
   // For multi-select questions with text summary columns, extract options from the pipe-separated values
   // Note: Ranking questions should NOT use text summary columns
   for (const q of qMap.values()) {
     if (q.type === 'multi' && q.textSummaryColumn) {
-      console.log(`[DEBUG] Processing text summary column for ${q.qid}: ${q.textSummaryColumn}`)
+      devLog(`[DEBUG] Processing text summary column for ${q.qid}: ${q.textSummaryColumn}`)
       const optionSet = new Map<string, string>() // normalized -> display label
 
       // Extract all unique options from the text summary column
@@ -391,7 +413,7 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
 
       // Build columns from the text summary options
       // Use the options from text summary only if there are no binary columns, or if text has more respondents
-      const textOptions = Array.from(optionSet.entries()).map(([normalized, displayLabel]) => ({
+      const textOptions = Array.from(optionSet.entries()).map(([_normalized, displayLabel]) => ({
         header: `__TEXT_MULTI__${q.qid}__${displayLabel}`,
         optionLabel: displayLabel
       }))
@@ -399,7 +421,7 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
       // Prefer text summary data if it exists and has options
       if (textOptions.length > 0) {
         q.columns = textOptions
-        console.log(`[DEBUG] Using ${textOptions.length} options from text summary for ${q.qid}:`, textOptions.map(c => c.optionLabel))
+        devLog(`[DEBUG] Using ${textOptions.length} options from text summary for ${q.qid}:`, textOptions.map(c => c.optionLabel))
       }
     }
   }
@@ -431,7 +453,7 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
 
       // Validate that we found some options
       if (q.columns.length === 0) {
-        console.warn(`No valid options found for single-select question ${q.qid}`)
+        devWarn(`No valid options found for single-select question ${q.qid}`)
       }
     }
   }
@@ -515,7 +537,7 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
       columns = [...columns, PRODUCT_PREFERENCE_COLUMN]
     }
 
-    console.log('[CSV Parser] Product Preference segment created from:', sentimentColumn)
+    devLog('[CSV Parser] Product Preference segment created from:', sentimentColumn)
   }
 
   // Add Gender if it was found or derived
@@ -538,12 +560,12 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
     segmentColumns.push(typingToolColumn)
   }
 
-  console.log('[CSV Parser] Country source found:', countrySource || hasDirectCountryColumn || 'none')
-  console.log('[CSV Parser] Gender source found:', genderSource || hasDirectGenderColumn || 'none')
-  console.log('[CSV Parser] Age source found:', ageSource || hasDirectAgeColumn || 'none')
-  console.log('[CSV Parser] Audience Type found:', columns.includes(AUDIENCE_COLUMN))
-  console.log('[CSV Parser] Typing Tool column found:', typingToolColumn || 'none')
-  console.log('[CSV Parser] Final segment columns:', segmentColumns)
+  devLog('[CSV Parser] Country source found:', countrySource || hasDirectCountryColumn || 'none')
+  devLog('[CSV Parser] Gender source found:', genderSource || hasDirectGenderColumn || 'none')
+  devLog('[CSV Parser] Age source found:', ageSource || hasDirectAgeColumn || 'none')
+  devLog('[CSV Parser] Audience Type found:', columns.includes(AUDIENCE_COLUMN))
+  devLog('[CSV Parser] Typing Tool column found:', typingToolColumn || 'none')
+  devLog('[CSV Parser] Final segment columns:', segmentColumns)
 
   // Build summary
   const respIdCol = columns.find(c => norm(c) === 'respondent id' || norm(c) === 'respondent_id') || columns[0]
@@ -560,13 +582,13 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
   }
 
   // Log summary of all questions
-  console.log(`[CSV Parser] Parsed ${questions.length} questions:`)
+  devLog(`[CSV Parser] Parsed ${questions.length} questions:`)
   questions.forEach(q => {
     const optionCount = q.columns?.length || 0
-    console.log(`  ${q.qid} (${q.type}): "${q.label.substring(0, 60)}..." - ${optionCount} options`)
+    devLog(`  ${q.qid} (${q.type}): "${q.label.substring(0, 60)}..." - ${optionCount} options`)
   })
   const rankingCount = questions.filter(q => q.type === 'ranking').length
-  console.log(`[CSV Parser] Found ${rankingCount} ranking questions`)
+  devLog(`[CSV Parser] Found ${rankingCount} ranking questions`)
 
   // Detect if this is a product test (has product/style ID columns)
   const isProductTest = lowerCols.some(c => 

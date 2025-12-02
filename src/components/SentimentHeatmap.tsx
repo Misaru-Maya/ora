@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faShuffle, faFilter } from '@fortawesome/free-solid-svg-icons'
-import { ParsedCSV } from '../types'
+import { faShuffle } from '@fortawesome/free-solid-svg-icons'
+import type { ParsedCSV } from '../types'
 
 // Utility function to strip quotation marks from text
 function stripQuotes(text: string): string {
@@ -103,7 +103,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
   productColumn,
   questionLabel,
   questionId,
-  hideAsterisks = false,
+  hideAsterisks: _hideAsterisks = false,
   onSaveQuestionLabel
 }) => {
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)

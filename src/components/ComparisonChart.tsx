@@ -7,10 +7,10 @@ import {
   Tooltip,
   LabelList,
   ResponsiveContainer,
-  TooltipProps,
 } from 'recharts'
 import type { LabelProps } from 'recharts'
-import { GroupSeriesMeta, SeriesDataPoint, customRound } from '../dataCalculations'
+import { customRound } from '../dataCalculations'
+import type { GroupSeriesMeta, SeriesDataPoint } from '../dataCalculations'
 
 // Utility function to determine text color based on background luminance
 function getContrastTextColor(hexColor: string): string {
@@ -223,7 +223,7 @@ const StackedVerticalValueLabel: React.FC<LabelProps & { fill?: string }> = ({ x
 }
 
 // Custom X-axis tick with text wrapping (for vertical charts)
-const CustomXAxisTick: React.FC<any & { maxWidth?: number }> = (props) => {
+const _CustomXAxisTick: React.FC<any & { maxWidth?: number }> = (props) => {
   const { x, y, payload, maxWidth = 100 } = props
   const text = payload.value || ''
   const lineHeight = 14
@@ -589,7 +589,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   questionLabel,
   stacked = false,
   colors = GROUP_COLORS,
-  optionLabels = {},
+  optionLabels: _optionLabels = {},
   onSaveOptionLabel,
   onSaveQuestionLabel
 }) => {
@@ -637,7 +637,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
       // Calculate minimum spacing needed to prevent overlap
       // Each bar category needs space for the bar(s) plus the label
       const minLabelWidth = 60 // Minimum width for readability
-      const minSpacingBetweenLabels = 10 // Minimum gap between adjacent labels
+      const _minSpacingBetweenLabels = 10 // Minimum gap between adjacent labels
 
       // Calculate available width per category
       const availableWidthPerCategory = estimatedChartWidth / data.length
@@ -656,7 +656,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
 
   // Calculate dynamic height for X-axis based on maximum lines needed
   const calculateMaxLines = (text: string, maxWidth: number): number => {
-    const lineHeight = 14
+    const _lineHeight = 14
     const words = text.split(' ')
     let lines = 0
     let currentLine = ''
@@ -686,7 +686,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   const horizontalAxisWidth = Math.max(200, maxLabelWidth + 10) // Dynamic width for horizontal charts
   const legendOffset = 40
   const horizontalLegendAdjustment = 70
-  const legendPaddingLeft =
+  const _legendPaddingLeft =
     (isHorizontal ? horizontalAxisWidth : 0) + legendOffset - (isHorizontal ? horizontalLegendAdjustment : 0)
 
   return (

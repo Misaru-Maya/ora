@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { SeriesDataPoint, GroupSeriesMeta } from '../dataCalculations'
+import type { SeriesDataPoint, GroupSeriesMeta } from '../dataCalculations'
 
 interface RankingDisplayProps {
   data: SeriesDataPoint[]
