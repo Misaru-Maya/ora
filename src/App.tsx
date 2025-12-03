@@ -900,6 +900,41 @@ export default function App() {
     setDraggedSegmentIndex(null)
   }
 
+  // Product drag-and-drop reordering
+  const [draggedProductIndex, setDraggedProductIndex] = useState<number | null>(null)
+
+  // Compute ordered product list: use productOrder if set, otherwise productValues
+  const orderedProductValues = useMemo(() => {
+    const order = selections.productOrder || []
+    if (order.length === 0) return productValues
+
+    // Use custom order, then append any new products not in the order
+    const orderSet = new Set(order)
+    const ordered = order.filter(p => productValues.includes(p))
+    const remaining = productValues.filter(p => !orderSet.has(p))
+    return [...ordered, ...remaining]
+  }, [productValues, selections.productOrder])
+
+  const handleProductDragStart = (index: number) => {
+    setDraggedProductIndex(index)
+  }
+
+  const handleProductDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (draggedProductIndex === null || draggedProductIndex === index) return
+
+    const currentOrder = [...orderedProductValues]
+    const [draggedItem] = currentOrder.splice(draggedProductIndex, 1)
+    currentOrder.splice(index, 0, draggedItem)
+
+    setSelections({ productOrder: currentOrder })
+    setDraggedProductIndex(index)
+  }
+
+  const handleProductDragEnd = () => {
+    setDraggedProductIndex(null)
+  }
+
   const toggleProductGroup = (value: string) => {
     const current = new Set(selections.productGroups)
     if (current.has(value)) {
@@ -970,6 +1005,7 @@ export default function App() {
 
   const handleSaveQuestionLabel = (qid: string, newLabel: string) => {
     if (!newLabel.trim()) return
+    console.log('Saving question label:', { qid, newLabel: newLabel.trim(), currentLabels: selections.questionLabels })
     setSelections({
       questionLabels: {
         ...selections.questionLabels,
@@ -1597,7 +1633,13 @@ export default function App() {
                                 checked={selections.comparisonMode ?? true}
                                 onChange={(e) => {
                                   e.stopPropagation()
-                                  setSelections({ comparisonMode: !selections.comparisonMode })
+                                  const newComparisonMode = !selections.comparisonMode
+                                  // In filter mode, enable hideAsterisks by default
+                                  if (!newComparisonMode) {
+                                    setSelections({ comparisonMode: newComparisonMode, hideAsterisks: true })
+                                  } else {
+                                    setSelections({ comparisonMode: newComparisonMode })
+                                  }
                                 }}
                                 style={{ opacity: 0, width: 0, height: 0 }}
                               />
@@ -2550,11 +2592,39 @@ export default function App() {
                           Select all
                         </span>
                       </label>
-                      {productValues.map(value => (
-                        <label key={value} className="flex items-center cursor-pointer" style={{ gap: '10px', marginBottom: '4px' }}>
+                      {orderedProductValues.map((value, index) => (
+                        <label
+                          key={value}
+                          draggable
+                          onDragStart={() => handleProductDragStart(index)}
+                          onDragOver={(e) => handleProductDragOver(e, index)}
+                          onDragEnd={handleProductDragEnd}
+                          className="flex items-center cursor-move"
+                          style={{
+                            gap: '8px',
+                            marginBottom: '4px',
+                            padding: '4px 0',
+                            backgroundColor: draggedProductIndex === index ? '#f3f4f6' : 'transparent',
+                            borderRadius: '4px',
+                            opacity: draggedProductIndex === index ? 0.5 : 1
+                          }}
+                        >
+                          {/* Drag handle */}
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#9CA3AF"
+                            strokeWidth="2"
+                            style={{ flexShrink: 0 }}
+                          >
+                            <path d="M3 8h18M3 16h18" />
+                          </svg>
                           <div
                             onClick={(e) => {
                               e.preventDefault()
+                              e.stopPropagation()
                               toggleProductGroup(value)
                             }}
                             style={{
@@ -2846,6 +2916,7 @@ export default function App() {
                     onSaveOptionLabel={handleSaveOptionLabel}
                     questionLabels={selections.questionLabels || {}}
                     onSaveQuestionLabel={handleSaveQuestionLabel}
+                    productOrder={selections.productOrder || []}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-sm text-brand-gray/60">

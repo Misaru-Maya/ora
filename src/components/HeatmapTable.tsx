@@ -84,6 +84,7 @@ interface HeatmapTableProps {
   optionLabels?: Record<string, string>
   onSaveOptionLabel?: (option: string, newLabel: string) => void
   onSaveQuestionLabel?: (newLabel: string) => void
+  productOrder?: string[]
 }
 
 // Get color based on value and sentiment
@@ -113,7 +114,7 @@ const getColor = (value: number, sentiment: 'positive' | 'negative', minVal: num
   return { bg: bgColor, text: textColor }
 }
 
-export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel }) => {
+export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [] }) => {
   const [editingOption, setEditingOption] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
@@ -127,7 +128,9 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
     questionLabel,
     sentiment,
     datasetRows: dataset.rows.length,
-    productColumn
+    productColumn,
+    productOrder: productOrder,
+    productOrderLength: productOrder.length
   })
 
   // Calculate sentiment score for a product using star ratings
@@ -197,35 +200,40 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
     }
   }, [dataset, productColumn, groups])
 
-  // Calculate default product selection based on sentiment (top/bottom 50%)
+  // Default: show all products
   const defaultProductSelection = useMemo(() => {
-    if (!calculateSentimentScore) {
-      return groups.map(g => g.key)
-    }
+    return groups.map(g => g.key)
+  }, [groups])
 
-    // If fewer than 8 products, show all products by default
-    if (groups.length < 8) {
-      return groups.map(g => g.key)
-    }
-
-    // Sort all groups by sentiment score
-    const sortedByScore = [...groups].sort((a, b) => {
-      const scoreA = calculateSentimentScore(a.key)
-      const scoreB = calculateSentimentScore(b.key)
-      return scoreB - scoreA  // Descending order
-    })
-
-    // Calculate 50% cutoff
-    const halfCount = Math.ceil(sortedByScore.length / 2)
-
-    if (sentiment === 'positive') {
-      // For positive questions: select top 50% (highest scores)
-      return sortedByScore.slice(0, halfCount).map(g => g.key)
+  // Calculate top and bottom 50% based on sidebar product order
+  // If productOrder exists, use it; otherwise use default group order
+  // IMPORTANT: Top and bottom 50% must NOT overlap
+  const { top50Products, bottom50Products } = useMemo(() => {
+    // Use productOrder if available, converting labels to keys
+    let orderedKeys: string[]
+    if (productOrder.length > 0) {
+      // Convert product labels from sidebar order to keys
+      orderedKeys = productOrder
+        .map(label => groups.find(g => g.label === label)?.key)
+        .filter((key): key is string => key !== undefined)
+      // Add any groups not in productOrder at the end
+      const keysInOrder = new Set(orderedKeys)
+      const remaining = groups.filter(g => !keysInOrder.has(g.key)).map(g => g.key)
+      orderedKeys = [...orderedKeys, ...remaining]
     } else {
-      // For negative questions: select bottom 50% (lowest scores)
-      return sortedByScore.slice(-halfCount).map(g => g.key)
+      // Use default group order
+      orderedKeys = groups.map(g => g.key)
     }
-  }, [groups, calculateSentimentScore, sentiment])
+
+    // Split into non-overlapping halves
+    // For odd counts, top 50% gets the extra item
+    const midpoint = Math.ceil(orderedKeys.length / 2)
+
+    return {
+      top50Products: orderedKeys.slice(0, midpoint),
+      bottom50Products: orderedKeys.slice(midpoint) // Start from midpoint, no overlap
+    }
+  }, [groups, productOrder])
 
   // State for filtering
   const [selectedProducts, setSelectedProducts] = useState<string[]>(defaultProductSelection)
@@ -238,9 +246,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
     setSelectedProducts(defaultProductSelection)
   }, [defaultProductSelection])
 
-  // State for column reordering
-  const [customColumnOrder, setCustomColumnOrder] = useState<string[] | null>(null)
-  const [draggedProductIndex, setDraggedProductIndex] = useState<number | null>(null)
+  // State for attribute reordering (product order comes from global productOrder prop)
   const [draggedAttributeIndex, setDraggedAttributeIndex] = useState<number | null>(null)
 
   // State to track portal target availability
@@ -285,29 +291,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
     }
   }, [])
 
-  // Drag handlers for product filter
-  const handleProductDragStart = (index: number) => {
-    setDraggedProductIndex(index)
-  }
-
-  const handleProductDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault()
-    if (draggedProductIndex === null || draggedProductIndex === index) return
-
-    const currentOrder = customColumnOrder || allGroupsSorted.map(g => g.key)
-    const newOrder = [...currentOrder]
-    const [draggedItem] = newOrder.splice(draggedProductIndex, 1)
-    newOrder.splice(index, 0, draggedItem)
-
-    setCustomColumnOrder(newOrder)
-    setDraggedProductIndex(index)
-  }
-
-  const handleProductDragEnd = () => {
-    setDraggedProductIndex(null)
-  }
-
-  // Drag handlers for attribute filter
+  // Drag handlers for attribute filter (product ordering is now global via sidebar)
   const [customAttributeOrder, setCustomAttributeOrder] = useState<string[] | null>(null)
 
   const _handleAttributeDragStart = (index: number) => {
@@ -375,39 +359,49 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
     return allGroupsSorted.filter(g => selectedProducts.includes(g.key))
   }, [allGroupsSorted, selectedProducts])
 
-  // Apply custom order if exists, otherwise use default sorted order
+  // Apply global product order from sidebar if exists, otherwise use default sorted order
+  // Note: productOrder contains product labels (e.g., "Black 1"), not normalized keys
   const sortedGroups = useMemo(() => {
-    if (customColumnOrder) {
-      // Filter to only include columns that exist in defaultSortedGroups
-      const validOrder = customColumnOrder
-        .map(key => defaultSortedGroups.find(g => g.key === key))
+    devLog('🔄 sortedGroups calculation:', {
+      productOrderLength: productOrder.length,
+      productOrder: productOrder.slice(0, 5),
+      defaultSortedGroupsLabels: defaultSortedGroups.map(g => g.label).slice(0, 5)
+    })
+
+    if (productOrder.length > 0) {
+      // Match productOrder labels against group labels (not keys)
+      const validOrder = productOrder
+        .map(label => defaultSortedGroups.find(g => g.label === label))
         .filter((g): g is GroupSeriesMeta => g !== undefined)
 
-      // Add any new columns that aren't in customColumnOrder
-      const keysInCustomOrder = new Set(customColumnOrder)
-      const newColumns = defaultSortedGroups.filter(g => !keysInCustomOrder.has(g.key))
+      devLog('🔄 validOrder result:', validOrder.map(g => g.label).slice(0, 5))
+
+      // Add any new columns that aren't in productOrder
+      const labelsInProductOrder = new Set(productOrder)
+      const newColumns = defaultSortedGroups.filter(g => !labelsInProductOrder.has(g.label))
 
       return [...validOrder, ...newColumns]
     }
     return defaultSortedGroups
-  }, [customColumnOrder, defaultSortedGroups])
+  }, [productOrder, defaultSortedGroups])
 
-  // All groups ordered by custom column order (for the filter dropdown)
+  // All groups ordered by global product order (for the filter dropdown)
   // This ensures the dropdown order matches the displayed column order
+  // Note: productOrder contains product labels, so we match against g.label
   const allGroupsOrdered = useMemo(() => {
-    if (customColumnOrder) {
-      const validOrder = customColumnOrder
-        .map(key => allGroupsSorted.find(g => g.key === key))
+    if (productOrder.length > 0) {
+      const validOrder = productOrder
+        .map(label => allGroupsSorted.find(g => g.label === label))
         .filter((g): g is GroupSeriesMeta => g !== undefined)
 
-      // Add any groups not in custom order at the end
-      const keysInCustomOrder = new Set(customColumnOrder)
-      const remainingGroups = allGroupsSorted.filter(g => !keysInCustomOrder.has(g.key))
+      // Add any groups not in product order at the end
+      const labelsInProductOrder = new Set(productOrder)
+      const remainingGroups = allGroupsSorted.filter(g => !labelsInProductOrder.has(g.label))
 
       return [...validOrder, ...remainingGroups]
     }
     return allGroupsSorted
-  }, [customColumnOrder, allGroupsSorted])
+  }, [productOrder, allGroupsSorted])
 
   // Calculate min/max for color scaling
   const { minValue, maxValue } = useMemo(() => {
@@ -455,16 +449,8 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
     sortedDataSample: sortedData[0]
   })
 
-  // Early return if no data
-  if (sortedData.length === 0 || sortedGroups.length === 0) {
-    return (
-      <div className="w-full py-10 text-center text-xs text-brand-gray/60">
-        No data available for heatmap.
-      </div>
-    )
-  }
-
   // Product filter button - will be rendered via portal in ChartGallery button area
+  // This is defined before the early return so it can always be rendered
   const filterButtons = (
     <div className="relative heatmap-dropdown-container">
       <button
@@ -483,77 +469,170 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
         <FontAwesomeIcon icon={faShuffle} style={{ fontSize: '16px' }} />
       </button>
         {showProductFilter && (
-          <div className="absolute left-0 top-10 z-50 w-[20rem] shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}>
-            <div className="px-4 py-3" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
-              <div className="mb-2 flex justify-end gap-4 border-b pb-2" style={{ borderColor: '#80BDFF' }}>
-                <button
-                  className="text-xs text-brand-green underline hover:text-brand-green/80"
-                  style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', cursor: 'pointer' }}
-                  onClick={() => setSelectedProducts(allGroupsOrdered.map(g => g.key))}
-                >
-                  Select all
-                </button>
-                <button
-                  className="text-xs text-brand-gray underline hover:text-brand-gray/80"
-                  style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', cursor: 'pointer' }}
-                  onClick={() => setSelectedProducts([])}
-                >
-                  Clear
-                </button>
+          <div
+            className="absolute left-0 top-10 z-50 animate-in fade-in slide-in-from-top-2 duration-200"
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              boxShadow: '0 4px 24px -4px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+              overflow: 'hidden',
+              width: '280px'
+            }}
+          >
+            {/* Header */}
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Filter Products</span>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {(() => {
+                    const allTop50Selected = top50Products.every(key => selectedProducts.includes(key))
+                    return (
+                      <button
+                        onClick={() => {
+                          if (allTop50Selected) {
+                            setSelectedProducts(selectedProducts.filter(key => !top50Products.includes(key)))
+                          } else {
+                            const newSelection = [...new Set([...selectedProducts, ...top50Products])]
+                            setSelectedProducts(newSelection)
+                          }
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          color: allTop50Selected ? '#3A8518' : '#6b7280',
+                          backgroundColor: allTop50Selected ? '#f0fdf4' : '#f9fafb',
+                          border: allTop50Selected ? '1px solid #bbf7d0' : '1px solid #e5e7eb',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
+                      >
+                        Top 50%
+                      </button>
+                    )
+                  })()}
+                  {(() => {
+                    const allBottom50Selected = bottom50Products.every(key => selectedProducts.includes(key))
+                    return (
+                      <button
+                        onClick={() => {
+                          if (allBottom50Selected) {
+                            setSelectedProducts(selectedProducts.filter(key => !bottom50Products.includes(key)))
+                          } else {
+                            const newSelection = [...new Set([...selectedProducts, ...bottom50Products])]
+                            setSelectedProducts(newSelection)
+                          }
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          color: allBottom50Selected ? '#3A8518' : '#6b7280',
+                          backgroundColor: allBottom50Selected ? '#f0fdf4' : '#f9fafb',
+                          border: allBottom50Selected ? '1px solid #bbf7d0' : '1px solid #e5e7eb',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
+                      >
+                        Btm 50%
+                      </button>
+                    )
+                  })()}
+                  <button
+                    onClick={() => setSelectedProducts([])}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      fontWeight: 500,
+                      color: '#6b7280',
+                      backgroundColor: '#f9fafb',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f3f4f6' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb' }}
+                  >
+                    Clear
+                  </button>
+                </div>
               </div>
-              <div className="max-h-60 overflow-y-auto" style={{ backgroundColor: '#EEF2F6' }}>
-                {allGroupsOrdered.map((group, index) => (
+            </div>
+            {/* Products list */}
+            <div className="max-h-64 overflow-y-auto" style={{ padding: '8px' }}>
+              {allGroupsOrdered.map((group) => {
+                const isChecked = selectedProducts.includes(group.key)
+                return (
                   <label
                     key={group.key}
-                    draggable
-                    onDragStart={() => handleProductDragStart(index)}
-                    onDragOver={(e) => handleProductDragOver(e, index)}
-                    onDragEnd={handleProductDragEnd}
-                    className={`flex items-center py-2 cursor-move hover:bg-gray-100 ${
-                      draggedProductIndex === index ? 'opacity-50 bg-gray-100' : ''
-                    }`}
-                    style={{ backgroundColor: draggedProductIndex === index ? '#e5e7eb' : '#EEF2F6', gap: '4px' }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      backgroundColor: 'transparent'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
                   >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      className="flex-shrink-0 text-gray-400"
-                    >
-                      <path d="M3 8h18M3 16h18" />
-                    </svg>
                     <input
                       type="checkbox"
-                      checked={selectedProducts.includes(group.key)}
+                      checked={isChecked}
                       onChange={() => {
-                        if (selectedProducts.includes(group.key)) {
+                        if (isChecked) {
                           setSelectedProducts(selectedProducts.filter(p => p !== group.key))
                         } else {
                           setSelectedProducts([...selectedProducts, group.key])
                         }
                       }}
-                      className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green"
+                      style={{
+                        width: '16px',
+                        height: '16px',
+                        borderRadius: '4px',
+                        border: '2px solid #d1d5db',
+                        cursor: 'pointer',
+                        accentColor: '#3A8518'
+                      }}
                     />
-                    <span className="text-sm">{stripQuotes(group.label)}</span>
+                    <span style={{ fontSize: '13px', color: '#374151' }}>{stripQuotes(group.label)}</span>
                   </label>
-                ))}
-              </div>
+                )
+              })}
             </div>
           </div>
         )}
     </div>
   )
 
-  // Calculate optimal width for first column based on longest text
-  const maxTextLength = Math.max(...sortedData.map(row => row.optionDisplay.length))
-  // Estimate width: roughly 16px per character (2x wider), with min 300px and max 500px
-  const firstColumnWidth = Math.min(Math.max(maxTextLength * 16, 300), 500)
-
   // Get portal target element
   const filterPortalTarget = portalReady && questionId ? document.getElementById(`heatmap-filters-${questionId}`) : null
+
+  // Early return if no data - but still render the filter button via portal
+  if (sortedData.length === 0 || sortedGroups.length === 0) {
+    return (
+      <>
+        {filterPortalTarget && createPortal(filterButtons, filterPortalTarget)}
+        <div className="w-full py-10 text-center text-xs text-brand-gray/60">
+          No products selected. Use the filter button to select products.
+        </div>
+      </>
+    )
+  }
+
+  // Calculate optimal width for first column based on longest text
+  const maxTextLength = Math.max(...sortedData.map(row => row.optionDisplay.length))
+  // Estimate width: roughly 8px per character, with min 150px and max 250px
+  const firstColumnWidth = Math.min(Math.max(maxTextLength * 8, 150), 250)
 
   return (
     <>
@@ -641,29 +720,16 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                 width: `${firstColumnWidth}px`,
                 verticalAlign: 'middle'
               }}></th>
-              {sortedGroups.map((group, _index) => (
+              {sortedGroups.map((group) => (
                 <th
                   key={group.key}
-                  draggable
-                  onDragStart={() => handleProductDragStart(allGroupsSorted.findIndex(g => g.key === group.key))}
-                  onDragOver={(e) => handleProductDragOver(e, allGroupsSorted.findIndex(g => g.key === group.key))}
-                  onDragEnd={handleProductDragEnd}
                   style={{
                     backgroundColor: '#FFFFFF',
                     padding: '8px 12px',
                     textAlign: 'center',
                     fontSize: '14px',
                     fontWeight: 600,
-                    verticalAlign: 'middle',
-                    cursor: 'grab',
-                    userSelect: 'none',
-                    opacity: draggedProductIndex === allGroupsSorted.findIndex(g => g.key === group.key) ? 0.5 : 1
-                  }}
-                  onMouseDown={(e) => {
-                    (e.currentTarget as HTMLElement).style.cursor = 'grabbing'
-                  }}
-                  onMouseUp={(e) => {
-                    (e.currentTarget as HTMLElement).style.cursor = 'grab'
+                    verticalAlign: 'middle'
                   }}
                 >
                   {stripQuotes(group.label)}

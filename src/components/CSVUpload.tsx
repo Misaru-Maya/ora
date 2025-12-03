@@ -124,7 +124,11 @@ export const CSVUpload = forwardRef<CSVUploadHandle, CSVUploadProps>(({ variant 
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={handleBrowse}
+        onClick={(e) => {
+          // Stop propagation to prevent parent's onClick from double-triggering
+          e.stopPropagation()
+          handleBrowse()
+        }}
         onKeyDown={handleKeyDown}
         role="button"
         tabIndex={0}

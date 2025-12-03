@@ -24,6 +24,13 @@ function isExcludedValue(value: string) {
   return EXCLUDED_VALUES.some(ex => normalized === ex || normalized.includes(ex))
 }
 
+// Normalize product values to match App.tsx behavior
+function normalizeProductValue(value: unknown): string {
+  const str = value === null || value === undefined ? '' : String(value).trim()
+  const unquoted = str.replace(/^"|"$/g, '')
+  return unquoted || 'Unspecified'
+}
+
 interface ChartCardProps {
   question: QuestionDef
   series: BuildSeriesResult
@@ -39,6 +46,7 @@ interface ChartCardProps {
   optionLabels: Record<string, string>
   onSaveOptionLabel: (option: string, newLabel: string) => void
   onSaveQuestionLabel?: (newLabel: string) => void
+  productOrder?: string[]
 }
 
 const SORT_OPTIONS: CardSortOption[] = ['default', 'descending', 'ascending', 'alphabetical']
@@ -75,7 +83,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   chartColors,
   optionLabels,
   onSaveOptionLabel,
-  onSaveQuestionLabel
+  onSaveQuestionLabel,
+  productOrder = []
 }) => {
   const [cardSort, setCardSort] = useState<CardSortOption>(question.isLikert ? 'alphabetical' : 'default')
   const [showFilter, setShowFilter] = useState(false)
@@ -664,68 +673,124 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               <FontAwesomeIcon icon={faFilter} style={{ fontSize: '16px' }} />
             </button>
             {showFilter && (
-              <div className="absolute left-0 top-10 z-50 w-[32rem] shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', opacity: 1 }}>
-                <div className="px-4 py-3" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
-                  <div className="mb-2 flex justify-end gap-4 border-b pb-2" style={{ borderColor: '#80BDFF' }}>
-                    <button
-                      className="text-xs text-brand-green underline hover:text-brand-green/80"
-                      style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', cursor: 'pointer' }}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        selectAllOptions()
-                      }}
-                    >
-                      Select all
-                    </button>
-                    <button
-                      className="text-xs text-brand-gray underline hover:text-brand-gray/80"
-                      style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none', cursor: 'pointer' }}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        deselectAllOptions()
-                      }}
-                    >
-                      Clear
-                    </button>
-                  </div>
-                  <div className="max-h-60 overflow-y-auto p-1.5" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
-                    {sortedOptionsForFilter.map((option, index) => (
-                      <label
-                        key={option.option}
-                        draggable
-                        onDragStart={() => handleOptionDragStart(index)}
-                        onDragOver={(e) => handleOptionDragOver(e, index)}
-                        onDragEnd={handleOptionDragEnd}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onClick={(e) => e.stopPropagation()}
-                        className={`flex w-full items-center cursor-move px-2 py-2 text-sm font-medium transition hover:bg-gray-100 rounded ${
-                          draggedOptionIndex === index ? 'opacity-50 bg-gray-100' : ''
-                        }`}
-                        style={{ backgroundColor: draggedOptionIndex === index ? '#e5e7eb' : '#EEF2F6', gap: '4px' }}
+              <div
+                className="absolute left-0 top-10 z-50 w-[22rem] animate-in fade-in slide-in-from-top-2 duration-200"
+                style={{
+                  backgroundColor: 'white',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 24px -4px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+                  overflow: 'hidden'
+                }}
+              >
+                {/* Header */}
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Filter Attributes</span>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          selectAllOptions()
+                        }}
+                        style={{
+                          padding: '4px 10px',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          color: '#3A8518',
+                          backgroundColor: '#f0fdf4',
+                          border: '1px solid #bbf7d0',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#dcfce7' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f0fdf4' }}
                       >
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          className="flex-shrink-0 text-gray-400"
-                          style={{ marginLeft: '-2px' }}
-                        >
-                          <path d="M3 8h18M3 16h18" />
-                        </svg>
-                        <input
-                          type="checkbox"
-                          checked={selectedOptions.includes(option.option)}
-                          onChange={(_e) => toggleOption(option.option)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
-                        />
-                        <span className="text-gray-900">{option.optionDisplay}</span>
-                      </label>
-                    ))}
+                        Select All
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deselectAllOptions()
+                        }}
+                        style={{
+                          padding: '4px 10px',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          color: '#6b7280',
+                          backgroundColor: '#f9fafb',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f3f4f6' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb' }}
+                      >
+                        Clear
+                      </button>
+                    </div>
                   </div>
+                </div>
+                {/* Options list */}
+                <div className="max-h-64 overflow-y-auto" style={{ padding: '8px' }}>
+                  {sortedOptionsForFilter.map((option, index) => (
+                    <label
+                      key={option.option}
+                      draggable
+                      onDragStart={() => handleOptionDragStart(index)}
+                      onDragOver={(e) => handleOptionDragOver(e, index)}
+                      onDragEnd={handleOptionDragEnd}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                      className="group"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        cursor: 'grab',
+                        transition: 'all 0.15s ease',
+                        backgroundColor: draggedOptionIndex === index ? '#f3f4f6' : 'transparent',
+                        opacity: draggedOptionIndex === index ? 0.5 : 1
+                      }}
+                      onMouseEnter={(e) => { if (draggedOptionIndex !== index) e.currentTarget.style.backgroundColor = '#f9fafb' }}
+                      onMouseLeave={(e) => { if (draggedOptionIndex !== index) e.currentTarget.style.backgroundColor = 'transparent' }}
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#9ca3af"
+                        strokeWidth="2"
+                        style={{ flexShrink: 0, opacity: 0.6 }}
+                      >
+                        <circle cx="9" cy="6" r="1.5" fill="#9ca3af" />
+                        <circle cx="15" cy="6" r="1.5" fill="#9ca3af" />
+                        <circle cx="9" cy="12" r="1.5" fill="#9ca3af" />
+                        <circle cx="15" cy="12" r="1.5" fill="#9ca3af" />
+                        <circle cx="9" cy="18" r="1.5" fill="#9ca3af" />
+                        <circle cx="15" cy="18" r="1.5" fill="#9ca3af" />
+                      </svg>
+                      <input
+                        type="checkbox"
+                        checked={selectedOptions.includes(option.option)}
+                        onChange={(_e) => toggleOption(option.option)}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          width: '16px',
+                          height: '16px',
+                          borderRadius: '4px',
+                          border: '2px solid #d1d5db',
+                          cursor: 'pointer',
+                          accentColor: '#3A8518'
+                        }}
+                      />
+                      <span style={{ fontSize: '13px', color: '#374151', flex: 1 }}>{option.optionDisplay}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
             )}
@@ -786,37 +851,85 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               />
             </button>
             {showSortMenu && (
-              <div className="absolute left-0 top-10 z-10 w-64 shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', opacity: 1 }}>
-                <div className="px-4 py-3" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
-                  {SORT_OPTIONS.map((option) => (
-                    <div
-                      key={option}
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setCardSort(option)
-                        setShowSortMenu(false)
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
+              <div
+                className="absolute left-0 top-10 z-10 animate-in fade-in slide-in-from-top-2 duration-200"
+                style={{
+                  backgroundColor: 'white',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 24px -4px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+                  overflow: 'hidden',
+                  minWidth: '160px'
+                }}
+              >
+                {/* Header */}
+                <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Sort By</span>
+                </div>
+                {/* Options */}
+                <div style={{ padding: '6px' }}>
+                  {SORT_OPTIONS.map((option) => {
+                    const isSelected = cardSort === option
+                    const icons: Record<string, typeof faSort> = {
+                      default: faSort,
+                      descending: faArrowDownWideShort,
+                      ascending: faArrowUpShortWide,
+                      alphabetical: faArrowUpAZ
+                    }
+                    return (
+                      <div
+                        key={option}
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation()
                           setCardSort(option)
                           setShowSortMenu(false)
-                        }
-                      }}
-                      className="flex w-full items-center cursor-pointer px-2 py-2 text-sm transition hover:bg-gray-100 rounded"
-                      style={{ backgroundColor: '#EEF2F6', gap: '2px' }}
-                    >
-                      <input
-                        type="checkbox"
-                        readOnly
-                        checked={cardSort === option}
-                        className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
-                      />
-                      <span className="capitalize text-gray-900 text-sm">{option}</span>
-                    </div>
-                  ))}
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            setCardSort(option)
+                            setShowSortMenu(false)
+                          }
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          backgroundColor: isSelected ? '#f0fdf4' : 'transparent'
+                        }}
+                        onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = '#f9fafb' }}
+                        onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = isSelected ? '#f0fdf4' : 'transparent' }}
+                      >
+                        <FontAwesomeIcon
+                          icon={icons[option] || faSort}
+                          style={{
+                            fontSize: '14px',
+                            color: isSelected ? '#3A8518' : '#9ca3af',
+                            width: '16px'
+                          }}
+                        />
+                        <span style={{
+                          fontSize: '13px',
+                          fontWeight: isSelected ? 500 : 400,
+                          color: isSelected ? '#3A8518' : '#374151',
+                          textTransform: 'capitalize',
+                          flex: 1
+                        }}>
+                          {option}
+                        </span>
+                        {isSelected && (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3A8518" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -1124,9 +1237,9 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
             )
           }
 
-          // Get all unique products from the dataset using the product column
+          // Get all unique products from the dataset using the product column (normalized to match sidebar)
           const allProducts = Array.from(
-            new Set(dataset.rows.map(row => String(row[productColumn] ?? '')).filter(Boolean))
+            new Set(dataset.rows.map(row => normalizeProductValue(row[productColumn])).filter(v => v && v !== 'Unspecified'))
           ).sort()
 
           if (allProducts.length === 0) {
@@ -1171,6 +1284,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                   questionId={question.qid}
                   hideAsterisks={hideAsterisks}
                   onSaveQuestionLabel={onSaveQuestionLabel}
+                  productOrder={productOrder}
                 />
               </div>
             )
@@ -1218,6 +1332,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               optionLabels={optionLabels}
               onSaveOptionLabel={onSaveOptionLabel}
               onSaveQuestionLabel={onSaveQuestionLabel}
+              productOrder={productOrder}
             />
           )
         }
@@ -1259,6 +1374,7 @@ interface ChartGalleryProps {
   onSaveOptionLabel?: (qid: string, option: string, newLabel: string) => void
   questionLabels?: Record<string, string>
   onSaveQuestionLabel?: (qid: string, newLabel: string) => void
+  productOrder?: string[]
 }
 
 export const ChartGallery: React.FC<ChartGalleryProps> = ({
@@ -1278,7 +1394,8 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
   optionLabels = {},
   onSaveOptionLabel,
   questionLabels = {},
-  onSaveQuestionLabel
+  onSaveQuestionLabel,
+  productOrder = []
 }) => {
   const renderableEntries = useMemo(() => {
     const hasSegments = segments && segments.length > 0
@@ -1360,6 +1477,7 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
                 optionLabels={optionLabels[question.qid] || {}}
                 onSaveOptionLabel={(option, newLabel) => onSaveOptionLabel?.(question.qid, option, newLabel)}
                 onSaveQuestionLabel={(newLabel) => onSaveQuestionLabel?.(question.qid, newLabel)}
+                productOrder={productOrder}
               />
             </div>
           )

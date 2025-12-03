@@ -65,6 +65,7 @@ interface SentimentHeatmapProps {
   questionId?: string
   hideAsterisks?: boolean
   onSaveQuestionLabel?: (newLabel: string) => void
+  productOrder?: string[]
 }
 
 interface ProductSentiment {
@@ -104,14 +105,13 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
   questionLabel,
   questionId,
   hideAsterisks: _hideAsterisks = false,
-  onSaveQuestionLabel
+  onSaveQuestionLabel,
+  productOrder = []
 }) => {
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
   const [questionLabelInput, setQuestionLabelInput] = useState('')
   const [showProductFilter, setShowProductFilter] = useState(false)
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
-  const [customProductOrder, setCustomProductOrder] = useState<string[] | null>(null)
-  const [draggedProductIndex, setDraggedProductIndex] = useState<number | null>(null)
   const [portalReady, setPortalReady] = useState(false)
 
   // Find sentiment column
@@ -181,7 +181,33 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
     })
   }, [productSentiments])
 
-  // Initialize selected products
+  // Calculate top and bottom 50% based on sidebar product order
+  // If productOrder exists, use it; otherwise use default sorted order
+  // IMPORTANT: Top and bottom 50% must NOT overlap
+  const { top50Products, bottom50Products } = useMemo(() => {
+    let orderedNames: string[]
+    if (productOrder.length > 0) {
+      // Use sidebar order, filter to only products that exist in our data
+      const existingNames = new Set(sortedProducts.map(p => p.productName))
+      orderedNames = productOrder.filter(name => existingNames.has(name))
+      // Add any products not in productOrder at the end
+      const namesInOrder = new Set(orderedNames)
+      const remaining = sortedProducts.filter(p => !namesInOrder.has(p.productName)).map(p => p.productName)
+      orderedNames = [...orderedNames, ...remaining]
+    } else {
+      orderedNames = sortedProducts.map(p => p.productName)
+    }
+
+    // Split into non-overlapping halves
+    // For odd counts, top 50% gets the extra item
+    const midpoint = Math.ceil(orderedNames.length / 2)
+    return {
+      top50Products: orderedNames.slice(0, midpoint),
+      bottom50Products: orderedNames.slice(midpoint) // Start from midpoint, no overlap
+    }
+  }, [sortedProducts, productOrder])
+
+  // Initialize selected products - show all by default
   useEffect(() => {
     setSelectedProducts(sortedProducts.map(p => p.productName))
   }, [sortedProducts])
@@ -221,13 +247,19 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
     }
   }, [])
 
-  // Apply custom order
+  // Apply global product order from sidebar
   const orderedProducts = useMemo(() => {
-    const baseOrder = customProductOrder || sortedProducts.map(p => p.productName)
-    return baseOrder
-      .map(name => sortedProducts.find(p => p.productName === name))
-      .filter((p): p is ProductSentiment => p !== undefined)
-  }, [customProductOrder, sortedProducts])
+    if (productOrder.length > 0) {
+      // Use global order, appending any products not in the order
+      const orderedFromGlobal = productOrder
+        .map(name => sortedProducts.find(p => p.productName === name))
+        .filter((p): p is ProductSentiment => p !== undefined)
+      const namesInOrder = new Set(productOrder)
+      const remaining = sortedProducts.filter(p => !namesInOrder.has(p.productName))
+      return [...orderedFromGlobal, ...remaining]
+    }
+    return sortedProducts
+  }, [productOrder, sortedProducts])
 
   // Filter selected products
   const filteredProducts = useMemo(() => {
@@ -244,28 +276,6 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
     const values = filteredProducts.map(p => p.detractorPercent)
     return { min: Math.min(...values), max: Math.max(...values) }
   }, [filteredProducts])
-
-  // Drag handlers
-  const handleProductDragStart = (index: number) => {
-    setDraggedProductIndex(index)
-  }
-
-  const handleProductDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault()
-    if (draggedProductIndex === null || draggedProductIndex === index) return
-
-    const currentOrder = customProductOrder || sortedProducts.map(p => p.productName)
-    const newOrder = [...currentOrder]
-    const [draggedItem] = newOrder.splice(draggedProductIndex, 1)
-    newOrder.splice(index, 0, draggedItem)
-
-    setCustomProductOrder(newOrder)
-    setDraggedProductIndex(index)
-  }
-
-  const handleProductDragEnd = () => {
-    setDraggedProductIndex(null)
-  }
 
   if (!sentimentColumn) {
     return (
@@ -303,64 +313,145 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
           <FontAwesomeIcon icon={faShuffle} style={{ fontSize: '16px' }} />
         </button>
         {showProductFilter && (
-          <div className="absolute left-0 top-10 z-50 w-[20rem] shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px' }}>
-            <div className="px-4 py-3" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
-              <div className="mb-2 flex justify-end gap-4 border-b pb-2" style={{ borderColor: '#80BDFF' }}>
-                <button
-                  className="text-xs text-brand-green underline hover:text-brand-green/80"
-                  style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none' }}
-                  onClick={() => setSelectedProducts(sortedProducts.map(p => p.productName))}
-                >
-                  Select all
-                </button>
-                <button
-                  className="text-xs text-brand-gray underline hover:text-brand-gray/80"
-                  style={{ paddingLeft: '2px', paddingRight: '2px', border: 'none', background: 'none' }}
-                  onClick={() => setSelectedProducts([])}
-                >
-                  Clear
-                </button>
+          <div
+            className="absolute left-0 top-10 z-50 animate-in fade-in slide-in-from-top-2 duration-200"
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              boxShadow: '0 4px 24px -4px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+              overflow: 'hidden',
+              width: '280px'
+            }}
+          >
+            {/* Header */}
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Filter Products</span>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {(() => {
+                    const allTop50Selected = top50Products.every(name => selectedProducts.includes(name))
+                    return (
+                      <button
+                        onClick={() => {
+                          if (allTop50Selected) {
+                            setSelectedProducts(selectedProducts.filter(name => !top50Products.includes(name)))
+                          } else {
+                            const newSelection = [...new Set([...selectedProducts, ...top50Products])]
+                            setSelectedProducts(newSelection)
+                          }
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          color: allTop50Selected ? '#3A8518' : '#6b7280',
+                          backgroundColor: allTop50Selected ? '#f0fdf4' : '#f9fafb',
+                          border: allTop50Selected ? '1px solid #bbf7d0' : '1px solid #e5e7eb',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
+                      >
+                        Top 50%
+                      </button>
+                    )
+                  })()}
+                  {(() => {
+                    const allBottom50Selected = bottom50Products.every(name => selectedProducts.includes(name))
+                    return (
+                      <button
+                        onClick={() => {
+                          if (allBottom50Selected) {
+                            setSelectedProducts(selectedProducts.filter(name => !bottom50Products.includes(name)))
+                          } else {
+                            const newSelection = [...new Set([...selectedProducts, ...bottom50Products])]
+                            setSelectedProducts(newSelection)
+                          }
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          color: allBottom50Selected ? '#3A8518' : '#6b7280',
+                          backgroundColor: allBottom50Selected ? '#f0fdf4' : '#f9fafb',
+                          border: allBottom50Selected ? '1px solid #bbf7d0' : '1px solid #e5e7eb',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
+                      >
+                        Btm 50%
+                      </button>
+                    )
+                  })()}
+                  <button
+                    onClick={() => setSelectedProducts([])}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      fontWeight: 500,
+                      color: '#6b7280',
+                      backgroundColor: '#f9fafb',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f3f4f6' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb' }}
+                  >
+                    Clear
+                  </button>
+                </div>
               </div>
-              <div className="max-h-60 overflow-y-auto" style={{ backgroundColor: '#EEF2F6' }}>
-                {sortedProducts.map((product, index) => (
+            </div>
+            {/* Products list */}
+            <div className="max-h-64 overflow-y-auto" style={{ padding: '8px' }}>
+              {orderedProducts.map((product) => {
+                const isChecked = selectedProducts.includes(product.productName)
+                return (
                   <label
                     key={product.productName}
-                    draggable
-                    onDragStart={() => handleProductDragStart(index)}
-                    onDragOver={(e) => handleProductDragOver(e, index)}
-                    onDragEnd={handleProductDragEnd}
-                    className={`flex items-center py-2 cursor-move hover:bg-gray-100 ${
-                      draggedProductIndex === index ? 'opacity-50 bg-gray-100' : ''
-                    }`}
-                    style={{ backgroundColor: draggedProductIndex === index ? '#e5e7eb' : '#EEF2F6', gap: '4px' }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      backgroundColor: 'transparent'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
                   >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      className="flex-shrink-0 text-gray-400"
-                    >
-                      <path d="M3 8h18M3 16h18" />
-                    </svg>
                     <input
                       type="checkbox"
-                      checked={selectedProducts.includes(product.productName)}
+                      checked={isChecked}
                       onChange={() => {
-                        if (selectedProducts.includes(product.productName)) {
+                        if (isChecked) {
                           setSelectedProducts(selectedProducts.filter(p => p !== product.productName))
                         } else {
                           setSelectedProducts([...selectedProducts, product.productName])
                         }
                       }}
-                      className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green"
+                      style={{
+                        width: '16px',
+                        height: '16px',
+                        borderRadius: '4px',
+                        border: '2px solid #d1d5db',
+                        cursor: 'pointer',
+                        accentColor: '#3A8518'
+                      }}
                     />
-                    <span className="text-sm">{product.productName}</span>
+                    <span style={{ fontSize: '13px', color: '#374151' }}>{product.productName}</span>
                   </label>
-                ))}
-              </div>
+                )
+              })}
             </div>
           </div>
         )}

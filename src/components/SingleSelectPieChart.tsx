@@ -234,7 +234,10 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
             ) : (
               <h3
                 className="text-sm font-semibold text-brand-gray"
-                style={{ cursor: onSaveQuestionLabel ? 'pointer' : 'default' }}
+                style={{
+                  cursor: onSaveQuestionLabel ? 'pointer' : 'default',
+                  whiteSpace: 'pre-wrap'
+                }}
                 onClick={() => {
                   if (onSaveQuestionLabel) {
                     setEditingQuestionLabel(true)

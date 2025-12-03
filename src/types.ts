@@ -59,6 +59,7 @@ export interface Selections {
   segmentColumnLabels?: Record<string, string> // Map of segment column name to custom label
   productColumn?: string
   productGroups: string[]
+  productOrder?: string[] // Custom order for products in heatmaps (drag-and-drop from sidebar)
   question?: string // qid
   sortOrder: SortOrder
   statSigFilter: StatSigFilter
