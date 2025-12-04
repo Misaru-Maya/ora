@@ -1,72 +1,12 @@
 import React, { useState, useMemo, useEffect, memo } from 'react'
 import { createPortal } from 'react-dom'
 import type { SeriesDataPoint, GroupSeriesMeta } from '../dataCalculations'
+import { stripQuotes, stripSentimentPrefix, getContrastTextColor, GREEN_PALETTE, YELLOW_PALETTE } from '../utils'
 
 // Performance: Disable console logs in production
 const isDev = process.env.NODE_ENV === 'development'
 const devLog = isDev ? console.log : () => {}
 const devWarn = isDev ? console.warn : () => {}
-
-// Utility function to determine text color based on background luminance
-function getContrastTextColor(hexColor: string): string {
-  // Remove # if present
-  const hex = hexColor.replace('#', '')
-
-  // Convert hex to RGB
-  const r = parseInt(hex.substring(0, 2), 16) / 255
-  const g = parseInt(hex.substring(2, 4), 16) / 255
-  const b = parseInt(hex.substring(4, 6), 16) / 255
-
-  // Apply gamma correction
-  const rLinear = r <= 0.03928 ? r / 12.92 : Math.pow((r + 0.055) / 1.055, 2.4)
-  const gLinear = g <= 0.03928 ? g / 12.92 : Math.pow((g + 0.055) / 1.055, 2.4)
-  const bLinear = b <= 0.03928 ? b / 12.92 : Math.pow((b + 0.055) / 1.055, 2.4)
-
-  // Calculate relative luminance using WCAG formula
-  const luminance = 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear
-
-  // Return white for dark backgrounds, black for light backgrounds
-  return luminance > 0.5 ? '#111111' : '#FFFFFF'
-}
-
-// Utility function to strip quotation marks from text
-function stripQuotes(text: string): string {
-  if (!text) return text
-  let result = text.trim()
-  // Remove leading and trailing quotes (both straight and curly quotes)
-  if ((result.startsWith('"') && result.endsWith('"')) || (result.startsWith('"') && result.endsWith('"'))) {
-    result = result.slice(1, -1)
-  } else if (result.startsWith("'") && result.endsWith("'")) {
-    result = result.slice(1, -1)
-  }
-  return result.trim()
-}
-
-// Color palettes (ordered from darkest to lightest)
-// Note: text colors are now calculated dynamically based on luminance
-const GREEN_PALETTE = {
-  s40: '#3A8518', // Darkest green for largest values
-  s30: '#5A8C40',
-  s20: '#6FA84D',
-  s10: '#82BC62',
-  t10: '#A5CF8E',
-  t20: '#C8E2BA',
-  t40: '#DAEBD1',
-  t60: '#F5FFF5',
-  t80: '#FFFFFF', // Lightest green/white for smallest values
-}
-
-const YELLOW_PALETTE = {
-  s40: '#D4BA33', // Darkest yellow for largest values
-  s30: '#C5B845',
-  s20: '#D8C857',
-  s10: '#ECD560',
-  t10: '#F1E088',
-  t20: '#F5EAAF',
-  t40: '#FAF5D7',
-  t60: '#FFFEF5',
-  t80: '#FFFFFF', // Lightest yellow/white for smallest values
-}
 
 import type { ParsedCSV } from '../types'
 
@@ -115,13 +55,6 @@ const getColor = (value: number, sentiment: 'positive' | 'negative', minVal: num
   const textColor = getContrastTextColor(bgColor)
 
   return { bg: bgColor, text: textColor }
-}
-
-// Utility function to strip "Advocates:" or "Detractors:" prefix from title
-function stripSentimentPrefix(text: string): string {
-  if (!text) return text
-  // Remove "Advocates:" or "Detractors:" prefix (case insensitive)
-  return text.replace(/^(advocates|detractors):\s*/i, '').trim()
 }
 
 export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [], transposed = false, questionTypeBadge, heightOffset = 0, hideSegment = false, sentimentType = null }) => {

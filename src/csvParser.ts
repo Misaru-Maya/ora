@@ -5,6 +5,7 @@
 // Segment columns (Audience, Gender, Country, etc.) are all non-question columns
 // except Respondent Id and obvious ids.
 import type { ParsedCSV, QuestionDef, QuestionOptionColumn } from './types'
+import { stripQuotes } from './utils'
 
 // Performance: Disable console logs in production
 const isDev = process.env.NODE_ENV === 'development'
@@ -24,18 +25,6 @@ const POSSIBLE_ID_COLUMNS = new Set([
 
 function norm(s: string) {
   return (s || '').toString().trim().toLowerCase()
-}
-
-function stripQuotes(value: string): string {
-  if (!value) return value
-  let result = value
-  if ((result.startsWith('"') && result.endsWith('"')) || (result.startsWith('“') && result.endsWith('”'))) {
-    result = result.slice(1, -1)
-  }
-  if ((result.startsWith("'") && result.endsWith("'"))) {
-    result = result.slice(1, -1)
-  }
-  return result.replace(/""/g, '"').trim()
 }
 
 function stripQuestionPrefix(label: string): string {

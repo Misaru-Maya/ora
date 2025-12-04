@@ -12,28 +12,7 @@ import {
 import type { LabelProps } from 'recharts'
 import { customRound } from '../dataCalculations'
 import type { GroupSeriesMeta, SeriesDataPoint } from '../dataCalculations'
-
-// Utility function to determine text color based on background luminance
-function getContrastTextColor(hexColor: string): string {
-  // Remove # if present
-  const hex = hexColor.replace('#', '')
-
-  // Convert hex to RGB
-  const r = parseInt(hex.substring(0, 2), 16) / 255
-  const g = parseInt(hex.substring(2, 4), 16) / 255
-  const b = parseInt(hex.substring(4, 6), 16) / 255
-
-  // Apply gamma correction
-  const rLinear = r <= 0.03928 ? r / 12.92 : Math.pow((r + 0.055) / 1.055, 2.4)
-  const gLinear = g <= 0.03928 ? g / 12.92 : Math.pow((g + 0.055) / 1.055, 2.4)
-  const bLinear = b <= 0.03928 ? b / 12.92 : Math.pow((b + 0.055) / 1.055, 2.4)
-
-  // Calculate relative luminance using WCAG formula
-  const luminance = 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear
-
-  // Return white for dark backgrounds, black for light backgrounds
-  return luminance > 0.5 ? '#111111' : '#FFFFFF'
-}
+import { getContrastTextColor } from '../utils'
 
 const GROUP_COLORS = [
   '#3A8518', // green (1st segment)

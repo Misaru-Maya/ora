@@ -11,6 +11,7 @@
  */
 
 import type { ParsedCSV, QuestionDef, SegmentDef } from './types'
+import { stripQuotes } from './utils'
 
 // ============================================================================
 // Types
@@ -125,16 +126,6 @@ export interface RegressionAnalysisConfig {
 // ============================================================================
 // Helper Functions
 // ============================================================================
-
-function stripQuotes(value: string): string {
-  if (!value) return value
-  let result = value.trim()
-  if ((result.startsWith('"') && result.endsWith('"')) ||
-      (result.startsWith("'") && result.endsWith("'"))) {
-    result = result.slice(1, -1)
-  }
-  return result.trim()
-}
 
 function getRespondentId(row: Record<string, any>, columns: string[]): string {
   const respIdCol = columns.find(

@@ -5,32 +5,16 @@ import type { QuestionDef } from './types'
 import { buildSeries } from './dataCalculations'
 import { ChartGallery } from './components/ChartGallery'
 import { RegressionAnalysisPanel } from './components/RegressionAnalysisPanel'
+import { stripQuotes, isExcludedValue } from './utils'
 
 // Performance: Disable console logs in production
 const isDev = process.env.NODE_ENV === 'development'
 const devLog = isDev ? console.log : () => {}
 
-const EXCLUDED_VALUES = ['other', 'not specified', 'none of the above', 'skip']
-
-function isExcludedValue(value: string) {
-  const normalized = value.trim().toLowerCase().replace(/["']/g, '')
-  return EXCLUDED_VALUES.some(ex => normalized === ex || normalized.includes(ex))
-}
-
-function stripQuotesFromValue(value: string): string {
-  let result = value.trim()
-  // Strip leading and trailing quotes (both single and double)
-  if ((result.startsWith('"') && result.endsWith('"')) ||
-      (result.startsWith("'") && result.endsWith("'"))) {
-    result = result.slice(1, -1)
-  }
-  return result
-}
-
 function autoDefaultGroups(rows: any[], segCol?: string, maxDefaults = 2): string[] {
   if (!segCol) return []
   if (segCol === 'Overall') return ['Overall']
-  const vals = Array.from(new Set(rows.map(r => stripQuotesFromValue(String(r[segCol])))))
+  const vals = Array.from(new Set(rows.map(r => stripQuotes(String(r[segCol])))))
     .filter(v => v && v !== 'null' && v !== 'undefined' && !isExcludedValue(v))
 
   // For Gender, exclude "Prefer not to say" and "Other" from defaults
@@ -439,8 +423,8 @@ export default function App() {
               // Consumer question - use appropriate filtering logic
               if (consumerQuestion.type === 'single' && consumerQuestion.singleSourceColumn) {
                 // Single-select: check if row's value matches any of the selected values
-                const rowValue = stripQuotesFromValue(String(row[consumerQuestion.singleSourceColumn]))
-                return values.some(value => stripQuotesFromValue(value) === rowValue)
+                const rowValue = stripQuotes(String(row[consumerQuestion.singleSourceColumn]))
+                return values.some(value => stripQuotes(value) === rowValue)
               } else if (consumerQuestion.type === 'multi') {
                 // Multi-select: check if any of the selected options' columns are truthy
                 const result = values.some(value => {
@@ -474,9 +458,9 @@ export default function App() {
               return false
             } else {
               // Regular segment column
-              const rowValue = stripQuotesFromValue(String(row[column]))
+              const rowValue = stripQuotes(String(row[column]))
               // Match if row value equals ANY of the selected values in this category (OR logic)
-              return values.some(value => rowValue === stripQuotesFromValue(value))
+              return values.some(value => rowValue === stripQuotes(value))
             }
           })
           if (matches) matchedRows++
@@ -502,7 +486,7 @@ export default function App() {
   const segmentValues = useMemo(() => {
     if (!selections.segmentColumn) return []
     if (selections.segmentColumn === 'Overall') return ['Overall']
-    const values = Array.from(new Set(rows.map(r => stripQuotesFromValue(String(r[selections.segmentColumn!])))))
+    const values = Array.from(new Set(rows.map(r => stripQuotes(String(r[selections.segmentColumn!])))))
       .filter(v => v && v !== 'null' && v !== 'undefined')
     const sorted = sortSegmentValues(values, selections.segmentColumn)
 
@@ -1846,14 +1830,14 @@ export default function App() {
                       // Count respondents for each value in this segment column
                       const valueCounts = new Map<string, number>()
                       rowsRaw.forEach(r => {
-                        const val = stripQuotesFromValue(String(r[column]))
+                        const val = stripQuotes(String(r[column]))
                         if (val) {
                           valueCounts.set(val, (valueCounts.get(val) || 0) + 1)
                         }
                       })
 
                       const MIN_RESPONDENTS_FOR_SEGMENT = 10
-                      const rawValues = Array.from(new Set(rowsRaw.map(r => stripQuotesFromValue(String(r[column])))))
+                      const rawValues = Array.from(new Set(rowsRaw.map(r => stripQuotes(String(r[column])))))
                         .filter(v => {
                           if (!v || v === 'null' || v === 'undefined') return false
 

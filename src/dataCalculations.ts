@@ -1,4 +1,5 @@
 import type { ParsedCSV, QuestionDef, SortOrder, SegmentDef } from './types'
+import { stripQuotes } from './utils'
 
 // Performance: Disable console logs in production
 const isDev = process.env.NODE_ENV === 'development'
@@ -96,17 +97,6 @@ function parseMoneyValue(text: string): number {
   }
 
   return 0
-}
-
-function stripQuotes(value: string): string {
-  if (!value) return value
-  let result = value.trim()
-  if ((result.startsWith('"') && result.endsWith('"')) || (result.startsWith('“') && result.endsWith('”'))) {
-    result = result.slice(1, -1)
-  } else if (result.startsWith("'") && result.endsWith("'")) {
-    result = result.slice(1, -1)
-  }
-  return result.replace(/""/g, '"').trim()
 }
 
 export function buildSeries({

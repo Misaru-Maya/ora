@@ -1,60 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { ParsedCSV } from '../types'
-
-// Utility function to strip quotation marks from text
-function stripQuotes(text: string): string {
-  if (!text) return text
-  let result = text.trim()
-  // Remove leading and trailing quotes (both straight and curly quotes)
-  if ((result.startsWith('"') && result.endsWith('"')) || (result.startsWith('"') && result.endsWith('"'))) {
-    result = result.slice(1, -1)
-  } else if (result.startsWith("'") && result.endsWith("'")) {
-    result = result.slice(1, -1)
-  }
-  return result.trim()
-}
-
-// Utility function to determine text color based on background luminance
-function getContrastTextColor(hexColor: string): string {
-  const hex = hexColor.replace('#', '')
-  const r = parseInt(hex.substring(0, 2), 16) / 255
-  const g = parseInt(hex.substring(2, 4), 16) / 255
-  const b = parseInt(hex.substring(4, 6), 16) / 255
-
-  const rLinear = r <= 0.03928 ? r / 12.92 : Math.pow((r + 0.055) / 1.055, 2.4)
-  const gLinear = g <= 0.03928 ? g / 12.92 : Math.pow((g + 0.055) / 1.055, 2.4)
-  const bLinear = b <= 0.03928 ? b / 12.92 : Math.pow((b + 0.055) / 1.055, 2.4)
-
-  const luminance = 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear
-  return luminance > 0.5 ? '#111111' : '#FFFFFF'
-}
-
-// Green palette for Advocates (darkest to lightest)
-const GREEN_PALETTE = {
-  s40: '#3A8518',
-  s30: '#5A8C40',
-  s20: '#6FA84D',
-  s10: '#82BC62',
-  t10: '#A5CF8E',
-  t20: '#C8E2BA',
-  t40: '#DAEBD1',
-  t60: '#F5FFF5',
-  t80: '#FFFFFF',
-}
-
-// Yellow palette for Detractors (darkest to lightest)
-const YELLOW_PALETTE = {
-  s40: '#D4BA33',
-  s30: '#C5B845',
-  s20: '#D8C857',
-  s10: '#ECD560',
-  t10: '#F1E088',
-  t20: '#F5EAAF',
-  t40: '#FAF5D7',
-  t60: '#FFFEF5',
-  t80: '#FFFFFF',
-}
+import { stripQuotes, getContrastTextColor, GREEN_PALETTE, YELLOW_PALETTE } from '../utils'
 
 interface SentimentHeatmapProps {
   dataset: ParsedCSV
