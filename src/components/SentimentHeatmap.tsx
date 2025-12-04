@@ -68,6 +68,7 @@ interface SentimentHeatmapProps {
   productOrder?: string[]
   transposed?: boolean
   questionTypeBadge?: React.ReactNode
+  heightOffset?: number
 }
 
 interface ProductSentiment {
@@ -110,7 +111,8 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
   onSaveQuestionLabel,
   productOrder = [],
   transposed = false,
-  questionTypeBadge
+  questionTypeBadge,
+  heightOffset = 0
 }) => {
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
   const [questionLabelInput, setQuestionLabelInput] = useState('')
@@ -372,6 +374,13 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
 
   // Calculate first column width
   const firstColumnWidth = attributeColumnWidth ?? FIRST_COL_DEFAULT_WIDTH
+
+  // Calculate row padding based on heightOffset
+  // Base padding is 8px, heightOffset adds/subtracts from vertical padding
+  // heightOffset ranges from -100 to +300, we map it to padding change
+  const baseRowPadding = 8
+  const rowPaddingVertical = Math.max(4, baseRowPadding + Math.round(heightOffset / 20))
+  const cellPadding = `${rowPaddingVertical}px 12px`
 
   // Apply global product order from sidebar
   const orderedProducts = useMemo(() => {
@@ -685,7 +694,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
           </div>
         </div>
 
-        {/* Heatmap table - draggable */}
+        {/* Heatmap table - draggable with adjustable row height */}
         <div
           className="overflow-x-auto"
           onMouseDown={handleHeatmapDragStart}
@@ -809,7 +818,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                     <tr key={product.productName}>
                       <td style={{
                         backgroundColor: '#FFFFFF',
-                        padding: '8px 12px',
+                        padding: cellPadding,
                         fontSize: '14px',
                         fontWeight: 600,
                         width: `${firstColumnWidth}px`,
@@ -850,7 +859,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                         style={{
                           backgroundColor: advocateColor.bg,
                           color: advocateColor.text,
-                          padding: '8px 12px',
+                          padding: cellPadding,
                           textAlign: 'center',
                           fontSize: '14px',
                           fontWeight: advocateColor.text === '#FFFFFF' ? 'normal' : 600,
@@ -863,7 +872,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                         style={{
                           backgroundColor: detractorColor.bg,
                           color: detractorColor.text,
-                          padding: '8px 12px',
+                          padding: cellPadding,
                           textAlign: 'center',
                           fontSize: '14px',
                           fontWeight: detractorColor.text === '#FFFFFF' ? 'normal' : 600,
@@ -939,7 +948,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                 <tr>
                   <td style={{
                     backgroundColor: '#FFFFFF',
-                    padding: '8px 12px',
+                    padding: cellPadding,
                     fontSize: '14px',
                     fontWeight: 600,
                     width: `${firstColumnWidth}px`,
@@ -1004,7 +1013,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                         style={{
                           backgroundColor: bg,
                           color: text,
-                          padding: '8px 12px',
+                          padding: cellPadding,
                           textAlign: 'center',
                           fontSize: '14px',
                           fontWeight: text === '#FFFFFF' ? 'normal' : 600,
@@ -1020,7 +1029,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                 <tr>
                   <td style={{
                     backgroundColor: '#FFFFFF',
-                    padding: '8px 12px',
+                    padding: cellPadding,
                     fontSize: '14px',
                     fontWeight: 600,
                     width: `${firstColumnWidth}px`,
@@ -1085,7 +1094,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                         style={{
                           backgroundColor: bg,
                           color: text,
-                          padding: '8px 12px',
+                          padding: cellPadding,
                           textAlign: 'center',
                           fontSize: '14px',
                           fontWeight: text === '#FFFFFF' ? 'normal' : 600,

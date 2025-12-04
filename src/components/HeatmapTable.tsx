@@ -87,6 +87,7 @@ interface HeatmapTableProps {
   productOrder?: string[]
   transposed?: boolean
   questionTypeBadge?: React.ReactNode
+  heightOffset?: number
 }
 
 // Get color based on value and sentiment
@@ -123,7 +124,7 @@ function stripSentimentPrefix(text: string): string {
   return text.replace(/^(advocates|detractors):\s*/i, '').trim()
 }
 
-export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [], transposed = false, questionTypeBadge }) => {
+export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [], transposed = false, questionTypeBadge, heightOffset = 0 }) => {
   const [editingOption, setEditingOption] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
@@ -801,6 +802,13 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
   // Use state width if set, otherwise use calculated default
   const firstColumnWidth = attributeColumnWidth ?? firstColumnWidthDefault
 
+  // Calculate row padding based on heightOffset
+  // Base padding is 8px, heightOffset adds/subtracts from vertical padding
+  // heightOffset ranges from -100 to +300, we map it to padding change
+  const baseRowPadding = 8
+  const rowPaddingVertical = Math.max(4, baseRowPadding + Math.round(heightOffset / 20))
+  const cellPadding = `${rowPaddingVertical}px 12px`
+
   return (
     <>
       {filterPortalTarget && createPortal(filterButtons, filterPortalTarget)}
@@ -898,7 +906,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
         </div>
       </div>
 
-      {/* Heatmap table - draggable */}
+      {/* Heatmap table - draggable with adjustable row height */}
       <div
         className="overflow-x-auto"
         onMouseDown={handleHeatmapDragStart}
@@ -906,7 +914,9 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
           cursor: isDraggingHeatmap ? 'grabbing' : 'grab',
           userSelect: 'none',
           transition: isDraggingHeatmap ? 'none' : 'transform 0.1s ease-out',
-          transform: `translate(${heatmapOffset.x}px, ${heatmapOffset.y}px)`
+          transform: `translate(${heatmapOffset.x}px, ${heatmapOffset.y}px)`,
+          // Pass heightOffset as CSS variable for row height adjustment
+          ['--row-height-offset' as any]: `${heightOffset}px`
         }}
       >
         <table style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%', tableLayout: 'fixed' }}>
@@ -950,57 +960,55 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                   }}
                 />
                 {/* Advocates/Detractors indicator card + Question Type badge - right aligned with 10px margin from column edge */}
-                {questionLabel && (questionLabel.toLowerCase().includes('advocate') || questionLabel.toLowerCase().includes('detractor')) && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end', paddingBottom: '4px', paddingRight: '10px' }}>
-                    {questionLabel.toLowerCase().includes('advocate') && (
-                      <div
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '5px 10px',
-                          backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                          backdropFilter: 'blur(12px)',
-                          WebkitBackdropFilter: 'blur(12px)',
-                          border: '1px solid rgba(58, 133, 24, 0.15)',
-                          borderRadius: '8px',
-                          boxShadow: '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
-                          fontSize: '10px',
-                          fontWeight: 600,
-                          textTransform: 'uppercase' as const,
-                          letterSpacing: '0.5px'
-                        }}
-                      >
-                        <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#3A8518' }} />
-                        <span style={{ color: '#3A8518' }}>Advocates</span>
-                      </div>
-                    )}
-                    {questionLabel.toLowerCase().includes('detractor') && (
-                      <div
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '5px 10px',
-                          backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                          backdropFilter: 'blur(12px)',
-                          WebkitBackdropFilter: 'blur(12px)',
-                          border: '1px solid rgba(212, 186, 51, 0.15)',
-                          borderRadius: '8px',
-                          boxShadow: '0 2px 8px rgba(180, 150, 20, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
-                          fontSize: '10px',
-                          fontWeight: 600,
-                          textTransform: 'uppercase' as const,
-                          letterSpacing: '0.5px'
-                        }}
-                      >
-                        <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#D4BA33' }} />
-                        <span style={{ color: '#D4BA33' }}>Detractors</span>
-                      </div>
-                    )}
-                    {questionTypeBadge}
-                  </div>
-                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end', paddingBottom: '4px', paddingRight: '10px' }}>
+                  {questionLabel && questionLabel.toLowerCase().includes('advocate') && (
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '5px 10px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                        backdropFilter: 'blur(12px)',
+                        WebkitBackdropFilter: 'blur(12px)',
+                        border: '1px solid rgba(58, 133, 24, 0.15)',
+                        borderRadius: '8px',
+                        boxShadow: '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        textTransform: 'uppercase' as const,
+                        letterSpacing: '0.5px'
+                      }}
+                    >
+                      <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#3A8518' }} />
+                      <span style={{ color: '#3A8518' }}>Advocates</span>
+                    </div>
+                  )}
+                  {questionLabel && questionLabel.toLowerCase().includes('detractor') && (
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '5px 10px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                        backdropFilter: 'blur(12px)',
+                        WebkitBackdropFilter: 'blur(12px)',
+                        border: '1px solid rgba(212, 186, 51, 0.15)',
+                        borderRadius: '8px',
+                        boxShadow: '0 2px 8px rgba(180, 150, 20, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        textTransform: 'uppercase' as const,
+                        letterSpacing: '0.5px'
+                      }}
+                    >
+                      <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#D4BA33' }} />
+                      <span style={{ color: '#D4BA33' }}>Detractors</span>
+                    </div>
+                  )}
+                  {questionTypeBadge}
+                </div>
               </th>
               {displayGroups.map((group) => (
                 <th
@@ -1040,7 +1048,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
               <tr key={row.option}>
                 <td style={{
                   backgroundColor: '#FFFFFF',
-                  padding: '8px 12px',
+                  padding: cellPadding,
                   fontSize: '14px',
                   fontWeight: 600,
                   width: `${firstColumnWidth}px`,
@@ -1141,7 +1149,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                       style={{
                         backgroundColor: bg,
                         color: text,
-                        padding: '8px 12px',
+                        padding: cellPadding,
                         textAlign: 'center',
                         fontSize: '14px',
                         fontWeight: text === '#FFFFFF' ? 'normal' : 600,

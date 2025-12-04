@@ -64,6 +64,8 @@ export interface Selections {
   sortOrder: SortOrder
   statSigFilter: StatSigFilter
   hideAsterisks?: boolean
+  hideSegment?: boolean
+  hideQuestionType?: boolean
   chartColors?: string[]
   optionLabels?: Record<string, Record<string, string>> // Map of qid -> option -> custom label
   questionLabels?: Record<string, string> // Map of qid -> custom question title

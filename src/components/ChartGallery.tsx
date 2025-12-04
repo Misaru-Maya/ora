@@ -105,9 +105,16 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   // Chart width resize state
   const [chartWidthPercent, setChartWidthPercent] = useState(100)
   const [isResizingChart, setIsResizingChart] = useState(false)
+  const [resizingHandle, setResizingHandle] = useState<'left' | 'right' | null>(null)
   const chartResizeStartX = useRef<number>(0)
   const chartResizeStartWidth = useRef<number>(100)
   const chartContainerRef = useRef<HTMLDivElement | null>(null)
+
+  // Chart height resize state
+  const [chartHeightOffset, setChartHeightOffset] = useState(0)
+  const [isResizingHeight, setIsResizingHeight] = useState(false)
+  const heightResizeStartY = useRef<number>(0)
+  const heightResizeStartOffset = useRef<number>(0)
 
   // Screenshot handler - captures only chart content without buttons
   const _handleScreenshot = async () => {
@@ -195,16 +202,17 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   }, [isDraggingBadge, dragOffset])
 
   // Chart width resize handlers
-  const handleChartResizeStart = (e: React.MouseEvent) => {
+  const handleChartResizeStart = (handle: 'left' | 'right') => (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setIsResizingChart(true)
+    setResizingHandle(handle)
     chartResizeStartX.current = e.clientX
     chartResizeStartWidth.current = chartWidthPercent
   }
 
   useEffect(() => {
-    if (!isResizingChart) return
+    if (!isResizingChart || !resizingHandle) return
 
     const handleMouseMove = (e: MouseEvent) => {
       const container = chartContainerRef.current
@@ -213,14 +221,17 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       const containerWidth = container.offsetWidth
       const deltaX = e.clientX - chartResizeStartX.current
       // Calculate new width percentage based on drag distance
-      // Dragging right = wider (positive delta = positive change)
+      // Left handle: dragging left (negative deltaX) = expand, dragging right = shrink
+      // Right handle: dragging right (positive deltaX) = expand, dragging left = shrink
       const deltaPercent = (deltaX / containerWidth) * 100
-      const newWidthPercent = Math.max(40, Math.min(100, chartResizeStartWidth.current + deltaPercent))
+      const adjustedDelta = resizingHandle === 'left' ? -deltaPercent : deltaPercent
+      const newWidthPercent = Math.max(40, Math.min(100, chartResizeStartWidth.current + adjustedDelta))
       setChartWidthPercent(newWidthPercent)
     }
 
     const handleMouseUp = () => {
       setIsResizingChart(false)
+      setResizingHandle(null)
     }
 
     document.addEventListener('mousemove', handleMouseMove)
@@ -230,7 +241,39 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isResizingChart])
+  }, [isResizingChart, resizingHandle])
+
+  // Chart height resize handlers
+  const handleHeightResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsResizingHeight(true)
+    heightResizeStartY.current = e.clientY
+    heightResizeStartOffset.current = chartHeightOffset
+  }
+
+  useEffect(() => {
+    if (!isResizingHeight) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaY = e.clientY - heightResizeStartY.current
+      // Clamp height offset between -100 and 300
+      const newOffset = Math.max(-100, Math.min(300, heightResizeStartOffset.current + deltaY))
+      setChartHeightOffset(newOffset)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizingHeight(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizingHeight])
 
   // Can use alternate chart types for single select with < 7 visible options (after filtering)
   const visibleOptionsCount = series.data.length
@@ -1227,22 +1270,25 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       <div ref={chartContainerRef} style={{
         display: 'flex',
         justifyContent: 'center',
+        alignItems: 'flex-start',
         width: '100%',
         paddingTop: '0px',
-        paddingBottom: '0px',
-        position: 'relative'
+        paddingBottom: '30px',
+        position: 'relative',
+        minHeight: `${300 + chartHeightOffset}px`,
+        transition: isResizingHeight ? 'none' : 'min-height 0.1s ease-out'
       }}>
-      {/* Right resize handle only - chart is left-aligned */}
+      {/* Left resize handle */}
       <div
-        onMouseDown={handleChartResizeStart}
+        onMouseDown={handleChartResizeStart('left')}
         style={{
           position: 'absolute',
-          left: `${chartWidthPercent}%`,
+          left: `calc(50% - ${chartWidthPercent / 2}% - 12px)`,
           top: 0,
-          bottom: 0,
+          bottom: 30,
           width: '8px',
           cursor: 'ew-resize',
-          backgroundColor: isResizingChart ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
+          backgroundColor: isResizingChart && resizingHandle === 'left' ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
           transition: 'background-color 0.15s ease',
           zIndex: 10,
           display: 'flex',
@@ -1255,7 +1301,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
           }
         }}
         onMouseLeave={(e) => {
-          if (!isResizingChart) {
+          if (!isResizingChart || resizingHandle !== 'left') {
             e.currentTarget.style.backgroundColor = 'transparent'
           }
         }}
@@ -1263,16 +1309,51 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         <div style={{
           width: '3px',
           height: '40px',
-          backgroundColor: isResizingChart ? '#3A8518' : '#CED6DE',
+          backgroundColor: isResizingChart && resizingHandle === 'left' ? '#3A8518' : '#CED6DE',
+          borderRadius: '2px',
+          transition: 'background-color 0.15s ease'
+        }} />
+      </div>
+      {/* Right resize handle */}
+      <div
+        onMouseDown={handleChartResizeStart('right')}
+        style={{
+          position: 'absolute',
+          left: `calc(50% + ${chartWidthPercent / 2}% + 4px)`,
+          top: 0,
+          bottom: 30,
+          width: '8px',
+          cursor: 'ew-resize',
+          backgroundColor: isResizingChart && resizingHandle === 'right' ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
+          transition: 'background-color 0.15s ease',
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+        onMouseEnter={(e) => {
+          if (!isResizingChart) {
+            e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.2)'
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isResizingChart || resizingHandle !== 'right') {
+            e.currentTarget.style.backgroundColor = 'transparent'
+          }
+        }}
+      >
+        <div style={{
+          width: '3px',
+          height: '40px',
+          backgroundColor: isResizingChart && resizingHandle === 'right' ? '#3A8518' : '#CED6DE',
           borderRadius: '2px',
           transition: 'background-color 0.15s ease'
         }} />
       </div>
       <div ref={chartContentRef} style={{
         transform: 'scale(0.9)',
-        transformOrigin: 'top left',
-        width: `${chartWidthPercent * 1.1}%`,
-        marginLeft: '0',
+        transformOrigin: 'top center',
+        width: `${chartWidthPercent}%`,
         transition: isResizingChart ? 'none' : 'width 0.1s ease-out'
       }}>
       {(() => {
@@ -1323,6 +1404,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               onSaveOptionLabel={onSaveOptionLabel}
               onSaveQuestionLabel={onSaveQuestionLabel}
               questionTypeBadge={questionTypeBadge}
+              heightOffset={chartHeightOffset}
             />
           )
         }
@@ -1375,6 +1457,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               onSaveOptionLabel={onSaveOptionLabel}
               onSaveQuestionLabel={onSaveQuestionLabel}
               questionTypeBadge={questionTypeBadge}
+              heightOffset={chartHeightOffset}
             />
           )
         }
@@ -1453,6 +1536,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                   productOrder={productOrder}
                   transposed={heatmapTransposed}
                   questionTypeBadge={questionTypeBadge}
+                  heightOffset={chartHeightOffset}
                 />
               </div>
             )
@@ -1503,6 +1587,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               productOrder={productOrder}
               transposed={heatmapTransposed}
               questionTypeBadge={questionTypeBadge}
+              heightOffset={chartHeightOffset}
             />
           )
         }
@@ -1518,9 +1603,46 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
             onSaveOptionLabel={onSaveOptionLabel}
             onSaveQuestionLabel={onSaveQuestionLabel}
             questionTypeBadge={questionTypeBadge}
+            heightOffset={chartHeightOffset}
           />
         )
       })()}
+      </div>
+      {/* Height resize handle below the chart */}
+      <div
+        onMouseDown={handleHeightResizeStart}
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: '8px',
+          cursor: 'ns-resize',
+          backgroundColor: isResizingHeight ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
+          transition: 'background-color 0.15s ease',
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+        onMouseEnter={(e) => {
+          if (!isResizingHeight) {
+            e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.2)'
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isResizingHeight) {
+            e.currentTarget.style.backgroundColor = 'transparent'
+          }
+        }}
+      >
+        <div style={{
+          width: '40px',
+          height: '3px',
+          backgroundColor: isResizingHeight ? '#3A8518' : '#CED6DE',
+          borderRadius: '2px',
+          transition: 'background-color 0.15s ease'
+        }} />
       </div>
       </div>
         )
@@ -1628,7 +1750,7 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
   // Create a wrapper div with ref for each chart
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2" style={{ paddingTop: '20px' }}>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2" style={{ paddingTop: '20px', paddingBottom: '30px' }}>
         {renderableEntries.map(({ question, series }) => {
           return (
             <div

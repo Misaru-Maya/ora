@@ -2454,7 +2454,7 @@ export default function App() {
                             fontWeight: 500
                           }}
                         >
-                          Remove Asterisks
+                          Hide Asterisks
                         </span>
                       </div>
                     </div>
@@ -2509,7 +2509,7 @@ export default function App() {
                             fontWeight: 500
                           }}
                         >
-                          Remove Asterisks
+                          Hide Asterisks
                         </span>
                       </div>
                     </div>
@@ -2726,21 +2726,16 @@ export default function App() {
                   </div>
                   {expandedSections.has('display') && (
                   <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '0 0 12px 12px' }}>
-                    <div style={{ marginBottom: '16px' }}>
+                    {/* Hide Segment Toggle */}
+                    <div style={{ marginBottom: '12px' }}>
                       <div className="flex items-center" style={{ gap: '10px' }}>
                         <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px', flexShrink: 0 }}>
                           <input
                             type="checkbox"
-                            checked={(() => {
-                              const defaultColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
-                              const currentColors = selections.chartColors || defaultColors
-                              return JSON.stringify(currentColors) === JSON.stringify(defaultColors)
-                            })()}
+                            checked={selections.hideSegment || false}
                             onChange={(e) => {
                               e.stopPropagation()
-                              if (e.target.checked) {
-                                setSelections({ chartColors: ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'] })
-                              }
+                              setSelections({ hideSegment: e.target.checked })
                             }}
                             style={{ opacity: 0, width: 0, height: 0 }}
                           />
@@ -2753,11 +2748,7 @@ export default function App() {
                               left: 0,
                               right: 0,
                               bottom: 0,
-                              backgroundColor: (() => {
-                                const defaultColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
-                                const currentColors = selections.chartColors || defaultColors
-                                return JSON.stringify(currentColors) === JSON.stringify(defaultColors) ? '#3A8518' : '#D1D5DB'
-                              })(),
+                              backgroundColor: selections.hideSegment ? '#3A8518' : '#D1D5DB',
                               transition: '0.3s',
                               borderRadius: '11px'
                             }}
@@ -2768,11 +2759,7 @@ export default function App() {
                                 content: '""',
                                 height: '18px',
                                 width: '18px',
-                                left: (() => {
-                                  const defaultColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
-                                  const currentColors = selections.chartColors || defaultColors
-                                  return JSON.stringify(currentColors) === JSON.stringify(defaultColors) ? '20px' : '2px'
-                                })(),
+                                left: selections.hideSegment ? '20px' : '2px',
                                 top: '2px',
                                 backgroundColor: 'white',
                                 transition: '0.3s',
@@ -2784,88 +2771,264 @@ export default function App() {
                         </label>
                         <span
                           style={{
-                            color: (() => {
-                              const defaultColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
-                              const currentColors = selections.chartColors || defaultColors
-                              return JSON.stringify(currentColors) === JSON.stringify(defaultColors) ? '#374151' : '#6B7280'
-                            })(),
+                            color: selections.hideSegment ? '#374151' : '#6B7280',
                             fontSize: '13px',
                             fontWeight: 500
                           }}
                         >
-                          Default colors
+                          Hide Segment
                         </span>
                       </div>
                     </div>
-                    <div className="flex flex-col" style={{ gap: '10px' }}>
-                      {(selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088']).slice(0, 6).map((color, index) => (
-                        <div key={index} className="flex items-center" style={{ gap: '10px' }}>
-                          <label className="cursor-pointer">
-                            <div
-                              style={{
-                                backgroundColor: color,
-                                width: '36px',
-                                height: '36px',
-                                minWidth: '36px',
-                                minHeight: '36px',
-                                borderRadius: '8px',
-                                border: '1px solid #E5E7EB',
-                                cursor: 'pointer',
-                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                              }}
-                            />
-                            <input
-                              type="color"
-                              value={color}
-                              onChange={(e) => {
-                                const newColors = [...(selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'])]
-                                newColors[index] = e.target.value.toUpperCase()
-                                setSelections({ chartColors: newColors })
-                              }}
-                              style={{
-                                opacity: 0,
-                                position: 'absolute',
-                                pointerEvents: 'none',
-                                width: 0,
-                                height: 0
-                              }}
-                            />
-                          </label>
+                    {/* Hide Question Type Toggle */}
+                    <div style={{ marginBottom: '16px' }}>
+                      <div className="flex items-center" style={{ gap: '10px' }}>
+                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px', flexShrink: 0 }}>
                           <input
-                            type="text"
-                            value={color.toUpperCase()}
+                            type="checkbox"
+                            checked={selections.hideQuestionType || false}
                             onChange={(e) => {
-                              const value = e.target.value.trim()
-                              // Auto-add # if not present
-                              const hexValue = value.startsWith('#') ? value : `#${value}`
-                              // Validate hex code
-                              if (/^#[0-9A-Fa-f]{6}$/.test(hexValue)) {
-                                const newColors = [...(selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'])]
-                                newColors[index] = hexValue.toUpperCase()
-                                setSelections({ chartColors: newColors })
-                              }
+                              e.stopPropagation()
+                              setSelections({ hideQuestionType: e.target.checked })
                             }}
-                            style={{
-                              width: '90px',
-                              fontSize: '12px',
-                              fontFamily: 'monospace',
-                              textAlign: 'center',
-                              padding: '8px 10px',
-                              border: '1px solid #E5E7EB',
-                              borderRadius: '8px',
-                              outline: 'none',
-                              transition: 'border-color 0.15s ease'
-                            }}
-                            onFocus={(e) => {
-                              e.target.style.borderColor = '#3A8518'
-                            }}
-                            onBlur={(e) => {
-                              e.target.style.borderColor = '#E5E7EB'
-                            }}
-                            placeholder="#000000"
+                            style={{ opacity: 0, width: 0, height: 0 }}
                           />
+                          <span
+                            className="slider round"
+                            style={{
+                              position: 'absolute',
+                              cursor: 'pointer',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              backgroundColor: selections.hideQuestionType ? '#3A8518' : '#D1D5DB',
+                              transition: '0.3s',
+                              borderRadius: '11px'
+                            }}
+                          >
+                            <span
+                              style={{
+                                position: 'absolute',
+                                content: '""',
+                                height: '18px',
+                                width: '18px',
+                                left: selections.hideQuestionType ? '20px' : '2px',
+                                top: '2px',
+                                backgroundColor: 'white',
+                                transition: '0.3s',
+                                borderRadius: '50%',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                              }}
+                            />
+                          </span>
+                        </label>
+                        <span
+                          style={{
+                            color: selections.hideQuestionType ? '#374151' : '#6B7280',
+                            fontSize: '13px',
+                            fontWeight: 500
+                          }}
+                        >
+                          Hide Question Type
+                        </span>
+                      </div>
+                    </div>
+                    {/* Colors Collapsible Section */}
+                    <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
+                      <div
+                        className="flex items-center justify-between cursor-pointer"
+                        onClick={() => {
+                          const newExpanded = new Set(expandedDisplayGroups)
+                          if (newExpanded.has('colors')) {
+                            newExpanded.delete('colors')
+                          } else {
+                            newExpanded.add('colors')
+                          }
+                          setExpandedDisplayGroups(newExpanded)
+                        }}
+                        style={{
+                          padding: '8px 0',
+                          marginBottom: expandedDisplayGroups.has('colors') ? '12px' : '0'
+                        }}
+                      >
+                        <div className="flex items-center" style={{ gap: '8px' }}>
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#3A8518"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <circle cx="12" cy="12" r="10" />
+                            <circle cx="12" cy="12" r="6" />
+                            <circle cx="12" cy="12" r="2" />
+                          </svg>
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Chart Colors</span>
                         </div>
-                      ))}
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#9CA3AF"
+                          strokeWidth="2"
+                          className="flex-shrink-0 transition-transform"
+                          style={{ transform: expandedDisplayGroups.has('colors') ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                        >
+                          <path d="M6 9l6 6 6-6" />
+                        </svg>
+                      </div>
+                      {expandedDisplayGroups.has('colors') && (
+                        <>
+                          {/* Default Toggle */}
+                          <div style={{ marginBottom: '12px' }}>
+                            <div className="flex items-center" style={{ gap: '10px' }}>
+                              <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px', flexShrink: 0 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={(() => {
+                                    const defaultColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
+                                    const currentColors = selections.chartColors || defaultColors
+                                    return JSON.stringify(currentColors) === JSON.stringify(defaultColors)
+                                  })()}
+                                  onChange={(e) => {
+                                    e.stopPropagation()
+                                    if (e.target.checked) {
+                                      setSelections({ chartColors: ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'] })
+                                    }
+                                  }}
+                                  style={{ opacity: 0, width: 0, height: 0 }}
+                                />
+                                <span
+                                  className="slider round"
+                                  style={{
+                                    position: 'absolute',
+                                    cursor: 'pointer',
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    backgroundColor: (() => {
+                                      const defaultColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
+                                      const currentColors = selections.chartColors || defaultColors
+                                      return JSON.stringify(currentColors) === JSON.stringify(defaultColors) ? '#3A8518' : '#D1D5DB'
+                                    })(),
+                                    transition: '0.3s',
+                                    borderRadius: '11px'
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      position: 'absolute',
+                                      content: '""',
+                                      height: '18px',
+                                      width: '18px',
+                                      left: (() => {
+                                        const defaultColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
+                                        const currentColors = selections.chartColors || defaultColors
+                                        return JSON.stringify(currentColors) === JSON.stringify(defaultColors) ? '20px' : '2px'
+                                      })(),
+                                      top: '2px',
+                                      backgroundColor: 'white',
+                                      transition: '0.3s',
+                                      borderRadius: '50%',
+                                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                    }}
+                                  />
+                                </span>
+                              </label>
+                              <span
+                                style={{
+                                  color: (() => {
+                                    const defaultColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
+                                    const currentColors = selections.chartColors || defaultColors
+                                    return JSON.stringify(currentColors) === JSON.stringify(defaultColors) ? '#374151' : '#6B7280'
+                                  })(),
+                                  fontSize: '13px',
+                                  fontWeight: 500
+                                }}
+                              >
+                                Default
+                              </span>
+                            </div>
+                          </div>
+                          {/* Color Pickers */}
+                          <div className="flex flex-col" style={{ gap: '10px' }}>
+                            {(selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088']).slice(0, 6).map((color, index) => (
+                              <div key={index} className="flex items-center" style={{ gap: '10px' }}>
+                                <label className="cursor-pointer">
+                                  <div
+                                    style={{
+                                      backgroundColor: color,
+                                      width: '36px',
+                                      height: '36px',
+                                      minWidth: '36px',
+                                      minHeight: '36px',
+                                      borderRadius: '8px',
+                                      border: '1px solid #E5E7EB',
+                                      cursor: 'pointer',
+                                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                    }}
+                                  />
+                                  <input
+                                    type="color"
+                                    value={color}
+                                    onChange={(e) => {
+                                      const newColors = [...(selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'])]
+                                      newColors[index] = e.target.value.toUpperCase()
+                                      setSelections({ chartColors: newColors })
+                                    }}
+                                    style={{
+                                      opacity: 0,
+                                      position: 'absolute',
+                                      pointerEvents: 'none',
+                                      width: 0,
+                                      height: 0
+                                    }}
+                                  />
+                                </label>
+                                <input
+                                  type="text"
+                                  value={color.toUpperCase()}
+                                  onChange={(e) => {
+                                    const value = e.target.value.trim()
+                                    // Auto-add # if not present
+                                    const hexValue = value.startsWith('#') ? value : `#${value}`
+                                    // Validate hex code
+                                    if (/^#[0-9A-Fa-f]{6}$/.test(hexValue)) {
+                                      const newColors = [...(selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'])]
+                                      newColors[index] = hexValue.toUpperCase()
+                                      setSelections({ chartColors: newColors })
+                                    }
+                                  }}
+                                  style={{
+                                    width: '90px',
+                                    fontSize: '12px',
+                                    fontFamily: 'monospace',
+                                    textAlign: 'center',
+                                    padding: '8px 10px',
+                                    border: '1px solid #E5E7EB',
+                                    borderRadius: '8px',
+                                    outline: 'none',
+                                    transition: 'border-color 0.15s ease'
+                                  }}
+                                  onFocus={(e) => {
+                                    e.target.style.borderColor = '#3A8518'
+                                  }}
+                                  onBlur={(e) => {
+                                    e.target.style.borderColor = '#E5E7EB'
+                                  }}
+                                  placeholder="#000000"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                   )}
@@ -2897,7 +3060,7 @@ export default function App() {
 
         {/* Scrollable Main Content Panel */}
         <main
-          className="overflow-y-auto"
+          className="overflow-y-auto overflow-x-hidden"
           style={{
             position: 'fixed',
             top: '72px',
@@ -2908,7 +3071,7 @@ export default function App() {
             transition: 'left 0.3s ease, width 0.3s ease'
           }}
         >
-          <div className="pt-4 pr-4 pb-4 pl-2">
+          <div className="pt-4 pb-4" style={{ paddingLeft: '40px', paddingRight: '40px' }}>
             <div className="rounded-2xl bg-white p-3 shadow-sm min-h-[460px]">
               {dataset ? (
                 filteredDataset && ((selections.segments && selections.segments.length > 0) || (selections.segmentColumn && orderedGroups.length > 0)) ? (
@@ -2925,6 +3088,8 @@ export default function App() {
                     selectedQuestionId={selections.question}
                     filterSignificantOnly={statSigFilter === 'statSigOnly'}
                     hideAsterisks={selections.hideAsterisks || false}
+                    hideSegment={selections.hideSegment || false}
+                    hideQuestionType={selections.hideQuestionType || false}
                     chartColors={selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']}
                     optionLabels={selections.optionLabels || {}}
                     onSaveOptionLabel={handleSaveOptionLabel}

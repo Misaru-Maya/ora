@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
+import React, { useState, useRef, useEffect } from 'react'
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import type { SeriesDataPoint, GroupSeriesMeta } from '../dataCalculations'
 
 const PIE_COLORS = [
@@ -25,6 +25,8 @@ interface SingleSelectPieChartProps {
   onSaveOptionLabel?: (option: string, newLabel: string) => void
   onSaveQuestionLabel?: (newLabel: string) => void
   questionTypeBadge?: React.ReactNode
+  heightOffset?: number
+  hideSegment?: boolean
 }
 
 export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
@@ -36,12 +38,91 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
   optionLabels: _optionLabels = {},
   onSaveOptionLabel,
   onSaveQuestionLabel,
-  questionTypeBadge
+  questionTypeBadge,
+  heightOffset = 0,
+  hideSegment = false
 }) => {
   const [editingOption, setEditingOption] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
   const [questionLabelInput, setQuestionLabelInput] = useState('')
+
+  // Title drag state
+  const [titleOffset, setTitleOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [isDraggingTitle, setIsDraggingTitle] = useState(false)
+  const titleDragStartPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const titleStartOffset = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  // Chart drag state
+  const [chartOffset, setChartOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [isDraggingChart, setIsDraggingChart] = useState(false)
+  const chartDragStartPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const chartStartOffset = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  // Title drag handlers
+  const handleTitleMouseDown = (e: React.MouseEvent) => {
+    if (editingQuestionLabel) return
+    e.preventDefault()
+    setIsDraggingTitle(true)
+    titleDragStartPos.current = { x: e.clientX, y: e.clientY }
+    titleStartOffset.current = { ...titleOffset }
+  }
+
+  useEffect(() => {
+    if (!isDraggingTitle) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - titleDragStartPos.current.x
+      const deltaY = e.clientY - titleDragStartPos.current.y
+      setTitleOffset({
+        x: titleStartOffset.current.x + deltaX,
+        y: titleStartOffset.current.y + deltaY
+      })
+    }
+
+    const handleMouseUp = () => {
+      setIsDraggingTitle(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDraggingTitle])
+
+  // Chart drag handlers
+  const handleChartMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsDraggingChart(true)
+    chartDragStartPos.current = { x: e.clientX, y: e.clientY }
+    chartStartOffset.current = { ...chartOffset }
+  }
+
+  useEffect(() => {
+    if (!isDraggingChart) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - chartDragStartPos.current.x
+      const deltaY = e.clientY - chartDragStartPos.current.y
+      setChartOffset({
+        x: chartStartOffset.current.x + deltaX,
+        y: chartStartOffset.current.y + deltaY
+      })
+    }
+
+    const handleMouseUp = () => {
+      setIsDraggingChart(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDraggingChart])
 
   console.log('SingleSelectPieChart received:', {
     dataLength: data.length,
@@ -88,7 +169,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
         fill="#1f2833"
         textAnchor={entry.x > entry.cx ? 'start' : 'end'}
         dominantBaseline="central"
-        fontSize="14"
+        fontSize="16"
         fontWeight="600"
       >
         {`${Math.round(entry.value)}%`}
@@ -100,7 +181,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
   const reversedPieData = [...pieData].reverse()
 
   const legendContent = (
-    <div className="flex flex-col items-start gap-3 text-xs font-semibold text-brand-gray" style={{ paddingBottom: '10px' }}>
+    <div className="flex flex-col items-start gap-3 text-sm font-semibold text-brand-gray" style={{ paddingBottom: '10px' }}>
       {pieData.map((entry, index) => {
         // Find original option key from data
         const dataPoint = data.find(d => d.optionDisplay === entry.name)
@@ -195,6 +276,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
       <div style={{ width: '100%' }}>
         {/* Header Row: Spacer (left) | Title (center) | Badge (right) */}
         <div
+          onMouseDown={handleTitleMouseDown}
           style={{
             display: 'flex',
             alignItems: 'flex-start',
@@ -203,7 +285,13 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
             marginBottom: '15px',
             paddingLeft: '16px',
             paddingRight: '16px',
-            gap: '16px'
+            gap: '16px',
+            transform: `translate(${titleOffset.x}px, ${titleOffset.y}px)`,
+            cursor: isDraggingTitle ? 'grabbing' : 'grab',
+            userSelect: 'none',
+            transition: isDraggingTitle ? 'none' : 'transform 0.1s ease-out',
+            position: 'relative',
+            zIndex: 20
           }}
         >
           {/* Left: Spacer for balance */}
@@ -288,10 +376,21 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
           <div style={{ flex: '0 0 auto', minWidth: '80px' }}></div>
         </div>
 
-        <div className={`flex justify-center ${legendOrientation === 'horizontal' ? 'flex-row items-center' : 'flex-col items-center gap-4'}`} style={{ gap: legendOrientation === 'horizontal' ? '30px' : undefined }}>
-          <div style={{ width: '280px', height: '280px', flexShrink: 0 }}>
+        <div
+          onMouseDown={handleChartMouseDown}
+          className={`flex justify-center ${legendOrientation === 'horizontal' ? 'flex-row items-center' : 'flex-col items-center gap-4'}`}
+          style={{
+            gap: legendOrientation === 'horizontal' ? '30px' : undefined,
+            transform: `translate(${chartOffset.x}px, ${chartOffset.y}px)`,
+            cursor: isDraggingChart ? 'grabbing' : 'grab',
+            transition: isDraggingChart ? 'none' : 'transform 0.1s ease-out',
+            position: 'relative',
+            zIndex: 10
+          }}
+        >
+          <div style={{ width: `${320 + heightOffset}px`, height: `${280 + heightOffset}px`, flexShrink: 0, overflow: 'visible' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
+              <PieChart margin={{ top: 20, right: 40, bottom: 20, left: 40 }}>
                 <Pie
                   data={reversedPieData}
                   dataKey="value"
@@ -313,37 +412,35 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
                     )
                   })}
                 </Pie>
-                <Tooltip
-                  formatter={(value: number) => `${Math.round(value)}%`}
-                />
               </PieChart>
             </ResponsiveContainer>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {/* Segment Label above legend - glassmorphic card */}
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                alignSelf: 'flex-start',
-                gap: '6px',
-                padding: '6px 12px',
-                backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-                border: '1px solid rgba(0, 0, 0, 0.06)',
-                borderRadius: '8px',
-                boxShadow: '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
-                fontSize: '10px',
-                fontWeight: 600,
-                color: '#64748b',
-                textTransform: 'uppercase' as const,
-                letterSpacing: '0.5px'
-              }}
-            >
-              <span>Segment:</span>
-              <span style={{ color: '#374151' }}>{group.label}</span>
-            </div>
+            {/* Segment Label above legend - pill card style like advocate/detractor */}
+            {!hideSegment && (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  alignSelf: 'flex-start',
+                  gap: '6px',
+                  padding: '5px 10px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(58, 133, 24, 0.15)',
+                  borderRadius: '16px',
+                  boxShadow: '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase' as const,
+                  letterSpacing: '0.5px'
+                }}
+              >
+                <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#3A8518' }} />
+                <span style={{ color: '#3A8518' }}>{group.label}</span>
+              </div>
+            )}
             {/* Question Type Badge below segment card */}
             <div style={{ alignSelf: 'flex-start' }}>
               {questionTypeBadge}

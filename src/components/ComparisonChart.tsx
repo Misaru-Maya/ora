@@ -46,9 +46,9 @@ const GROUP_COLORS = [
   '#FAF5D7', // pale yellow
 ]
 
-const LABEL_FONT_SIZE = 14
-const HORIZONTAL_BAR_SIZE = Math.round(Math.max(LABEL_FONT_SIZE + 8, 32) * 0.9)
-const VERTICAL_BAR_SIZE = Math.max(LABEL_FONT_SIZE + 8, 32)
+const LABEL_FONT_SIZE = 16
+const HORIZONTAL_BAR_SIZE = Math.round(Math.max(LABEL_FONT_SIZE + 10, 36) * 0.95)
+const VERTICAL_BAR_SIZE = Math.max(LABEL_FONT_SIZE + 10, 36)
 const AXIS_LINE_STYLE = { stroke: '#000', strokeWidth: 1 }
 const TICK_LINE_STYLE = { stroke: '#000', strokeWidth: 1 }
 
@@ -274,7 +274,7 @@ const EditableYAxisTick: React.FC<any & {
   data: SeriesDataPoint[]
   maxWidth?: number
 }> = (props) => {
-  const { x, y, payload, editingOption, setEditingOption, editInput, setEditInput, onSave, data, maxWidth = 190 } = props
+  const { x, y, payload, editingOption, setEditingOption, editInput, setEditInput, onSave, data, maxWidth = 150 } = props
   const text = payload.value || ''
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -310,6 +310,7 @@ const EditableYAxisTick: React.FC<any & {
   // Word wrapping for long labels, respecting manual line breaks
   const lineHeight = 14
   const lines: string[] = []
+  const charWidth = 7 // Rough estimate: 7 pixels per character
 
   // First split by newlines to preserve user's manual line breaks
   const manualLines = text.split('\n')
@@ -320,8 +321,36 @@ const EditableYAxisTick: React.FC<any & {
 
     words.forEach((word: string) => {
       const testLine = currentLine ? `${currentLine} ${word}` : word
-      // Rough estimate: 6 pixels per character to allow wider text display matching input box width
-      if (testLine.length * 6 > maxWidth && currentLine) {
+
+      // Check if word itself is too long for maxWidth
+      if (word.length * charWidth > maxWidth) {
+        // Push current line first if there's content
+        if (currentLine) {
+          lines.push(currentLine)
+          currentLine = ''
+        }
+        // Force break the long word/phrase - break at natural points like commas or opening parens
+        let remaining = word
+        while (remaining.length * charWidth > maxWidth) {
+          // Try to find a good break point (comma, opening paren, or just mid-word)
+          const targetChars = Math.floor(maxWidth / charWidth)
+          let breakPoint = targetChars
+
+          // Look for comma or paren within the target range
+          for (let i = targetChars; i > targetChars / 2; i--) {
+            if (remaining[i] === ',' || remaining[i] === '(' || remaining[i] === ')') {
+              breakPoint = i + 1
+              break
+            }
+          }
+
+          lines.push(remaining.slice(0, breakPoint))
+          remaining = remaining.slice(breakPoint)
+        }
+        if (remaining) {
+          currentLine = remaining
+        }
+      } else if (testLine.length * charWidth > maxWidth && currentLine) {
         lines.push(currentLine)
         currentLine = word
       } else {
@@ -497,8 +526,8 @@ const EditableXAxisTick: React.FC<any & {
 
     words.forEach((word: string) => {
       const testLine = currentLine ? `${currentLine} ${word}` : word
-      // Rough estimate: 6 pixels per character to allow wider text display matching input box width
-      if (testLine.length * 6 > maxWidth && currentLine) {
+      // Rough estimate: 7 pixels per character for more aggressive wrapping
+      if (testLine.length * 7 > maxWidth && currentLine) {
         lines.push(currentLine)
         currentLine = word
       } else {
@@ -555,6 +584,7 @@ interface ComparisonChartProps {
   onSaveOptionLabel?: (option: string, newLabel: string) => void
   onSaveQuestionLabel?: (newLabel: string) => void
   questionTypeBadge?: React.ReactNode
+  heightOffset?: number
 }
 
 const CustomTooltip: React.FC<any> = ({ active, payload }) => {
@@ -706,7 +736,8 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   optionLabels: _optionLabels = {},
   onSaveOptionLabel,
   onSaveQuestionLabel,
-  questionTypeBadge
+  questionTypeBadge,
+  heightOffset = 0
 }) => {
   const isHorizontal = orientation === 'horizontal'
   const [editingOption, setEditingOption] = useState<string | null>(null)
@@ -725,6 +756,122 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   const chartContainerRef = useRef<HTMLDivElement>(null)
+
+  // Title drag state
+  const [titleOffset, setTitleOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [isDraggingTitle, setIsDraggingTitle] = useState(false)
+  const titleDragStartPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const titleStartOffset = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  // Chart drag state
+  const [chartOffset, setChartOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [isDraggingChart, setIsDraggingChart] = useState(false)
+  const chartDragStartPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const chartStartOffset = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  // Y-axis resize state (for horizontal bar charts)
+  const [yAxisWidth, setYAxisWidth] = useState<number | null>(null)
+  const [isResizingYAxis, setIsResizingYAxis] = useState(false)
+  const yAxisResizeStartX = useRef<number>(0)
+  const yAxisResizeStartWidth = useRef<number>(0)
+
+  // Title drag handlers
+  const handleTitleMouseDown = (e: React.MouseEvent) => {
+    if (editingQuestionLabel) return
+    e.preventDefault()
+    setIsDraggingTitle(true)
+    titleDragStartPos.current = { x: e.clientX, y: e.clientY }
+    titleStartOffset.current = { ...titleOffset }
+  }
+
+  useEffect(() => {
+    if (!isDraggingTitle) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - titleDragStartPos.current.x
+      const deltaY = e.clientY - titleDragStartPos.current.y
+      setTitleOffset({
+        x: titleStartOffset.current.x + deltaX,
+        y: titleStartOffset.current.y + deltaY
+      })
+    }
+
+    const handleMouseUp = () => {
+      setIsDraggingTitle(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDraggingTitle])
+
+  // Chart drag handlers
+  const handleChartMouseDown = (e: React.MouseEvent) => {
+    // Only start drag if clicking directly on the chart container, not on bars
+    if ((e.target as HTMLElement).closest('.recharts-bar-rectangle')) return
+    e.preventDefault()
+    setIsDraggingChart(true)
+    chartDragStartPos.current = { x: e.clientX, y: e.clientY }
+    chartStartOffset.current = { ...chartOffset }
+  }
+
+  useEffect(() => {
+    if (!isDraggingChart) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - chartDragStartPos.current.x
+      const deltaY = e.clientY - chartDragStartPos.current.y
+      setChartOffset({
+        x: chartStartOffset.current.x + deltaX,
+        y: chartStartOffset.current.y + deltaY
+      })
+    }
+
+    const handleMouseUp = () => {
+      setIsDraggingChart(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDraggingChart])
+
+  // Y-axis resize handlers (for horizontal bar charts)
+  const handleYAxisResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsResizingYAxis(true)
+    yAxisResizeStartX.current = e.clientX
+    yAxisResizeStartWidth.current = yAxisWidth ?? 200 // default width
+  }
+
+  useEffect(() => {
+    if (!isResizingYAxis) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - yAxisResizeStartX.current
+      const newWidth = Math.max(100, Math.min(400, yAxisResizeStartWidth.current + delta))
+      setYAxisWidth(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizingYAxis(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizingYAxis])
 
   // Handle bar click to show tooltip
   const handleBarClick = useCallback((dataPoint: SeriesDataPoint, event: React.MouseEvent) => {
@@ -824,14 +971,14 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
     ? {
         // For horizontal charts: calculate height to maintain same bar size per answer option
         // Stacked charts have one bar per option, grouped charts have multiple bars per option
-        chartHeight: Math.max(200, data.length * (HORIZONTAL_BAR_SIZE * (stacked ? 1 : groups.length) + 32)),
+        chartHeight: Math.max(200, data.length * (HORIZONTAL_BAR_SIZE * (stacked ? 1 : groups.length) + 32)) + heightOffset,
         barCategoryGap: 32,
         barSize: HORIZONTAL_BAR_SIZE,
       }
     : {
         // For vertical charts: adjust height and bar size dynamically
         // Stacked charts should have same bar width as regular charts
-        chartHeight: 320,
+        chartHeight: 320 + heightOffset,
         barCategoryGap: stacked ? 48 : 24,
         barSize: VERTICAL_BAR_SIZE,
       }
@@ -901,7 +1048,9 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
 
   // Always show legend when there are groups to display
   const showLegend = groups.length > 0
-  const horizontalAxisWidth = Math.max(200, maxLabelWidth + 10) // Dynamic width for horizontal charts
+  // Calculate default width, but use user-resized width if set
+  const defaultAxisWidth = Math.max(200, maxLabelWidth + 10)
+  const horizontalAxisWidth = yAxisWidth ?? defaultAxisWidth // Use resized width or default
   const legendOffset = 40
   const horizontalLegendAdjustment = 70
   const _legendPaddingLeft =
@@ -1084,6 +1233,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
       {isLegendTooLong ? (
         // Stacked layout: Title on top, Legend below - aligned with chart area
         <div
+          onMouseDown={handleTitleMouseDown}
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -1092,7 +1242,13 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
             marginBottom: '15px',
             marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
             marginRight: isHorizontal ? '60px' : '48px',
-            gap: '12px'
+            gap: '12px',
+            transform: `translate(${titleOffset.x}px, ${titleOffset.y}px)`,
+            cursor: isDraggingTitle ? 'grabbing' : 'grab',
+            userSelect: 'none',
+            transition: isDraggingTitle ? 'none' : 'transform 0.1s ease-out',
+            position: 'relative',
+            zIndex: 20
           }}
         >
           {/* Title Row with Badge */}
@@ -1178,6 +1334,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
       ) : (
         // Horizontal layout: Legend (left) | Title (center) | Badge (right)
         <div
+          onMouseDown={handleTitleMouseDown}
           style={{
             display: 'flex',
             alignItems: 'flex-start',
@@ -1186,7 +1343,13 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
             marginBottom: '15px',
             marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
             marginRight: isHorizontal ? '60px' : '48px',
-            gap: '16px'
+            gap: '16px',
+            transform: `translate(${titleOffset.x}px, ${titleOffset.y}px)`,
+            cursor: isDraggingTitle ? 'grabbing' : 'grab',
+            userSelect: 'none',
+            transition: isDraggingTitle ? 'none' : 'transform 0.1s ease-out',
+            position: 'relative',
+            zIndex: 20
           }}
         >
           {/* Left: Legend */}
@@ -1401,7 +1564,19 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           </div>
         )
       )}
-      <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+      <div
+        onMouseDown={handleChartMouseDown}
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          width: '100%',
+          transform: `translate(${chartOffset.x}px, ${chartOffset.y}px)`,
+          cursor: isDraggingChart ? 'grabbing' : 'grab',
+          transition: isDraggingChart ? 'none' : 'transform 0.1s ease-out',
+          position: 'relative',
+          zIndex: 10
+        }}
+      >
       <ResponsiveContainer width="100%" height={chartHeight}>
         <BarChart
           data={data}
@@ -1435,7 +1610,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                     setEditInput={setEditInput}
                     onSave={onSaveOptionLabel || (() => {})}
                     data={data}
-                    maxWidth={maxLabelWidth}
+                    maxWidth={horizontalAxisWidth - 20}
                   />
                 )}
                 axisLine={AXIS_LINE_STYLE}
@@ -1513,6 +1688,33 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           })}
         </BarChart>
       </ResponsiveContainer>
+      {/* Y-axis resize handle for horizontal bar charts */}
+      {isHorizontal && (
+        <div
+          onMouseDown={handleYAxisResizeStart}
+          style={{
+            position: 'absolute',
+            left: horizontalAxisWidth - 3,
+            top: 25,
+            bottom: 0,
+            width: '6px',
+            cursor: 'col-resize',
+            backgroundColor: isResizingYAxis ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
+            transition: 'background-color 0.15s ease',
+            zIndex: 20
+          }}
+          onMouseEnter={(e) => {
+            if (!isResizingYAxis) {
+              e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.15)'
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isResizingYAxis) {
+              e.currentTarget.style.backgroundColor = 'transparent'
+            }
+          }}
+        />
+      )}
       </div>
 
       {/* Click-based Tooltip Popup - rendered via portal to ensure it's above all content */}
