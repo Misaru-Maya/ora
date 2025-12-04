@@ -11,6 +11,12 @@ import { stripQuotes, isExcludedValue } from './utils'
 const isDev = process.env.NODE_ENV === 'development'
 const devLog = isDev ? console.log : () => {}
 
+// Stable references for default props to prevent unnecessary re-renders
+const EMPTY_OBJECT: Record<string, string> = {}
+const EMPTY_NESTED_OBJECT: Record<string, Record<string, string>> = {}
+const EMPTY_ARRAY: string[] = []
+const DEFAULT_CHART_COLORS = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']
+
 function autoDefaultGroups(rows: any[], segCol?: string, maxDefaults = 2): string[] {
   if (!segCol) return []
   if (segCol === 'Overall') return ['Overall']
@@ -3073,7 +3079,7 @@ export default function App() {
                     groups={orderedGroups}
                     segments={selections.segments}
                     comparisonMode={selections.comparisonMode ?? true}
-                    groupLabels={selections.groupLabels || {}}
+                    groupLabels={selections.groupLabels || EMPTY_OBJECT}
                     orientation={chartOrientation}
                     sortOrder={selections.sortOrder}
                     selectedQuestionId={selections.question}
@@ -3081,12 +3087,12 @@ export default function App() {
                     hideAsterisks={selections.hideAsterisks || false}
                     hideSegment={selections.hideSegment || false}
                     hideQuestionType={selections.hideQuestionType || false}
-                    chartColors={selections.chartColors || ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7']}
-                    optionLabels={selections.optionLabels || {}}
+                    chartColors={selections.chartColors || DEFAULT_CHART_COLORS}
+                    optionLabels={selections.optionLabels || EMPTY_NESTED_OBJECT}
                     onSaveOptionLabel={handleSaveOptionLabel}
-                    questionLabels={selections.questionLabels || {}}
+                    questionLabels={selections.questionLabels || EMPTY_OBJECT}
                     onSaveQuestionLabel={handleSaveQuestionLabel}
-                    productOrder={selections.productOrder || []}
+                    productOrder={selections.productOrder || EMPTY_ARRAY}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-sm text-brand-gray/60">
