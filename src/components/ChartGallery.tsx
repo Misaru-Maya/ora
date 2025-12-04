@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState, memo } from 'react'
-import html2canvas from 'html2canvas'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSort, faFilter, faRotate, faChartSimple, faArrowUpShortWide, faArrowDownWideShort, faArrowUpAZ, faChartPie, faTableCellsLarge, faBars, faChartBar } from '@fortawesome/free-solid-svg-icons'
 import { ComparisonChart } from './ComparisonChart'
@@ -121,9 +120,12 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   const heightResizeStartOffset = useRef<number>(0)
 
   // Screenshot handler - captures only chart content without buttons
+  // Uses dynamic import to avoid loading html2canvas until actually needed
   const _handleScreenshot = async () => {
     if (!chartContentRef.current) return
     try {
+      // Dynamic import - only loads html2canvas when screenshot is taken
+      const html2canvas = (await import('html2canvas')).default
       const canvas = await html2canvas(chartContentRef.current, {
         backgroundColor: '#ffffff',
         scale: 2,
