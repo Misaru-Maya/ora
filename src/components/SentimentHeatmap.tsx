@@ -118,6 +118,13 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [portalReady, setPortalReady] = useState(false)
 
+  // State for resizable attribute column
+  const [attributeColumnWidth, setAttributeColumnWidth] = useState<number | null>(null)
+  const [isResizing, setIsResizing] = useState(false)
+  const resizeStartX = React.useRef<number>(0)
+  const resizeStartWidth = React.useRef<number>(0)
+  const FIRST_COL_DEFAULT_WIDTH = 150
+
   // Find sentiment column
   const sentimentColumn = useMemo(() => {
     return dataset.summary.columns.find(col =>
@@ -250,6 +257,40 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [])
+
+  // Column resize handlers
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsResizing(true)
+    resizeStartX.current = e.clientX
+    resizeStartWidth.current = attributeColumnWidth ?? FIRST_COL_DEFAULT_WIDTH
+  }
+
+  useEffect(() => {
+    if (!isResizing) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - resizeStartX.current
+      const newWidth = Math.max(100, Math.min(400, resizeStartWidth.current + delta))
+      setAttributeColumnWidth(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizing])
+
+  // Calculate first column width
+  const firstColumnWidth = attributeColumnWidth ?? FIRST_COL_DEFAULT_WIDTH
 
   // Apply global product order from sidebar
   const orderedProducts = useMemo(() => {
@@ -571,9 +612,38 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                     textAlign: 'left',
                     fontSize: '14px',
                     fontWeight: 600,
-                    width: '150px',
-                    verticalAlign: 'middle'
-                  }}></th>
+                    width: `${firstColumnWidth}px`,
+                    minWidth: `${firstColumnWidth}px`,
+                    maxWidth: `${firstColumnWidth}px`,
+                    verticalAlign: 'middle',
+                    position: 'relative'
+                  }}>
+                    {/* Resize handle */}
+                    <div
+                      onMouseDown={handleResizeStart}
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: '6px',
+                        cursor: 'col-resize',
+                        backgroundColor: isResizing ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
+                        transition: 'background-color 0.15s ease',
+                        zIndex: 10
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isResizing) {
+                          e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.2)'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isResizing) {
+                          e.currentTarget.style.backgroundColor = 'transparent'
+                        }
+                      }}
+                    />
+                  </th>
                   <th style={{
                     backgroundColor: '#FFFFFF',
                     padding: '8px 12px',
@@ -647,10 +717,38 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                         padding: '8px 12px',
                         fontSize: '14px',
                         fontWeight: 600,
-                        width: '150px',
+                        width: `${firstColumnWidth}px`,
+                        minWidth: `${firstColumnWidth}px`,
+                        maxWidth: `${firstColumnWidth}px`,
                         verticalAlign: 'middle',
-                        textAlign: 'right'
+                        textAlign: 'right',
+                        position: 'relative'
                       }}>
+                        {/* Resize handle on body rows */}
+                        <div
+                          onMouseDown={handleResizeStart}
+                          style={{
+                            position: 'absolute',
+                            right: 0,
+                            top: 0,
+                            bottom: 0,
+                            width: '6px',
+                            cursor: 'col-resize',
+                            backgroundColor: isResizing ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
+                            transition: 'background-color 0.15s ease',
+                            zIndex: 10
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isResizing) {
+                              e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.2)'
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isResizing) {
+                              e.currentTarget.style.backgroundColor = 'transparent'
+                            }
+                          }}
+                        />
                         {product.productName}
                       </td>
                       <td
@@ -695,9 +793,38 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                     textAlign: 'left',
                     fontSize: '14px',
                     fontWeight: 600,
-                    width: '150px',
-                    verticalAlign: 'middle'
-                  }}></th>
+                    width: `${firstColumnWidth}px`,
+                    minWidth: `${firstColumnWidth}px`,
+                    maxWidth: `${firstColumnWidth}px`,
+                    verticalAlign: 'middle',
+                    position: 'relative'
+                  }}>
+                    {/* Resize handle */}
+                    <div
+                      onMouseDown={handleResizeStart}
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: '6px',
+                        cursor: 'col-resize',
+                        backgroundColor: isResizing ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
+                        transition: 'background-color 0.15s ease',
+                        zIndex: 10
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isResizing) {
+                          e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.2)'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isResizing) {
+                          e.currentTarget.style.backgroundColor = 'transparent'
+                        }
+                      }}
+                    />
+                  </th>
                   {filteredProducts.map(product => (
                     <th key={product.productName} style={{
                       backgroundColor: '#FFFFFF',
@@ -720,10 +847,38 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                     padding: '8px 12px',
                     fontSize: '14px',
                     fontWeight: 600,
-                    width: '150px',
+                    width: `${firstColumnWidth}px`,
+                    minWidth: `${firstColumnWidth}px`,
+                    maxWidth: `${firstColumnWidth}px`,
                     verticalAlign: 'middle',
-                    textAlign: 'left'
+                    textAlign: 'left',
+                    position: 'relative'
                   }}>
+                    {/* Resize handle */}
+                    <div
+                      onMouseDown={handleResizeStart}
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: '6px',
+                        cursor: 'col-resize',
+                        backgroundColor: isResizing ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
+                        transition: 'background-color 0.15s ease',
+                        zIndex: 10
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isResizing) {
+                          e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.2)'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isResizing) {
+                          e.currentTarget.style.backgroundColor = 'transparent'
+                        }
+                      }}
+                    />
                     <div
                       style={{
                         display: 'inline-flex',
@@ -773,10 +928,38 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                     padding: '8px 12px',
                     fontSize: '14px',
                     fontWeight: 600,
-                    width: '150px',
+                    width: `${firstColumnWidth}px`,
+                    minWidth: `${firstColumnWidth}px`,
+                    maxWidth: `${firstColumnWidth}px`,
                     verticalAlign: 'middle',
-                    textAlign: 'left'
+                    textAlign: 'left',
+                    position: 'relative'
                   }}>
+                    {/* Resize handle */}
+                    <div
+                      onMouseDown={handleResizeStart}
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: '6px',
+                        cursor: 'col-resize',
+                        backgroundColor: isResizing ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
+                        transition: 'background-color 0.15s ease',
+                        zIndex: 10
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isResizing) {
+                          e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.2)'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isResizing) {
+                          e.currentTarget.style.backgroundColor = 'transparent'
+                        }
+                      }}
+                    />
                     <div
                       style={{
                         display: 'inline-flex',

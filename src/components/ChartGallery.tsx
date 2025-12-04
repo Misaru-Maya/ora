@@ -240,9 +240,18 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     isProductFollowUpQuestion
   })
 
-  // Set initial chart variant - use heatmap for sentiment questions and product follow-up questions, bar for others
+  // Set initial chart variant priority:
+  // 1. Sentiment questions in compare mode: vertical bar chart (alphabetical sort set elsewhere)
+  // 2. Heatmap for sentiment questions and product follow-up questions in filter mode
+  // 3. Pie chart when available (single select with one segment)
+  // 4. Stacked chart when available (single select with multiple segments)
+  // 5. Bar chart as fallback
+  const isSentimentInCompareMode = isSentimentQuestion && comparisonMode
   const initialChartVariant: 'bar' | 'pie' | 'stacked' | 'heatmap' =
-    (isSentimentQuestion || isProductFollowUpQuestion) ? 'heatmap' : 'bar'
+    isSentimentInCompareMode ? 'bar' :
+    (isSentimentQuestion || isProductFollowUpQuestion) ? 'heatmap' :
+    canUsePie ? 'pie' :
+    canUseStacked ? 'stacked' : 'bar'
   const [chartVariant, setChartVariant] = useState<'bar' | 'pie' | 'stacked' | 'heatmap'>(initialChartVariant)
   const [heatmapTransposed, setHeatmapTransposed] = useState(false)
   const [_heatmapFilters, _setHeatmapFilters] = useState<{ products: string[], attributes: string[] }>({ products: [], attributes: [] })
@@ -261,6 +270,11 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     if (questionChanged) {
       previousQuestionIdRef.current = question.qid
       setCardSort(question.isLikert || isSentimentQuestion || isProductFollowUpQuestion ? 'alphabetical' : 'default')
+
+      // For sentiment questions in compare mode, default to vertical orientation
+      if (isSentimentQuestion && comparisonMode) {
+        setChartOrientation('vertical')
+      }
 
       // Filter out excluded values from defaults
       const allOptions = series.data.map(d => d.option).filter(option => {
@@ -286,7 +300,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       // Reset custom order when question changes
       setCustomOptionOrder([])
     }
-  }, [series, question.qid, question.isLikert, question.type, isSentimentQuestion, isProductFollowUpQuestion])
+  }, [series, question.qid, question.isLikert, question.type, isSentimentQuestion, isProductFollowUpQuestion, comparisonMode])
 
   useEffect(() => {
     setChartOrientation(orientation)

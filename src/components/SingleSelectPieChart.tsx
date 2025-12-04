@@ -191,8 +191,8 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
   )
 
   return (
-    <div className="w-full flex justify-center">
-      <div style={{ maxWidth: '800px', width: '100%' }}>
+    <div className="w-full">
+      <div style={{ width: '100%' }}>
         {/* Header Row: Spacer (left) | Title (center) | Badge (right) */}
         <div
           style={{
@@ -209,13 +209,12 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
           {/* Left: Spacer for balance */}
           <div style={{ flex: '0 0 auto', minWidth: '80px' }}></div>
 
-          {/* Center: Title */}
+          {/* Center: Title - takes available width like bar charts */}
           <div
             style={{
               flex: '1 1 auto',
               textAlign: 'center',
-              minWidth: 0,
-              maxWidth: 'calc(100% - 200px)'
+              minWidth: 0
             }}
           >
             {questionLabel && (

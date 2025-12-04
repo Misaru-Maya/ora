@@ -129,6 +129,12 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
   const [questionLabelInput, setQuestionLabelInput] = useState('')
 
+  // State for resizable attribute column
+  const [attributeColumnWidth, setAttributeColumnWidth] = useState<number | null>(null)
+  const [isResizing, setIsResizing] = useState(false)
+  const resizeStartX = React.useRef<number>(0)
+  const resizeStartWidth = React.useRef<number>(0)
+
   // Strip "Advocates:" or "Detractors:" prefix from display label
   const displayQuestionLabel = questionLabel ? stripSentimentPrefix(questionLabel) : questionLabel
 
@@ -302,6 +308,37 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [])
+
+  // Column resize handlers
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsResizing(true)
+    resizeStartX.current = e.clientX
+    resizeStartWidth.current = attributeColumnWidth ?? firstColumnWidthDefault
+  }
+
+  useEffect(() => {
+    if (!isResizing) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - resizeStartX.current
+      const newWidth = Math.max(100, Math.min(400, resizeStartWidth.current + delta))
+      setAttributeColumnWidth(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizing])
 
   // Drag handlers for attribute filter (product ordering is now global via sidebar)
   const [customAttributeOrder, setCustomAttributeOrder] = useState<string[] | null>(null)
@@ -679,7 +716,9 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
   // Calculate optimal width for first column based on longest text
   const maxTextLength = Math.max(...displayData.map(row => row.optionDisplay.length))
   // Estimate width: roughly 8px per character, with min 150px and max 250px
-  const firstColumnWidth = Math.min(Math.max(maxTextLength * 8, 150), 250)
+  const firstColumnWidthDefault = Math.min(Math.max(maxTextLength * 8, 150), 250)
+  // Use state width if set, otherwise use calculated default
+  const firstColumnWidth = attributeColumnWidth ?? firstColumnWidthDefault
 
   return (
     <>
@@ -786,11 +825,39 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                 fontSize: '14px',
                 fontWeight: 600,
                 width: `${firstColumnWidth}px`,
-                verticalAlign: 'bottom'
+                minWidth: `${firstColumnWidth}px`,
+                maxWidth: `${firstColumnWidth}px`,
+                verticalAlign: 'bottom',
+                position: 'relative'
               }}>
-                {/* Advocates/Detractors indicator card + Question Type badge - center aligned with attribute column */}
+                {/* Resize handle */}
+                <div
+                  onMouseDown={handleResizeStart}
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: '6px',
+                    cursor: 'col-resize',
+                    backgroundColor: isResizing ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
+                    transition: 'background-color 0.15s ease',
+                    zIndex: 10
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isResizing) {
+                      e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.2)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isResizing) {
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                    }
+                  }}
+                />
+                {/* Advocates/Detractors indicator card + Question Type badge - right aligned with 10px margin from column edge */}
                 {questionLabel && (questionLabel.toLowerCase().includes('advocate') || questionLabel.toLowerCase().includes('detractor')) && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center', paddingBottom: '4px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end', paddingBottom: '4px', paddingRight: '10px' }}>
                     {questionLabel.toLowerCase().includes('advocate') && (
                       <div
                         style={{
@@ -883,13 +950,16 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                   fontSize: '14px',
                   fontWeight: 600,
                   width: `${firstColumnWidth}px`,
+                  minWidth: `${firstColumnWidth}px`,
+                  maxWidth: `${firstColumnWidth}px`,
                   wordWrap: 'break-word',
                   overflowWrap: 'break-word',
                   verticalAlign: 'middle',
                   cursor: onSaveOptionLabel ? 'pointer' : 'default',
                   whiteSpace: 'pre-wrap',
                   textAlign: 'right',
-                  color: '#4A5568'
+                  color: '#4A5568',
+                  position: 'relative'
                 }}
                 onClick={() => {
                   // Only allow editing when not transposed
@@ -909,6 +979,31 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                   }
                 }}
                 >
+                  {/* Resize handle on body rows */}
+                  <div
+                    onMouseDown={handleResizeStart}
+                    style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: '6px',
+                      cursor: 'col-resize',
+                      backgroundColor: isResizing ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
+                      transition: 'background-color 0.15s ease',
+                      zIndex: 10
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isResizing) {
+                        e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.2)'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isResizing) {
+                        e.currentTarget.style.backgroundColor = 'transparent'
+                      }
+                    }}
+                  />
                   {isEditing ? (
                     <textarea
                       autoFocus

@@ -1075,13 +1075,14 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
     // Estimate: 24px for color box + 5px gap + ~7px per character + 16px gap between items
     return total + 24 + 5 + group.label.length * 7 + 16
   }, 0)
-  const isLegendTooLong = estimatedLegendWidth > 500 // If legend is wider than 500px, stack vertically
+  // Stack legend below title if: legend is too long OR chart is stacked
+  const isLegendTooLong = estimatedLegendWidth > 500 || stacked
 
   return (
     <div ref={chartContainerRef} className="w-full bg-white" style={{ paddingBottom: 0, position: 'relative' }}>
-      {/* Header: Legend and Title - stacked if legend is too long */}
+      {/* Header: Legend and Title - stacked if legend is too long or stacked chart */}
       {isLegendTooLong ? (
-        // Stacked layout: Title on top, Legend below
+        // Stacked layout: Title on top, Legend below - centered with chart
         <div
           style={{
             display: 'flex',
@@ -1089,13 +1090,16 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
             alignItems: 'center',
             marginTop: '15px',
             marginBottom: '15px',
-            marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
-            marginRight: isHorizontal ? '60px' : '48px',
+            paddingLeft: '20px',
+            paddingRight: '20px',
             gap: '12px'
           }}
         >
-          {/* Title Row with Badge */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', width: '100%', gap: '16px' }}>
+          {/* Title Row: Spacer | Title | Badge */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%', gap: '16px' }}>
+            {/* Left spacer for balance */}
+            <div style={{ flex: '0 0 auto', minWidth: '80px' }}></div>
+            {/* Center: Title */}
             <div style={{ flex: '1 1 auto', textAlign: 'center', minWidth: 0 }}>
               {questionLabel && (
                 editingQuestionLabel ? (
@@ -1163,13 +1167,18 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                 )
               )}
             </div>
-            <div style={{ flex: '0 0 auto' }}>
+            {/* Right: Badge */}
+            <div style={{ flex: '0 0 auto', minWidth: '80px' }}>
               {questionTypeBadge}
             </div>
           </div>
-          {/* Legend below title */}
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            {renderLegendContent()}
+          {/* Legend below title - centered, same width as title */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%', gap: '16px' }}>
+            <div style={{ flex: '0 0 auto', minWidth: '80px' }}></div>
+            <div style={{ flex: '1 1 auto', display: 'flex', justifyContent: 'center', minWidth: 0 }}>
+              {renderLegendContent()}
+            </div>
+            <div style={{ flex: '0 0 auto', minWidth: '80px' }}></div>
           </div>
         </div>
       ) : (
