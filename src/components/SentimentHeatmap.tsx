@@ -66,6 +66,7 @@ interface SentimentHeatmapProps {
   hideAsterisks?: boolean
   onSaveQuestionLabel?: (newLabel: string) => void
   productOrder?: string[]
+  transposed?: boolean
 }
 
 interface ProductSentiment {
@@ -106,7 +107,8 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
   questionId,
   hideAsterisks: _hideAsterisks = false,
   onSaveQuestionLabel,
-  productOrder = []
+  productOrder = [],
+  transposed = false
 }) => {
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
   const [questionLabelInput, setQuestionLabelInput] = useState('')
@@ -301,16 +303,18 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
           onClick={() => setShowProductFilter(!showProductFilter)}
           className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"
           style={{
-            height: '30px',
-            width: '30px',
-            backgroundColor: selectedProducts.length < sortedProducts.length ? '#C8E2BA' : '#EEF2F6',
-            border: selectedProducts.length < sortedProducts.length ? '1px solid #3A8518' : '1px solid #EEF2F6',
-            borderRadius: '3px',
+            height: '32px',
+            width: '32px',
+            backgroundColor: selectedProducts.length < sortedProducts.length ? 'rgba(58, 133, 24, 0.12)' : 'rgba(255, 255, 255, 0.7)',
+            border: selectedProducts.length < sortedProducts.length ? '1px solid rgba(58, 133, 24, 0.25)' : '1px solid rgba(0, 0, 0, 0.08)',
+            borderRadius: '8px',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+            backdropFilter: 'blur(8px)',
             cursor: 'pointer'
           }}
           title="Filter Products"
         >
-          <FontAwesomeIcon icon={faShuffle} style={{ fontSize: '16px' }} />
+          <FontAwesomeIcon icon={faShuffle} style={{ fontSize: '13px', color: selectedProducts.length < sortedProducts.length ? '#3A8518' : '#64748b' }} />
         </button>
         {showProductFilter && (
           <div
@@ -536,20 +540,21 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
 
         {/* Heatmap table */}
         <div className="overflow-x-auto">
-          <table style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%', tableLayout: 'fixed' }}>
-            <thead>
-              <tr>
-                <th style={{
-                  backgroundColor: '#FFFFFF',
-                  padding: '8px 12px',
-                  textAlign: 'left',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  width: '150px',
-                  verticalAlign: 'middle'
-                }}></th>
-                {filteredProducts.map(product => (
-                  <th key={product.productName} style={{
+          {transposed ? (
+            /* Transposed view: products as rows, Advocates/Detractors as columns */
+            <table style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%', tableLayout: 'fixed' }}>
+              <thead>
+                <tr>
+                  <th style={{
+                    backgroundColor: '#FFFFFF',
+                    padding: '8px 12px',
+                    textAlign: 'left',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    width: '150px',
+                    verticalAlign: 'middle'
+                  }}></th>
+                  <th style={{
                     backgroundColor: '#FFFFFF',
                     padding: '8px 12px',
                     textAlign: 'center',
@@ -557,80 +562,166 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                     fontWeight: 600,
                     verticalAlign: 'middle'
                   }}>
-                    {product.productName}
+                    Advocates
                   </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {/* Advocate Row */}
-              <tr>
-                <td style={{
-                  backgroundColor: '#FFFFFF',
-                  padding: '8px 12px',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  width: '150px',
-                  verticalAlign: 'middle',
-                  textAlign: 'right'
-                }}>
-                  Advocates
-                </td>
+                  <th style={{
+                    backgroundColor: '#FFFFFF',
+                    padding: '8px 12px',
+                    textAlign: 'center',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    verticalAlign: 'middle'
+                  }}>
+                    Detractors
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
                 {filteredProducts.map(product => {
-                  const { bg, text } = getColor(product.advocatePercent, 'advocate', advocateMinMax.min, advocateMinMax.max)
+                  const advocateColor = getColor(product.advocatePercent, 'advocate', advocateMinMax.min, advocateMinMax.max)
+                  const detractorColor = getColor(product.detractorPercent, 'detractor', detractorMinMax.min, detractorMinMax.max)
                   return (
-                    <td
-                      key={product.productName}
-                      style={{
-                        backgroundColor: bg,
-                        color: text,
+                    <tr key={product.productName}>
+                      <td style={{
+                        backgroundColor: '#FFFFFF',
                         padding: '8px 12px',
-                        textAlign: 'center',
                         fontSize: '14px',
-                        fontWeight: text === '#FFFFFF' ? 'normal' : 600,
-                        verticalAlign: 'middle'
-                      }}
-                    >
-                      <span style={{ paddingRight: '2px' }}>{Math.round(product.advocatePercent)}%</span>
-                    </td>
+                        fontWeight: 600,
+                        width: '150px',
+                        verticalAlign: 'middle',
+                        textAlign: 'right'
+                      }}>
+                        {product.productName}
+                      </td>
+                      <td
+                        style={{
+                          backgroundColor: advocateColor.bg,
+                          color: advocateColor.text,
+                          padding: '8px 12px',
+                          textAlign: 'center',
+                          fontSize: '14px',
+                          fontWeight: advocateColor.text === '#FFFFFF' ? 'normal' : 600,
+                          verticalAlign: 'middle'
+                        }}
+                      >
+                        <span style={{ paddingRight: '2px' }}>{Math.round(product.advocatePercent)}%</span>
+                      </td>
+                      <td
+                        style={{
+                          backgroundColor: detractorColor.bg,
+                          color: detractorColor.text,
+                          padding: '8px 12px',
+                          textAlign: 'center',
+                          fontSize: '14px',
+                          fontWeight: detractorColor.text === '#FFFFFF' ? 'normal' : 600,
+                          verticalAlign: 'middle'
+                        }}
+                      >
+                        <span style={{ paddingRight: '2px' }}>{Math.round(product.detractorPercent)}%</span>
+                      </td>
+                    </tr>
                   )
                 })}
-              </tr>
-              {/* Detractor Row */}
-              <tr>
-                <td style={{
-                  backgroundColor: '#FFFFFF',
-                  padding: '8px 12px',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  width: '150px',
-                  verticalAlign: 'middle',
-                  textAlign: 'right'
-                }}>
-                  Detractors
-                </td>
-                {filteredProducts.map(product => {
-                  const { bg, text } = getColor(product.detractorPercent, 'detractor', detractorMinMax.min, detractorMinMax.max)
-                  return (
-                    <td
-                      key={product.productName}
-                      style={{
-                        backgroundColor: bg,
-                        color: text,
-                        padding: '8px 12px',
-                        textAlign: 'center',
-                        fontSize: '14px',
-                        fontWeight: text === '#FFFFFF' ? 'normal' : 600,
-                        verticalAlign: 'middle'
-                      }}
-                    >
-                      <span style={{ paddingRight: '2px' }}>{Math.round(product.detractorPercent)}%</span>
-                    </td>
-                  )
-                })}
-              </tr>
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          ) : (
+            /* Normal view: Advocates/Detractors as rows, products as columns */
+            <table style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%', tableLayout: 'fixed' }}>
+              <thead>
+                <tr>
+                  <th style={{
+                    backgroundColor: '#FFFFFF',
+                    padding: '8px 12px',
+                    textAlign: 'left',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    width: '150px',
+                    verticalAlign: 'middle'
+                  }}></th>
+                  {filteredProducts.map(product => (
+                    <th key={product.productName} style={{
+                      backgroundColor: '#FFFFFF',
+                      padding: '8px 12px',
+                      textAlign: 'center',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      verticalAlign: 'middle'
+                    }}>
+                      {product.productName}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {/* Advocate Row */}
+                <tr>
+                  <td style={{
+                    backgroundColor: '#FFFFFF',
+                    padding: '8px 12px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    width: '150px',
+                    verticalAlign: 'middle',
+                    textAlign: 'right'
+                  }}>
+                    Advocates
+                  </td>
+                  {filteredProducts.map(product => {
+                    const { bg, text } = getColor(product.advocatePercent, 'advocate', advocateMinMax.min, advocateMinMax.max)
+                    return (
+                      <td
+                        key={product.productName}
+                        style={{
+                          backgroundColor: bg,
+                          color: text,
+                          padding: '8px 12px',
+                          textAlign: 'center',
+                          fontSize: '14px',
+                          fontWeight: text === '#FFFFFF' ? 'normal' : 600,
+                          verticalAlign: 'middle'
+                        }}
+                      >
+                        <span style={{ paddingRight: '2px' }}>{Math.round(product.advocatePercent)}%</span>
+                      </td>
+                    )
+                  })}
+                </tr>
+                {/* Detractor Row */}
+                <tr>
+                  <td style={{
+                    backgroundColor: '#FFFFFF',
+                    padding: '8px 12px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    width: '150px',
+                    verticalAlign: 'middle',
+                    textAlign: 'right'
+                  }}>
+                    Detractors
+                  </td>
+                  {filteredProducts.map(product => {
+                    const { bg, text } = getColor(product.detractorPercent, 'detractor', detractorMinMax.min, detractorMinMax.max)
+                    return (
+                      <td
+                        key={product.productName}
+                        style={{
+                          backgroundColor: bg,
+                          color: text,
+                          padding: '8px 12px',
+                          textAlign: 'center',
+                          fontSize: '14px',
+                          fontWeight: text === '#FFFFFF' ? 'normal' : 600,
+                          verticalAlign: 'middle'
+                        }}
+                      >
+                        <span style={{ paddingRight: '2px' }}>{Math.round(product.detractorPercent)}%</span>
+                      </td>
+                    )
+                  })}
+                </tr>
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </>

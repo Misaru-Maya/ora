@@ -85,6 +85,7 @@ interface HeatmapTableProps {
   onSaveOptionLabel?: (option: string, newLabel: string) => void
   onSaveQuestionLabel?: (newLabel: string) => void
   productOrder?: string[]
+  transposed?: boolean
 }
 
 // Get color based on value and sentiment
@@ -114,7 +115,7 @@ const getColor = (value: number, sentiment: 'positive' | 'negative', minVal: num
   return { bg: bgColor, text: textColor }
 }
 
-export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [] }) => {
+export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [], transposed = false }) => {
   const [editingOption, setEditingOption] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
@@ -442,11 +443,44 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
     })
   }, [filteredData, sortedGroups])
 
+  // Transpose data when transposed prop is true
+  // When transposed: products become rows, attributes become columns
+  const { displayData, displayGroups } = useMemo(() => {
+    if (!transposed) {
+      return { displayData: sortedData, displayGroups: sortedGroups }
+    }
+
+    // Create transposed data: each product becomes a row
+    const transposedData = sortedGroups.map(group => {
+      const row: any = {
+        option: group.key,
+        optionDisplay: stripQuotes(group.label)
+      }
+      // Each attribute becomes a column with its value for this product
+      sortedData.forEach(attrRow => {
+        const value = typeof attrRow[group.key] === 'number' ? attrRow[group.key] : 0
+        row[attrRow.option] = value
+      })
+      return row
+    })
+
+    // Create transposed groups: each attribute becomes a column header
+    const transposedGroups = sortedData.map(attrRow => ({
+      key: attrRow.option,
+      label: attrRow.optionDisplay
+    }))
+
+    return { displayData: transposedData, displayGroups: transposedGroups }
+  }, [transposed, sortedData, sortedGroups])
+
   devLog('🔥 HeatmapTable Rendering:', {
     sortedGroupsLength: sortedGroups.length,
     sortedDataLength: sortedData.length,
     sortedGroups: sortedGroups.map(g => g.key),
-    sortedDataSample: sortedData[0]
+    sortedDataSample: sortedData[0],
+    transposed,
+    displayDataLength: displayData.length,
+    displayGroupsLength: displayGroups.length
   })
 
   // Product filter button - will be rendered via portal in ChartGallery button area
@@ -457,16 +491,18 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
         onClick={() => setShowProductFilter(!showProductFilter)}
         className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"
         style={{
-          height: '30px',
-          width: '30px',
-          backgroundColor: selectedProducts.length < allGroupsOrdered.length ? '#C8E2BA' : '#EEF2F6',
-          border: selectedProducts.length < allGroupsOrdered.length ? '1px solid #3A8518' : '1px solid #EEF2F6',
-          borderRadius: '3px',
+          height: '32px',
+          width: '32px',
+          backgroundColor: selectedProducts.length < allGroupsOrdered.length ? 'rgba(58, 133, 24, 0.12)' : 'rgba(255, 255, 255, 0.7)',
+          border: selectedProducts.length < allGroupsOrdered.length ? '1px solid rgba(58, 133, 24, 0.25)' : '1px solid rgba(0, 0, 0, 0.08)',
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(8px)',
           cursor: 'pointer'
         }}
         title="Filter Products"
       >
-        <FontAwesomeIcon icon={faShuffle} style={{ fontSize: '16px' }} />
+        <FontAwesomeIcon icon={faShuffle} style={{ fontSize: '13px', color: selectedProducts.length < allGroupsOrdered.length ? '#3A8518' : '#64748b' }} />
       </button>
         {showProductFilter && (
           <div
@@ -630,7 +666,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
   }
 
   // Calculate optimal width for first column based on longest text
-  const maxTextLength = Math.max(...sortedData.map(row => row.optionDisplay.length))
+  const maxTextLength = Math.max(...displayData.map(row => row.optionDisplay.length))
   // Estimate width: roughly 8px per character, with min 150px and max 250px
   const firstColumnWidth = Math.min(Math.max(maxTextLength * 8, 150), 250)
 
@@ -720,7 +756,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                 width: `${firstColumnWidth}px`,
                 verticalAlign: 'middle'
               }}></th>
-              {sortedGroups.map((group) => (
+              {displayGroups.map((group) => (
                 <th
                   key={group.key}
                   style={{
@@ -738,13 +774,14 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
             </tr>
           </thead>
           <tbody>
-            {sortedData.map(row => {
+            {displayData.map(row => {
               const isEditing = editingOption === row.option
               const hasAsterisk = row.optionDisplay.endsWith('*')
               const displayWithoutAsterisk = hasAsterisk ? row.optionDisplay.slice(0, -1) : row.optionDisplay
 
               const handleSave = () => {
-                if (editInput.trim() && onSaveOptionLabel) {
+                // Only allow editing when not transposed (editing original attributes)
+                if (editInput.trim() && onSaveOptionLabel && !transposed) {
                   const cleanedInput = editInput.trim().replace(/\*+$/, '')
                   if (cleanedInput !== displayWithoutAsterisk) {
                     onSaveOptionLabel(row.option, cleanedInput)
@@ -770,13 +807,14 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                   color: '#4A5568'
                 }}
                 onClick={() => {
-                  if (onSaveOptionLabel && !isEditing) {
+                  // Only allow editing when not transposed
+                  if (onSaveOptionLabel && !isEditing && !transposed) {
                     setEditingOption(row.option)
                     setEditInput(displayWithoutAsterisk)
                   }
                 }}
                 onMouseEnter={(e) => {
-                  if (onSaveOptionLabel && !isEditing) {
+                  if (onSaveOptionLabel && !isEditing && !transposed) {
                     e.currentTarget.style.color = '#3A8518'
                   }
                 }}
@@ -820,7 +858,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                     row.optionDisplay
                   )}
                 </td>
-                {sortedGroups.map(group => {
+                {displayGroups.map(group => {
                   const value = typeof row[group.key] === 'number' ? (row[group.key] as number) : 0
                   const { bg, text } = getColor(value, sentiment, minValue, maxValue)
                   return (

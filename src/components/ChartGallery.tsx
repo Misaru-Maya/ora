@@ -175,6 +175,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   const initialChartVariant: 'bar' | 'pie' | 'stacked' | 'heatmap' =
     (isSentimentQuestion || isProductFollowUpQuestion) ? 'heatmap' : 'bar'
   const [chartVariant, setChartVariant] = useState<'bar' | 'pie' | 'stacked' | 'heatmap'>(initialChartVariant)
+  const [heatmapTransposed, setHeatmapTransposed] = useState(false)
   const [_heatmapFilters, _setHeatmapFilters] = useState<{ products: string[], attributes: string[] }>({ products: [], attributes: [] })
   const [_showHeatmapProductFilter, _setShowHeatmapProductFilter] = useState(false)
   const [_showHeatmapAttributeFilter, _setShowHeatmapAttributeFilter] = useState(false)
@@ -606,28 +607,43 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     <div className="rounded-2xl bg-white p-5 shadow-md transition-shadow hover:shadow-lg space-y-4">
       <div className="flex items-center justify-between gap-2 pb-2">
         <div className="flex items-center gap-2" style={{ paddingLeft: '40px' }}>
-          {/* Chart Orientation Toggle - for bar charts and stacked charts */}
-          {chartVariant !== 'heatmap' && (chartVariant === 'bar' || chartVariant === 'stacked') && question.type !== 'ranking' && (
+          {/* Chart Orientation Toggle - for bar charts, stacked charts, and heatmaps */}
+          {((chartVariant === 'bar' || chartVariant === 'stacked') && question.type !== 'ranking') || chartVariant === 'heatmap' ? (
             <button
               onClick={() => {
-                setChartOrientation(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')
+                if (chartVariant === 'heatmap') {
+                  setHeatmapTransposed(prev => !prev)
+                } else {
+                  setChartOrientation(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')
+                }
               }}
               className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
-              style={{ height: '30px', width: '30px', backgroundColor: '#EBF3E7', border: '1px solid #EBF3E7', borderRadius: '3px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)' }}
-              title={`Switch to ${chartOrientation === 'horizontal' ? 'vertical' : 'horizontal'} orientation`}
-              aria-label="Toggle chart orientation"
+              style={{
+                height: '32px',
+                width: '32px',
+                backgroundColor: (chartVariant === 'heatmap' && heatmapTransposed) ? 'rgba(58, 133, 24, 0.12)' : 'rgba(255, 255, 255, 0.7)',
+                border: (chartVariant === 'heatmap' && heatmapTransposed) ? '1px solid rgba(58, 133, 24, 0.25)' : '1px solid rgba(0, 0, 0, 0.08)',
+                borderRadius: '8px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+                backdropFilter: 'blur(8px)'
+              }}
+              title={chartVariant === 'heatmap' ? 'Swap rows and columns' : `Switch to ${chartOrientation === 'horizontal' ? 'vertical' : 'horizontal'} orientation`}
+              aria-label={chartVariant === 'heatmap' ? 'Swap rows and columns' : 'Toggle chart orientation'}
               type="button"
             >
               <FontAwesomeIcon
                 icon={faBars}
                 style={{
-                  fontSize: '16px',
-                  transform: chartOrientation === 'horizontal' ? 'rotate(0deg)' : 'rotate(90deg)',
+                  fontSize: '14px',
+                  color: (chartVariant === 'heatmap' && heatmapTransposed) ? '#3A8518' : '#64748b',
+                  transform: chartVariant === 'heatmap'
+                    ? (heatmapTransposed ? 'rotate(90deg)' : 'rotate(0deg)')
+                    : (chartOrientation === 'horizontal' ? 'rotate(0deg)' : 'rotate(90deg)'),
                   transition: 'transform 0.2s ease'
                 }}
               />
             </button>
-          )}
+          ) : null}
           {/* Pie Legend Orientation Toggle - for pie charts */}
           {chartVariant !== 'heatmap' && chartVariant === 'pie' && canUsePie && (
             <button
@@ -635,7 +651,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                 setPieLegendOrientation(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')
               }}
               className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
-              style={{ height: '30px', width: '30px', backgroundColor: '#EBF3E7', border: '1px solid #EBF3E7', borderRadius: '3px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)' }}
+              style={{ height: '32px', width: '32px', backgroundColor: 'rgba(255, 255, 255, 0.7)', border: '1px solid rgba(0, 0, 0, 0.08)', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(8px)' }}
               title={`Switch to ${pieLegendOrientation === 'horizontal' ? 'vertical' : 'horizontal'} legend`}
               aria-label="Toggle legend orientation"
               type="button"
@@ -643,7 +659,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               <FontAwesomeIcon
                 icon={faBars}
                 style={{
-                  fontSize: '16px',
+                  fontSize: '14px',
+                  color: '#64748b',
                   transform: pieLegendOrientation === 'horizontal' ? 'rotate(0deg)' : 'rotate(90deg)',
                   transition: 'transform 0.2s ease'
                 }}
@@ -661,16 +678,17 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               }}
               className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
               style={{
-                height: '30px',
-                width: '30px',
-                backgroundColor: selectedOptions.length < series.data.length ? '#C8E2BA' : '#EBF3E7',
-                border: selectedOptions.length < series.data.length ? '1px solid #3A8518' : '1px solid #EBF3E7',
-                borderRadius: '3px',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
+                height: '32px',
+                width: '32px',
+                backgroundColor: selectedOptions.length < series.data.length ? 'rgba(58, 133, 24, 0.12)' : 'rgba(255, 255, 255, 0.7)',
+                border: selectedOptions.length < series.data.length ? '1px solid rgba(58, 133, 24, 0.25)' : '1px solid rgba(0, 0, 0, 0.08)',
+                borderRadius: '8px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+                backdropFilter: 'blur(8px)'
               }}
               title="Filter Options"
             >
-              <FontAwesomeIcon icon={faFilter} style={{ fontSize: '16px' }} />
+              <FontAwesomeIcon icon={faFilter} style={{ fontSize: '13px', color: selectedOptions.length < series.data.length ? '#3A8518' : '#64748b' }} />
             </button>
             {showFilter && (
               <div
@@ -801,18 +819,19 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               onClick={() => setAxesSwapped(prev => !prev)}
               className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
               style={{
-                height: '30px',
-                width: '30px',
-                backgroundColor: axesSwapped ? '#C8E2BA' : '#EBF3E7',
-                border: axesSwapped ? '1px solid #3A8518' : '1px solid #EBF3E7',
-                borderRadius: '3px',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
+                height: '32px',
+                width: '32px',
+                backgroundColor: axesSwapped ? 'rgba(58, 133, 24, 0.12)' : 'rgba(255, 255, 255, 0.7)',
+                border: axesSwapped ? '1px solid rgba(58, 133, 24, 0.25)' : '1px solid rgba(0, 0, 0, 0.08)',
+                borderRadius: '8px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+                backdropFilter: 'blur(8px)'
               }}
               title="Swap X/Y axes"
               aria-label="Swap X and Y axes"
               type="button"
             >
-              <FontAwesomeIcon icon={faRotate} style={{ fontSize: '16px' }} />
+              <FontAwesomeIcon icon={faRotate} style={{ fontSize: '13px', color: axesSwapped ? '#3A8518' : '#64748b' }} />
             </button>
           )}
           {/* Heatmap product filter portal - positioned before sort button */}
@@ -831,12 +850,13 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                 }}
               className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
               style={{
-                height: '30px',
-                width: '30px',
-                backgroundColor: cardSort !== 'default' ? '#C8E2BA' : '#EBF3E7',
-                border: cardSort !== 'default' ? '1px solid #3A8518' : '1px solid #EBF3E7',
-                borderRadius: '3px',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
+                height: '32px',
+                width: '32px',
+                backgroundColor: cardSort !== 'default' ? 'rgba(58, 133, 24, 0.12)' : 'rgba(255, 255, 255, 0.7)',
+                border: cardSort !== 'default' ? '1px solid rgba(58, 133, 24, 0.25)' : '1px solid rgba(0, 0, 0, 0.08)',
+                borderRadius: '8px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+                backdropFilter: 'blur(8px)'
               }}
               title="Sort"
             >
@@ -847,7 +867,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                   cardSort === 'alphabetical' ? faArrowUpAZ :
                   faSort
                 }
-                style={{ fontSize: '16px' }}
+                style={{ fontSize: '13px', color: cardSort !== 'default' ? '#3A8518' : '#64748b' }}
               />
             </button>
             {showSortMenu && (
@@ -951,18 +971,19 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               }}
               className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
               style={{
-                height: '30px',
-                width: '30px',
-                backgroundColor: filterSignificantOnly || statSigFilter === 'statSigOnly' ? '#C8E2BA' : '#EBF3E7',
-                border: filterSignificantOnly || statSigFilter === 'statSigOnly' ? '1px solid #3A8518' : '1px solid #EBF3E7',
-                borderRadius: '3px',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
+                height: '32px',
+                width: '32px',
+                backgroundColor: filterSignificantOnly || statSigFilter === 'statSigOnly' ? 'rgba(58, 133, 24, 0.12)' : 'rgba(255, 255, 255, 0.7)',
+                border: filterSignificantOnly || statSigFilter === 'statSigOnly' ? '1px solid rgba(58, 133, 24, 0.25)' : '1px solid rgba(0, 0, 0, 0.08)',
+                borderRadius: '8px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+                backdropFilter: 'blur(8px)'
               }}
               title="Statistical Significance Filter"
               aria-label="Toggle stat significance filter menu"
               type="button"
             >
-              <FontAwesomeIcon icon={faStar} style={{ fontSize: '16px' }} />
+              <FontAwesomeIcon icon={faStar} style={{ fontSize: '13px', color: filterSignificantOnly || statSigFilter === 'statSigOnly' ? '#3A8518' : '#64748b' }} />
             </button>
             {showStatSigMenu && (
               <div className="absolute right-0 top-10 z-10 w-60 shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', opacity: 1 }}>
@@ -1026,48 +1047,50 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
           )}
           {(canUsePie || canUseStacked || canUseHeatmap) && question.type !== 'ranking' && (
             <>
-              <div className="flex items-center gap-0.5" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)' }}>
+              {/* Divider before chart type controls */}
+              <div style={{ width: '1px', height: '20px', backgroundColor: 'rgba(0, 0, 0, 0.1)', margin: '0 6px' }} />
+              <div className="flex items-center gap-1" style={{ backgroundColor: 'rgba(255, 255, 255, 0.5)', border: '1px solid rgba(0, 0, 0, 0.06)', borderRadius: '10px', padding: '3px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(8px)' }}>
                 <button
-                  className="flex items-center justify-center transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
+                  className="flex items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer"
                   style={{
-                    height: '30px',
-                    width: '30px',
-                    backgroundColor: chartVariant === 'bar' ? '#D6E9FF' : '#EEF2F6',
-                    border: chartVariant === 'bar' ? '1px solid #80BDFF' : '1px solid #EEF2F6',
-                    borderRadius: '3px',
+                    height: '28px',
+                    width: '28px',
+                    backgroundColor: chartVariant === 'bar' ? 'rgba(58, 133, 24, 0.12)' : 'transparent',
+                    border: chartVariant === 'bar' ? '1px solid rgba(58, 133, 24, 0.25)' : '1px solid transparent',
+                    borderRadius: '6px',
                     cursor: 'pointer'
                   }}
                   onClick={() => setChartVariant('bar')}
                   title="Bar chart"
                 >
-                  <FontAwesomeIcon icon={faChartSimple} style={{ fontSize: '16px' }} />
+                  <FontAwesomeIcon icon={faChartSimple} style={{ fontSize: '13px', color: chartVariant === 'bar' ? '#3A8518' : '#64748b' }} />
                 </button>
                 {canUsePie && (
                   <button
-                    className="flex items-center justify-center transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
+                    className="flex items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer"
                     style={{
-                      height: '30px',
-                      width: '30px',
-                      backgroundColor: chartVariant === 'pie' ? '#D6E9FF' : '#EEF2F6',
-                      border: chartVariant === 'pie' ? '1px solid #80BDFF' : '1px solid #EEF2F6',
-                      borderRadius: '3px',
+                      height: '28px',
+                      width: '28px',
+                      backgroundColor: chartVariant === 'pie' ? 'rgba(58, 133, 24, 0.12)' : 'transparent',
+                      border: chartVariant === 'pie' ? '1px solid rgba(58, 133, 24, 0.25)' : '1px solid transparent',
+                      borderRadius: '6px',
                       cursor: 'pointer'
                     }}
                     onClick={() => setChartVariant('pie')}
                     title="Pie chart"
                   >
-                    <FontAwesomeIcon icon={faChartPie} style={{ fontSize: '16px' }} />
+                    <FontAwesomeIcon icon={faChartPie} style={{ fontSize: '13px', color: chartVariant === 'pie' ? '#3A8518' : '#64748b' }} />
                   </button>
                 )}
                 {canUseStacked && (
                   <button
-                    className="flex items-center justify-center transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
+                    className="flex items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer"
                     style={{
-                      height: '30px',
-                      width: '30px',
-                      backgroundColor: chartVariant === 'stacked' ? '#D6E9FF' : '#EEF2F6',
-                      border: chartVariant === 'stacked' ? '1px solid #80BDFF' : '1px solid #EEF2F6',
-                      borderRadius: '3px',
+                      height: '28px',
+                      width: '28px',
+                      backgroundColor: chartVariant === 'stacked' ? 'rgba(58, 133, 24, 0.12)' : 'transparent',
+                      border: chartVariant === 'stacked' ? '1px solid rgba(58, 133, 24, 0.25)' : '1px solid transparent',
+                      borderRadius: '6px',
                       cursor: 'pointer'
                     }}
                     onClick={() => {
@@ -1076,24 +1099,24 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                     }}
                     title="Stacked chart"
                   >
-                    <FontAwesomeIcon icon={faChartBar} style={{ fontSize: '16px' }} />
+                    <FontAwesomeIcon icon={faChartBar} style={{ fontSize: '13px', color: chartVariant === 'stacked' ? '#3A8518' : '#64748b' }} />
                   </button>
                 )}
                 {canUseHeatmap && (isSentimentQuestion || isProductFollowUpQuestion) && (
                   <button
-                    className="flex items-center justify-center transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 active:scale-95 cursor-pointer"
+                    className="flex items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer"
                     style={{
-                      height: '30px',
-                      width: '30px',
-                      backgroundColor: chartVariant === 'heatmap' ? '#D6E9FF' : '#EEF2F6',
-                      border: chartVariant === 'heatmap' ? '1px solid #80BDFF' : '1px solid #EEF2F6',
-                      borderRadius: '3px',
+                      height: '28px',
+                      width: '28px',
+                      backgroundColor: chartVariant === 'heatmap' ? 'rgba(58, 133, 24, 0.12)' : 'transparent',
+                      border: chartVariant === 'heatmap' ? '1px solid rgba(58, 133, 24, 0.25)' : '1px solid transparent',
+                      borderRadius: '6px',
                       cursor: 'pointer'
                     }}
                     onClick={() => setChartVariant('heatmap')}
                     title="Heatmap"
                   >
-                    <FontAwesomeIcon icon={faTableCellsLarge} style={{ fontSize: '16px' }} />
+                    <FontAwesomeIcon icon={faTableCellsLarge} style={{ fontSize: '13px', color: chartVariant === 'heatmap' ? '#3A8518' : '#64748b' }} />
                   </button>
                 )}
               </div>
@@ -1285,6 +1308,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                   hideAsterisks={hideAsterisks}
                   onSaveQuestionLabel={onSaveQuestionLabel}
                   productOrder={productOrder}
+                  transposed={heatmapTransposed}
                 />
               </div>
             )
@@ -1333,6 +1357,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               onSaveOptionLabel={onSaveOptionLabel}
               onSaveQuestionLabel={onSaveQuestionLabel}
               productOrder={productOrder}
+              transposed={heatmapTransposed}
             />
           )
         }
