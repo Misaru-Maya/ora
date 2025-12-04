@@ -220,6 +220,9 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   useEffect(() => {
     if (!isResizingChart || !resizingHandle) return
 
+    let rafId: number | null = null
+    let pendingWidth: number | null = null
+
     const handleMouseMove = (e: MouseEvent) => {
       const container = chartContainerRef.current
       if (!container) return
@@ -231,11 +234,27 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       // Right handle: dragging right (positive deltaX) = expand, dragging left = shrink
       const deltaPercent = (deltaX / containerWidth) * 100
       const adjustedDelta = resizingHandle === 'left' ? -deltaPercent : deltaPercent
-      const newWidthPercent = Math.max(40, Math.min(100, chartResizeStartWidth.current + adjustedDelta))
-      setChartWidthPercent(newWidthPercent)
+      pendingWidth = Math.max(40, Math.min(100, chartResizeStartWidth.current + adjustedDelta))
+
+      // Throttle updates using requestAnimationFrame
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          if (pendingWidth !== null) {
+            setChartWidthPercent(pendingWidth)
+          }
+          rafId = null
+        })
+      }
     }
 
     const handleMouseUp = () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+      }
+      // Apply final position
+      if (pendingWidth !== null) {
+        setChartWidthPercent(pendingWidth)
+      }
       setIsResizingChart(false)
       setResizingHandle(null)
     }
@@ -246,6 +265,9 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     return () => {
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+      }
     }
   }, [isResizingChart, resizingHandle])
 
@@ -261,14 +283,33 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   useEffect(() => {
     if (!isResizingHeight) return
 
+    let rafId: number | null = null
+    let pendingOffset: number | null = null
+
     const handleMouseMove = (e: MouseEvent) => {
       const deltaY = e.clientY - heightResizeStartY.current
       // Clamp height offset between -100 and 300
-      const newOffset = Math.max(-100, Math.min(300, heightResizeStartOffset.current + deltaY))
-      setChartHeightOffset(newOffset)
+      pendingOffset = Math.max(-100, Math.min(300, heightResizeStartOffset.current + deltaY))
+
+      // Throttle updates using requestAnimationFrame
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          if (pendingOffset !== null) {
+            setChartHeightOffset(pendingOffset)
+          }
+          rafId = null
+        })
+      }
     }
 
     const handleMouseUp = () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+      }
+      // Apply final position
+      if (pendingOffset !== null) {
+        setChartHeightOffset(pendingOffset)
+      }
       setIsResizingHeight(false)
     }
 
@@ -278,6 +319,9 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     return () => {
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+      }
     }
   }, [isResizingHeight])
 
