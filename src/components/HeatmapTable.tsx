@@ -814,8 +814,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
         >
           {displayQuestionLabel && (
             editingQuestionLabel ? (
-              <input
-                type="text"
+              <textarea
                 autoFocus
                 value={questionLabelInput}
                 onChange={(e) => setQuestionLabelInput(e.target.value)}
@@ -826,7 +825,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                   setEditingQuestionLabel(false)
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault()
                     if (questionLabelInput.trim() && onSaveQuestionLabel) {
                       onSaveQuestionLabel(questionLabelInput.trim())
@@ -848,8 +847,11 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                   fontFamily: 'Space Grotesk, sans-serif',
                   fontWeight: 600,
                   lineHeight: '1.4',
-                  textAlign: 'center'
+                  textAlign: 'center',
+                  resize: 'vertical',
+                  minHeight: '40px'
                 }}
+                rows={Math.max(2, questionLabelInput.split('\n').length)}
               />
             ) : (
               <h3

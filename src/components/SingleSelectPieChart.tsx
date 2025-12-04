@@ -313,8 +313,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
           >
             {questionLabel && (
               editingQuestionLabel ? (
-                <input
-                  type="text"
+                <textarea
                   autoFocus
                   value={questionLabelInput}
                   onChange={(e) => setQuestionLabelInput(e.target.value)}
@@ -325,7 +324,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
                     setEditingQuestionLabel(false)
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault()
                       if (questionLabelInput.trim() && onSaveQuestionLabel) {
                         onSaveQuestionLabel(questionLabelInput.trim())
@@ -334,6 +333,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
                     }
                     if (e.key === 'Escape') setEditingQuestionLabel(false)
                   }}
+                  onMouseDown={(e) => e.stopPropagation()}
                   className="text-sm font-semibold text-brand-gray"
                   style={{
                     width: '100%',
@@ -345,8 +345,12 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
                     backgroundColor: 'white',
                     fontFamily: 'Space Grotesk, sans-serif',
                     fontWeight: 600,
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    resize: 'vertical',
+                    minHeight: '40px',
+                    lineHeight: '1.4'
                   }}
+                  rows={Math.max(2, questionLabelInput.split('\n').length)}
                 />
               ) : (
                 <h3

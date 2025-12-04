@@ -586,8 +586,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
           >
             {questionLabel && (
               editingQuestionLabel ? (
-                <input
-                  type="text"
+                <textarea
                   autoFocus
                   value={questionLabelInput}
                   onChange={(e) => setQuestionLabelInput(e.target.value)}
@@ -598,7 +597,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
                     setEditingQuestionLabel(false)
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault()
                       if (questionLabelInput.trim() && onSaveQuestionLabel) {
                         onSaveQuestionLabel(questionLabelInput.trim())
@@ -620,8 +619,11 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
                     fontFamily: 'Space Grotesk, sans-serif',
                     fontWeight: 600,
                     lineHeight: '1.4',
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    resize: 'vertical',
+                    minHeight: '40px'
                   }}
+                  rows={Math.max(2, questionLabelInput.split('\n').length)}
                 />
               ) : (
                 <h3
