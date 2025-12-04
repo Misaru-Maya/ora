@@ -2,6 +2,10 @@ import React, { useState, useRef, useEffect } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import type { SeriesDataPoint, GroupSeriesMeta } from '../dataCalculations'
 
+// Performance: Disable console logs in production
+const isDev = process.env.NODE_ENV === 'development'
+const devLog = isDev ? console.log : () => {}
+
 const PIE_COLORS = [
   '#3A8518',
   '#CED6DE',
@@ -126,7 +130,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
     }
   }, [isDraggingChart])
 
-  console.log('SingleSelectPieChart received:', {
+  devLog('SingleSelectPieChart received:', {
     dataLength: data.length,
     groupKey: group.key,
     groupLabel: group.label,
@@ -136,7 +140,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
   const pieData = data
     .map(item => {
       const value = Number(item[group.key] ?? 0)
-      console.log('Mapping item:', {
+      devLog('Mapping item:', {
         option: item.optionDisplay,
         groupKey: group.key,
         rawValue: item[group.key],
@@ -149,7 +153,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
     })
     .filter(item => Number.isFinite(item.value) && item.value > 0)
 
-  console.log('Pie data after filtering:', pieData)
+  devLog('Pie data after filtering:', pieData)
 
   if (!pieData.length) {
     return (
@@ -159,7 +163,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
     )
   }
 
-  console.log('About to render pie chart with pieData:', pieData)
+  devLog('About to render pie chart with pieData:', pieData)
 
   // Custom label formatter to show rounded values with % sign
   // Using dark gray color for better readability (same as legend text)

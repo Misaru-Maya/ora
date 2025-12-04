@@ -1,6 +1,10 @@
 import { create } from 'zustand'
 import type { ParsedCSV, Selections } from './types'
 
+// Performance: Disable console logs in production
+const isDev = process.env.NODE_ENV === 'development'
+const devLog = isDev ? console.log : () => {}
+
 interface ORAState {
   dataset: ParsedCSV | null
   setDataset: (d: ParsedCSV | null) => void
@@ -28,7 +32,7 @@ const initialSelections: Selections = {
 export const useORAStore = create<ORAState>((set) => ({
   dataset: null,
   setDataset: (d) => {
-    console.log('Setting dataset in store:', d)
+    devLog('Setting dataset in store:', d)
     // Reset selections when setting a new dataset to clear previous test data
     set({ dataset: d, selections: { ...initialSelections } })
   },

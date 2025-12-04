@@ -989,7 +989,7 @@ export default function App() {
 
   const handleSaveQuestionLabel = (qid: string, newLabel: string) => {
     if (!newLabel.trim()) return
-    console.log('Saving question label:', { qid, newLabel: newLabel.trim(), currentLabels: selections.questionLabels })
+    devLog('Saving question label:', { qid, newLabel: newLabel.trim(), currentLabels: selections.questionLabels })
     setSelections({
       questionLabels: {
         ...selections.questionLabels,
