@@ -355,12 +355,18 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
     }
 
     // Use QID + question text as key to differentiate questions with same number but different text
-    // This handles cases where the same Q# is reused for different questions
+    // This handles cases where the same Q# is reused for different questions (e.g., Positive/Negative variants)
     const questionKey = `${qid}::${questionText || qid}`
+
+    // For the actual qid stored in the object, use a unique suffix if this is a variant question
+    // This ensures React keys are unique when rendering
+    const uniqueQid = questionText && questionText !== qid
+      ? `${qid}_${questionText.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20)}`
+      : qid
 
     if (!qMap.has(questionKey)) {
       qMap.set(questionKey, {
-        qid,
+        qid: uniqueQid,
         label: questionText || qid,
         type: questionType,
         columns: [] as QuestionOptionColumn[],

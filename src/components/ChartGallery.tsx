@@ -1323,16 +1323,18 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         style={{
           position: 'absolute',
           left: `calc(${chartWidthPercent}% + 20px)`,
-          top: 10,
-          bottom: 30,
-          width: '8px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          height: '80px',
+          width: '20px',
           cursor: 'ew-resize',
           backgroundColor: isResizingChart && resizingHandle === 'right' ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
           transition: 'background-color 0.15s ease',
           zIndex: 10,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          borderRadius: '4px'
         }}
         onMouseEnter={(e) => {
           if (!isResizingChart) {
@@ -1622,17 +1624,19 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         onMouseDown={handleHeightResizeStart}
         style={{
           position: 'absolute',
-          left: 0,
-          right: 0,
+          left: '50%',
+          transform: 'translateX(-50%)',
           bottom: 0,
-          height: '8px',
+          width: '80px',
+          height: '20px',
           cursor: 'ns-resize',
           backgroundColor: isResizingHeight ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
           transition: 'background-color 0.15s ease',
           zIndex: 10,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          borderRadius: '4px'
         }}
         onMouseEnter={(e) => {
           if (!isResizingHeight) {

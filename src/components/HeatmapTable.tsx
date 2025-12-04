@@ -231,11 +231,6 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
     }
   }, [dataset, productColumn, groups])
 
-  // Default: show all products
-  const defaultProductSelection = useMemo(() => {
-    return groups.map(g => g.key)
-  }, [groups])
-
   // Calculate top and bottom 50% based on sidebar product order
   // If productOrder exists, use it; otherwise use default group order
   // IMPORTANT: Top and bottom 50% must NOT overlap
@@ -266,16 +261,39 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
     }
   }, [groups, productOrder])
 
+  // Default: show top 50% for positive/advocates questions, bottom 50% for negative/detractors questions
+  const defaultProductSelection = useMemo(() => {
+    // For positive questions (advocates): show top 50%
+    // For negative questions (detractors): show bottom 50%
+    if (sentiment === 'positive') {
+      return top50Products.length > 0 ? top50Products : groups.map(g => g.key)
+    } else {
+      return bottom50Products.length > 0 ? bottom50Products : groups.map(g => g.key)
+    }
+  }, [groups, sentiment, top50Products, bottom50Products])
+
   // State for filtering
   const [selectedProducts, setSelectedProducts] = useState<string[]>(defaultProductSelection)
   const [selectedAttributes] = useState<string[]>(data.map(d => d.option))
   const [showProductFilter, setShowProductFilter] = useState(false)
   const [, setShowAttributeFilter] = useState(false)
 
-  // Update selected products when default selection changes (e.g., on data reload)
+  // Track if this is the initial mount or if groups/sentiment changed (not just order)
+  const prevGroupsRef = React.useRef<string[]>([])
+  const prevSentimentRef = React.useRef<'positive' | 'negative'>(sentiment)
+
+  // Only reset selected products when groups or sentiment actually change, not when order changes
   useEffect(() => {
-    setSelectedProducts(defaultProductSelection)
-  }, [defaultProductSelection])
+    const currentGroupKeys = groups.map(g => g.key).sort().join(',')
+    const prevGroupKeys = prevGroupsRef.current.sort().join(',')
+
+    // Reset only if groups changed (new data) or sentiment changed, not just order
+    if (currentGroupKeys !== prevGroupKeys || sentiment !== prevSentimentRef.current) {
+      setSelectedProducts(defaultProductSelection)
+      prevGroupsRef.current = groups.map(g => g.key)
+      prevSentimentRef.current = sentiment
+    }
+  }, [groups, sentiment, defaultProductSelection])
 
   // State for attribute reordering (product order comes from global productOrder prop)
   const [draggedAttributeIndex, setDraggedAttributeIndex] = useState<number | null>(null)
