@@ -2628,6 +2628,8 @@ export default function App() {
                             opacity: draggedProductIndex === index ? 0.5 : 1
                           }}
                         >
+                          {/* Row number */}
+                          <span style={{ fontSize: '11px', color: '#9ca3af', minWidth: '16px', textAlign: 'right' }}>{index + 1}</span>
                           {/* Drag handle */}
                           <svg
                             width="12"
