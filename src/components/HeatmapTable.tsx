@@ -97,10 +97,10 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
     productOrderLength: productOrder.length
   })
 
-  // Calculate sentiment score for a product using star ratings
+  // Pre-compute all sentiment scores in a single pass for better performance
   // Sentiment Score = (% Advocates - % Detractors + 100) / 2
   // Advocates = 4s and 5s, Detractors = 1s and 2s, Neutrals = 3s
-  const calculateSentimentScore = useMemo(() => {
+  const sentimentScores = useMemo(() => {
     // Find sentiment column (column with "(sentiment)" in header)
     const sentimentColumn = dataset.summary.columns.find(col =>
       col.toLowerCase().includes('(sentiment)') && col.toLowerCase().includes('would you consider buying')
@@ -113,20 +113,29 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
 
     devLog('📊 Found sentiment column:', sentimentColumn)
 
-    // Calculate sentiment score for each product
-    return (productKey: string) => {
-      // Find the product label from groups
-      const productGroup = groups.find(g => g.key === productKey)
-      if (!productGroup) return 0
+    // Pre-compute scores for all products in a single pass
+    const scores = new Map<string, number>()
 
-      const productLabel = productGroup.label
+    // Group rows by product for efficient processing
+    const productRowsMap = new Map<string, typeof dataset.rows>()
+    for (const row of dataset.rows) {
+      const productLabel = row[productColumn]
+      if (!productLabel) continue
+      if (!productRowsMap.has(productLabel)) {
+        productRowsMap.set(productLabel, [])
+      }
+      productRowsMap.get(productLabel)!.push(row)
+    }
 
-      // Filter rows for this product
-      const productRows = dataset.rows.filter(row => row[productColumn] === productLabel)
+    // Calculate score for each group
+    for (const group of groups) {
+      const productLabel = group.label
+      const productRows = productRowsMap.get(productLabel) || []
 
       if (productRows.length === 0) {
         devWarn(`⚠️ No rows found for product: ${productLabel}`)
-        return 0
+        scores.set(group.key, 0)
+        continue
       }
 
       // Count advocates (4-5 stars), detractors (1-2 stars)
@@ -134,7 +143,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
       let detractors = 0
       let validResponses = 0
 
-      productRows.forEach(row => {
+      for (const row of productRows) {
         const rating = row[sentimentColumn]
         const numericRating = typeof rating === 'number' ? rating : Number(rating)
 
@@ -147,11 +156,12 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
           }
           // 3s are neutrals, not counted
         }
-      })
+      }
 
       if (validResponses === 0) {
         devWarn(`⚠️ No valid ratings for product: ${productLabel}`)
-        return 0
+        scores.set(group.key, 0)
+        continue
       }
 
       const advocatePercent = (advocates / validResponses) * 100
@@ -160,8 +170,10 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
 
       devLog(`📊 Product: ${productLabel}, Advocates: ${advocates}/${validResponses} (${advocatePercent.toFixed(1)}%), Detractors: ${detractors}/${validResponses} (${detractorPercent.toFixed(1)}%), Score: ${sentimentScore.toFixed(1)}`)
 
-      return sentimentScore
+      scores.set(group.key, sentimentScore)
     }
+
+    return scores
   }, [dataset, productColumn, groups])
 
   // Calculate top and bottom 50% based on sidebar product order
@@ -422,18 +434,18 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
   // Sort ALL groups (products) by their sentiment scores (descending - highest score first)
   // This is used for the filter dropdown to show all products in sorted order
   const allGroupsSorted = useMemo(() => {
-    if (!calculateSentimentScore) {
+    if (!sentimentScores) {
       return groups
     }
 
     return [...groups].sort((a, b) => {
-      const scoreA = calculateSentimentScore(a.key)
-      const scoreB = calculateSentimentScore(b.key)
+      const scoreA = sentimentScores.get(a.key) ?? 0
+      const scoreB = sentimentScores.get(b.key) ?? 0
 
       // Always sort by sentiment score descending (higher is better)
       return scoreB - scoreA
     })
-  }, [groups, calculateSentimentScore])
+  }, [groups, sentimentScores])
 
   // Sort groups (products) by their sentiment scores (descending - highest score first)
   // This filters to only selected products
