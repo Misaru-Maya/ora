@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, memo } from 'react'
 import { createPortal } from 'react-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faShuffle } from '@fortawesome/free-solid-svg-icons'
+import { faSquareCheck } from '@fortawesome/free-solid-svg-icons'
 import type { SeriesDataPoint, GroupSeriesMeta } from '../dataCalculations'
 
 // Performance: Disable console logs in production
@@ -634,7 +634,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
         }}
         title="Filter Products"
       >
-        <FontAwesomeIcon icon={faShuffle} style={{ fontSize: '13px', color: selectedProducts.length < allGroupsOrdered.length ? '#3A8518' : '#64748b' }} />
+        <FontAwesomeIcon icon={faSquareCheck} style={{ fontSize: '14px', color: '#64748b' }} />
       </button>
         {showProductFilter && (
           <div
@@ -698,9 +698,9 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                           padding: '4px 8px',
                           fontSize: '11px',
                           fontWeight: 500,
-                          color: allBottom50Selected ? '#3A8518' : '#6b7280',
-                          backgroundColor: allBottom50Selected ? '#f0fdf4' : '#f9fafb',
-                          border: allBottom50Selected ? '1px solid #bbf7d0' : '1px solid #e5e7eb',
+                          color: allBottom50Selected ? '#92700C' : '#6b7280',
+                          backgroundColor: allBottom50Selected ? '#FAF5D7' : '#f9fafb',
+                          border: allBottom50Selected ? '1px solid #ECD560' : '1px solid #e5e7eb',
                           borderRadius: '6px',
                           cursor: 'pointer',
                           transition: 'all 0.15s ease'
