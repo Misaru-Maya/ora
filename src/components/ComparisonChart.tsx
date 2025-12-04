@@ -1735,6 +1735,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                 radius={isHorizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]}
                 barSize={barSize}
                 stackId={stacked ? 'stack' : undefined}
+                isAnimationActive={false}
                 style={{ cursor: 'pointer' }}
                 onClick={(barData: any, _index: number, event: React.MouseEvent) => {
                   if (barData && barData.payload) {

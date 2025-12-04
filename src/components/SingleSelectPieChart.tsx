@@ -410,6 +410,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
                   labelLine={true}
                   startAngle={90}
                   endAngle={450}
+                  isAnimationActive={false}
                 >
                   {reversedPieData.map((_entry, index) => {
                     const colorIndex = pieData.length - 1 - index
