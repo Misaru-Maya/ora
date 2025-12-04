@@ -11,7 +11,11 @@ const isDev = process.env.NODE_ENV === 'development'
 const devLog = isDev ? console.log : () => {}
 const devWarn = isDev ? console.warn : () => {}
 
+// Format B: [Q1] [(type)] Question text  OR  [1] (type) Question text
 const QUESTION_HEADER_RE = /^\[\s*(?:Q)?(\d+)\s*\]\s*(?:\[\(\s*([^)]+?)\s*\)\]|\(\s*([^)]+?)\s*\))\s*(.*)$/i
+
+// Format A: "0 multi: Question text" OR "1: Question text" (Respondent_data format)
+const FORMAT_A_HEADER_RE = /^(\d+)\s*(multi)?:\s*(.+)$/i
 
 const POSSIBLE_ID_COLUMNS = new Set([
   'respondent id', 'respondent_id', 'participant id', 'participant_id',
@@ -105,10 +109,11 @@ function extractBaseAndOption(header: string): { base: string, option?: string }
   return { base: base.trim(), option: option ? stripQuotes(option) : option }
 }
 
-function normalizeQuestionType(rawType: string): 'single' | 'multi' | 'ranking' {
+function normalizeQuestionType(rawType: string): 'single' | 'multi' | 'ranking' | 'text' {
   const normalized = rawType.trim().toLowerCase()
   if (normalized.includes('multi')) return 'multi'
   if (normalized.includes('ranking')) return 'ranking'
+  if (normalized.includes('text')) return 'text'  // Open-ended text questions
   return 'single'
 }
 
@@ -120,14 +125,35 @@ function parseQuestionHeader(header: string): {
 } | null {
   const cleaned = cleanHeader(header)
   const { base, option } = extractBaseAndOption(cleaned)
-  const match = base.match(QUESTION_HEADER_RE)
-  if (!match) return null
 
-  const qid = `Q${match[1]}`
-  const rawType = (match[2] || match[3] || '').toLowerCase()
-  const questionText = stripQuestionPrefix(stripQuotes((match[4] || '').trim()))
+  // Try Format B first: [Q1] [(type)] Question text
+  const matchB = base.match(QUESTION_HEADER_RE)
+  if (matchB) {
+    const qid = `Q${matchB[1]}`
+    const rawType = (matchB[2] || matchB[3] || '').toLowerCase()
+    const questionText = stripQuestionPrefix(stripQuotes((matchB[4] || '').trim()))
+    return { qid, rawType, questionText, option }
+  }
 
-  return { qid, rawType, questionText, option }
+  // Try Format A: "0 multi: Question text" OR "1: Question text"
+  const matchA = base.match(FORMAT_A_HEADER_RE)
+  if (matchA) {
+    const qNum = parseInt(matchA[1], 10)
+    const qid = `Q${matchA[1]}`
+    const rawType = (matchA[2] || 'single').toLowerCase() // Default to 'single' if no 'multi' keyword
+    let questionText = stripQuestionPrefix(stripQuotes((matchA[3] || '').trim()))
+
+    // For multi-select questions in Format A, even indices = Positive, odd indices = Negative
+    // This matches the Format B pattern where (Positive) and (Negative) are explicit
+    if (rawType === 'multi') {
+      const sentiment = qNum % 2 === 0 ? '(Positive)' : '(Negative)'
+      questionText = `${sentiment} ${questionText}`
+    }
+
+    return { qid, rawType, questionText, option }
+  }
+
+  return null
 }
 
 export function parseCSVToDataset(rows: Record<string, any>[], fileName: string): ParsedCSV {
@@ -156,14 +182,22 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
   const hasDirectCountryColumn = columns.some(col => norm(col) === 'country')
 
   // Look for gender as a standalone column or any question containing "gender"
+  // Format B: [(gender)] or question containing "gender"
+  // Format A: "1: What's your gender?" or similar
   const genderSource = hasDirectGenderColumn ? null : columns.find(col =>
-    /gender/i.test(col)
+    /\[\s*\(gender\)\s*\]/i.test(col) ||
+    /what['']?s your gender/i.test(col) ||
+    /your gender/i.test(col)
   )
 
   // Look for age as a standalone column or as a question
+  // Format B: [(age)] or question containing "born"/"age"
+  // Format A: "2: When were you born?" or similar
   const ageSource = hasDirectAgeColumn ? null : columns.find(col =>
     /\[\s*\(age\)\s*\]/i.test(col) ||
-    /\[.*\]\s*\(single\).*age/i.test(col)
+    /when were you born/i.test(col) ||
+    /what year were you born/i.test(col) ||
+    /how old are you/i.test(col)
   )
 
   // Look for country as a standalone column
@@ -233,15 +267,67 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
     }
   }
 
+  // Format A: Handle Answer + Question Title pattern for sentiment
+  // In Format A, sentiment is stored as Question Title = "Would you consider buying..." and Answer = "5"
+  const ANSWER_COLUMN = 'Answer'
+  const QUESTION_TITLE_COLUMN = 'Question Title'
+  const SYNTHETIC_SENTIMENT_COLUMN = '[1] [(sentiment)] Would you consider buying this item?'
+  const hasFormatAPattern = columns.includes(ANSWER_COLUMN) && columns.includes(QUESTION_TITLE_COLUMN)
+
+  if (hasFormatAPattern) {
+    // Check if Question Title contains sentiment-related text
+    const hasSentimentQuestion = rows.some(row => {
+      const title = String(row[QUESTION_TITLE_COLUMN] || '').toLowerCase()
+      return title.includes('would you consider buying') || title.includes('purchase')
+    })
+
+    if (hasSentimentQuestion) {
+      devLog('[CSV Parser] Format A detected: synthesizing sentiment column from Answer')
+      // Create synthetic sentiment column from Answer values
+      let valueCount = 0
+      rows.forEach(row => {
+        const answer = row[ANSWER_COLUMN]
+        if (answer !== null && answer !== undefined && answer !== '') {
+          // Strip quotes and extract the numeric value
+          const cleanAnswer = stripQuotes(String(answer).trim())
+          row[SYNTHETIC_SENTIMENT_COLUMN] = cleanAnswer
+          valueCount++
+        }
+      })
+      devLog(`[CSV Parser] Synthetic sentiment column: ${valueCount} values added`)
+
+      if (!columns.includes(SYNTHETIC_SENTIMENT_COLUMN)) {
+        columns = [...columns, SYNTHETIC_SENTIMENT_COLUMN]
+        devLog('[CSV Parser] Added synthetic sentiment column to columns list')
+      }
+    }
+  }
+
   // Collect questions
   const qMap = new Map<string, QuestionDef>()
   const segmentCandidateSet = new Set<string>(columns)
 
-  // Track columns that are used for derived segment columns
+  // Track columns that are used for derived segment columns OR should be excluded as demographic questions
   const derivedSegmentSources = new Set<string>()
   if (genderSource) derivedSegmentSources.add(genderSource)
   if (ageSource) derivedSegmentSources.add(ageSource)
   if (countrySource) derivedSegmentSources.add(countrySource)
+
+  // Also find and exclude demographic question columns even if direct segment columns exist
+  // This handles Format A where both "Gender" column and "1: What's your gender?" question exist
+  const demographicQuestionPatterns = [
+    /what['']?s your gender/i,
+    /your gender/i,
+    /when were you born/i,
+    /what year were you born/i,
+    /how old are you/i
+  ]
+  columns.forEach(col => {
+    if (demographicQuestionPatterns.some(pattern => pattern.test(col))) {
+      derivedSegmentSources.add(col)
+      devLog(`[CSV Parser] Excluding demographic question column: ${col}`)
+    }
+  })
 
   // For multi-select questions, track options case-insensitively
   // Map<questionKey, Map<normalizedOption, { displayLabel: string, headers: string[] }>>
@@ -260,6 +346,13 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
     const { qid, rawType, questionText, option } = parsed
     const questionType = normalizeQuestionType(rawType)
     const isLikert = rawType.toLowerCase().includes('scale')
+
+    // Skip open-ended text questions - they can't be visualized as charts
+    if (questionType === 'text') {
+      devLog(`[CSV Parser] Skipping text/open-ended question: ${qid} - "${questionText?.substring(0, 50)}..."`)
+      segmentCandidateSet.delete(col)
+      continue
+    }
 
     // Use QID + question text as key to differentiate questions with same number but different text
     // This handles cases where the same Q# is reused for different questions
@@ -446,6 +539,17 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
         }
       }
       const uniqueValues = Array.from(valueMap.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+
+      // Heuristic: If a "single" question has too many unique values, it's likely an open-ended text question
+      // Text questions typically have unique responses per respondent, making them unsuitable for visualization
+      const MAX_OPTIONS_FOR_SINGLE = 50  // Threshold for detecting text questions
+      if (uniqueValues.length > MAX_OPTIONS_FOR_SINGLE) {
+        devLog(`[CSV Parser] Skipping likely text question (${uniqueValues.length} unique values): ${q.qid} - "${q.label?.substring(0, 50)}..."`)
+        // Mark for removal by setting columns to empty
+        q.columns = []
+        continue
+      }
+
       q.columns = uniqueValues.map(v => ({
         header: `__SINGLE__${q.qid}__${v}`,
         optionLabel: String(v),
@@ -574,7 +678,18 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
     uniqueRespondents.add(String(r[respIdCol]))
   }
 
-  const questions = Array.from(qMap.values())
+  // Filter out questions that have no valid options (e.g., text questions that were marked for removal)
+  const filteredQuestions = Array.from(qMap.values()).filter(q => q.columns && q.columns.length > 0)
+
+  // Sort questions: sentiment questions first, then by original order
+  // Sentiment questions contain "would you consider buying" or similar in their label
+  const questions = filteredQuestions.sort((a, b) => {
+    const aIsSentiment = /would you consider buying|purchase intent/i.test(a.label)
+    const bIsSentiment = /would you consider buying|purchase intent/i.test(b.label)
+    if (aIsSentiment && !bIsSentiment) return -1
+    if (!aIsSentiment && bIsSentiment) return 1
+    return 0  // Keep original order for non-sentiment questions
+  })
 
   // Validate that we found at least one question
   if (questions.length === 0) {

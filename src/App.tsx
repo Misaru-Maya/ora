@@ -1634,12 +1634,12 @@ export default function App() {
                                 onChange={(e) => {
                                   e.stopPropagation()
                                   const newComparisonMode = !selections.comparisonMode
-                                  // In filter mode, enable hideAsterisks by default
-                                  if (!newComparisonMode) {
-                                    setSelections({ comparisonMode: newComparisonMode, hideAsterisks: true })
-                                  } else {
-                                    setSelections({ comparisonMode: newComparisonMode })
-                                  }
+                                  // In filter mode, enable hideAsterisks by default (hide stat sig asterisks)
+                                  // In compare mode, disable hideAsterisks by default (show stat sig asterisks)
+                                  setSelections({
+                                    comparisonMode: newComparisonMode,
+                                    hideAsterisks: !newComparisonMode  // true for filter mode, false for compare mode
+                                  })
                                 }}
                                 style={{ opacity: 0, width: 0, height: 0 }}
                               />
@@ -1838,9 +1838,23 @@ export default function App() {
                         return 0
                       })
                       .map((column, _index) => {
+                      // Count respondents for each value in this segment column
+                      const valueCounts = new Map<string, number>()
+                      rowsRaw.forEach(r => {
+                        const val = stripQuotesFromValue(String(r[column]))
+                        if (val) {
+                          valueCounts.set(val, (valueCounts.get(val) || 0) + 1)
+                        }
+                      })
+
+                      const MIN_RESPONDENTS_FOR_SEGMENT = 10
                       const rawValues = Array.from(new Set(rowsRaw.map(r => stripQuotesFromValue(String(r[column])))))
                         .filter(v => {
                           if (!v || v === 'null' || v === 'undefined') return false
+
+                          // Filter out values with fewer than minimum respondents
+                          const count = valueCounts.get(v) || 0
+                          if (count < MIN_RESPONDENTS_FOR_SEGMENT) return false
 
                           // Check original value first (case-insensitive)
                           const original = String(v).trim()
