@@ -331,24 +331,28 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   const canUsePie = canUseAlternateCharts && series.groups.length === 1
   const canUseStacked = canUseAlternateCharts && series.groups.length > 1
 
+  // Cache column lookups - these are used multiple times and dataset.summary.columns doesn't change during render
+  const { productColumn, sentimentColumn } = useMemo(() => {
+    const columns = dataset.summary.columns
+    const product = columns.find(col => {
+      const lower = col.toLowerCase()
+      return lower === 'product title' ||
+             lower === 'product name' ||
+             lower === 'style' ||
+             (lower.includes('product') && (lower.includes('title') || lower.includes('name')))
+    })
+    const sentiment = columns.find(col =>
+      col.toLowerCase().includes('(sentiment)') && col.toLowerCase().includes('would you consider buying')
+    )
+    return { productColumn: product, sentimentColumn: sentiment }
+  }, [dataset.summary.columns])
+
   // Can use heatmap for product-level questions only (questions repeated for multiple products)
-  // Check if there's a Product Title/Name column (indicates product test)
-  const hasProductColumn = dataset.summary.columns.some(col => {
-    const lower = col.toLowerCase()
-    return lower === 'product title' ||
-           lower === 'product name' ||
-           lower === 'style' ||
-           (lower.includes('product') && (lower.includes('title') || lower.includes('name')))
-  })
+  const hasProductColumn = !!productColumn
   const isProductQuestion = hasProductColumn && question.level === 'row'
   const isOverallSegment = series.groups.length === 1 && series.groups[0]?.label === 'Overall'
   const isFilterMode = !comparisonMode
   const canUseHeatmap = isProductQuestion && (isOverallSegment || isFilterMode)
-
-  // Check if this is a sentiment question
-  const sentimentColumn = dataset.summary.columns.find(col =>
-    col.toLowerCase().includes('(sentiment)') && col.toLowerCase().includes('would you consider buying')
-  )
   const isSentimentQuestion = canUseHeatmap && sentimentColumn && (
     (question.singleSourceColumn && question.singleSourceColumn === sentimentColumn) ||
     question.label.toLowerCase().includes('would you consider buying') ||
@@ -1517,18 +1521,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         if (chartVariant === 'heatmap' && canUseHeatmap) {
           devLog('Rendering heatmap')
 
-          // Find the Product Title column for heatmap grouping
-          // Look for "Product Title", "Product Name", "Style", etc.
-          const productColumn = dataset.summary.columns.find(col => {
-            const lower = col.toLowerCase()
-            return (
-              lower === 'product title' ||
-              lower === 'product name' ||
-              lower === 'style' ||
-              (lower.includes('product') && lower.includes('title'))
-            )
-          })
-
+          // productColumn and sentimentColumn are already cached via useMemo above
           if (!productColumn) {
             devLog('❌ No product column found for heatmap')
             return (
@@ -1551,19 +1544,6 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               </div>
             )
           }
-
-          // Check if this is a sentiment question by checking the question's source column
-          const sentimentColumn = dataset.summary.columns.find(col =>
-            col.toLowerCase().includes('(sentiment)') && col.toLowerCase().includes('would you consider buying')
-          )
-
-          const isSentimentQuestion = sentimentColumn && (
-            // For single-select questions, check if the source column matches
-            (question.singleSourceColumn && question.singleSourceColumn === sentimentColumn) ||
-            // Or check if the question label contains sentiment-related text
-            question.label.toLowerCase().includes('would you consider buying') ||
-            question.label.toLowerCase().includes('(sentiment)')
-          )
 
           devLog('📊 Heatmap Debug:', {
             productColumn,
