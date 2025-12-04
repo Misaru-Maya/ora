@@ -560,7 +560,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
             </div>
             {/* Products list */}
             <div className="max-h-64 overflow-y-auto" style={{ padding: '8px' }}>
-              {orderedProducts.map((product) => {
+              {orderedProducts.map((product, index) => {
                 const isChecked = selectedProducts.includes(product.productName)
                 return (
                   <label
@@ -578,6 +578,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                     onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb' }}
                     onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
                   >
+                    <span style={{ fontSize: '11px', color: '#9ca3af', minWidth: '16px', textAlign: 'right' }}>{index + 1}</span>
                     <input
                       type="checkbox"
                       checked={isChecked}

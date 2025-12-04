@@ -746,7 +746,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
             </div>
             {/* Products list */}
             <div className="max-h-64 overflow-y-auto" style={{ padding: '8px' }}>
-              {allGroupsOrdered.map((group) => {
+              {allGroupsOrdered.map((group, index) => {
                 const isChecked = selectedProducts.includes(group.key)
                 return (
                   <label
@@ -764,6 +764,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                     onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb' }}
                     onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
                   >
+                    <span style={{ fontSize: '11px', color: '#9ca3af', minWidth: '16px', textAlign: 'right' }}>{index + 1}</span>
                     <input
                       type="checkbox"
                       checked={isChecked}
