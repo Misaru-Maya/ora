@@ -748,11 +748,11 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
   // Get portal target element
   const filterPortalTarget = portalReady && questionId ? document.getElementById(`heatmap-filters-${questionId}`) : null
 
-  // Early return if no data - but still render the filter button via portal
+  // Early return if no data - but still render the filter button via portal (only if 10+ products)
   if (sortedData.length === 0 || sortedGroups.length === 0) {
     return (
       <>
-        {filterPortalTarget && createPortal(filterButtons, filterPortalTarget)}
+        {filterPortalTarget && allGroupsOrdered.length >= 10 && createPortal(filterButtons, filterPortalTarget)}
         <div className="w-full py-10 text-center text-xs text-brand-gray/60">
           No products selected. Use the filter button to select products.
         </div>
@@ -776,7 +776,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
 
   return (
     <>
-      {filterPortalTarget && createPortal(filterButtons, filterPortalTarget)}
+      {filterPortalTarget && allGroupsOrdered.length >= 10 && createPortal(filterButtons, filterPortalTarget)}
     <div className="w-full" style={{ paddingLeft: '2px', paddingBottom: '10px', width: '95%', margin: '0 auto' }}>
       {/* Header Row - Title is draggable separately */}
       <div
