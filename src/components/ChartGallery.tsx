@@ -102,6 +102,13 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const badgeRef = useRef<HTMLDivElement | null>(null)
 
+  // Chart width resize state
+  const [chartWidthPercent, setChartWidthPercent] = useState(100)
+  const [isResizingChart, setIsResizingChart] = useState(false)
+  const chartResizeStartX = useRef<number>(0)
+  const chartResizeStartWidth = useRef<number>(100)
+  const chartContainerRef = useRef<HTMLDivElement | null>(null)
+
   // Screenshot handler - captures only chart content without buttons
   const _handleScreenshot = async () => {
     if (!chartContentRef.current) return
@@ -187,6 +194,44 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     }
   }, [isDraggingBadge, dragOffset])
 
+  // Chart width resize handlers
+  const handleChartResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsResizingChart(true)
+    chartResizeStartX.current = e.clientX
+    chartResizeStartWidth.current = chartWidthPercent
+  }
+
+  useEffect(() => {
+    if (!isResizingChart) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const container = chartContainerRef.current
+      if (!container) return
+
+      const containerWidth = container.offsetWidth
+      const deltaX = e.clientX - chartResizeStartX.current
+      // Calculate new width percentage based on drag distance
+      // Dragging right = wider (positive delta = positive change)
+      const deltaPercent = (deltaX / containerWidth) * 100
+      const newWidthPercent = Math.max(40, Math.min(100, chartResizeStartWidth.current + deltaPercent))
+      setChartWidthPercent(newWidthPercent)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizingChart(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizingChart])
+
   // Can use alternate chart types for single select with < 7 visible options (after filtering)
   const visibleOptionsCount = series.data.length
   const canUseAlternateCharts = question.type === 'single' && visibleOptionsCount < 7
@@ -263,13 +308,17 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   const _heatmapAttributeFilterRef = useRef<HTMLDivElement | null>(null)
   const previousQuestionIdRef = useRef<string | null>(null)
 
+  // Check if any option contains a number (for numeric sorting like "1 pair", "2 pairs", etc.)
+  const hasNumericOptions = series.data.some(d => /\d/.test(d.optionDisplay))
+
   useEffect(() => {
     // Only reset selections when the question itself changes, not when the data changes
     const questionChanged = previousQuestionIdRef.current !== question.qid
 
     if (questionChanged) {
       previousQuestionIdRef.current = question.qid
-      setCardSort(question.isLikert || isSentimentQuestion || isProductFollowUpQuestion ? 'alphabetical' : 'default')
+      // Default to alphabetical sort for: Likert, sentiment, product follow-up, or options with numbers
+      setCardSort(question.isLikert || isSentimentQuestion || isProductFollowUpQuestion || hasNumericOptions ? 'alphabetical' : 'default')
 
       // For sentiment questions in compare mode, default to vertical orientation
       if (isSentimentQuestion && comparisonMode) {
@@ -300,22 +349,39 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       // Reset custom order when question changes
       setCustomOptionOrder([])
     }
-  }, [series, question.qid, question.isLikert, question.type, isSentimentQuestion, isProductFollowUpQuestion, comparisonMode])
+  }, [series, question.qid, question.isLikert, question.type, isSentimentQuestion, isProductFollowUpQuestion, comparisonMode, hasNumericOptions])
 
   useEffect(() => {
     setChartOrientation(orientation)
   }, [orientation])
 
-  useEffect(() => {
-    // Set default chart variant when question changes
-    if (isSentimentQuestion || isProductFollowUpQuestion) {
-      setChartVariant('heatmap')
-    } else {
-      setChartVariant('bar')
-    }
-  }, [question.qid, isSentimentQuestion, isProductFollowUpQuestion])
+  // Track the last question ID to detect question changes for setting defaults
+  const chartDefaultsSetForQidRef = useRef<string | null>(null)
 
   useEffect(() => {
+    // Set defaults when question changes
+    const questionChanged = chartDefaultsSetForQidRef.current !== question.qid
+
+    if (questionChanged) {
+      chartDefaultsSetForQidRef.current = question.qid
+
+      // Set default chart variant
+      // Priority: heatmap for sentiment/product follow-up > pie when available > stacked when available > bar
+      if (isSentimentQuestion || isProductFollowUpQuestion) {
+        setChartVariant('heatmap')
+      } else if (canUsePie) {
+        setChartVariant('pie')
+      } else if (canUseStacked) {
+        setChartVariant('stacked')
+        setChartOrientation('horizontal') // Stacked charts default to horizontal
+      } else {
+        setChartVariant('bar')
+      }
+    }
+  }, [question.qid, isSentimentQuestion, isProductFollowUpQuestion, canUsePie, canUseStacked])
+
+  useEffect(() => {
+    // Fallback to bar if current variant is no longer available
     if (!canUsePie && chartVariant === 'pie') {
       setChartVariant('bar')
     }
@@ -325,7 +391,9 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     if (!canUseHeatmap && chartVariant === 'heatmap') {
       setChartVariant('bar')
     }
-  }, [canUsePie, canUseStacked, canUseHeatmap, chartVariant, question.qid])
+    // Note: We do NOT auto-upgrade from bar to pie/stacked here
+    // because users should be able to manually select bar chart
+  }, [canUsePie, canUseStacked, canUseHeatmap, chartVariant])
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -680,7 +748,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-md transition-shadow hover:shadow-lg space-y-4">
-      <div className="flex items-center gap-2 pb-2" style={{ width: '95%', margin: '0 auto' }}>
+      <div className="flex items-center gap-2 pb-2" style={{ width: '95%', margin: '0 auto', marginBottom: '20px' }}>
         <div className="flex items-center gap-2">
           {/* 1. Filter Icon Button */}
           <div className="relative" ref={filterMenuRef}>
@@ -1156,19 +1224,56 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         )
 
         return (
-      <div ref={chartContentRef} style={{
+      <div ref={chartContainerRef} style={{
         display: 'flex',
         justifyContent: 'center',
         width: '100%',
-        paddingTop: '20px',
-        paddingBottom: '20px',
+        paddingTop: '0px',
+        paddingBottom: '0px',
         position: 'relative'
       }}>
-      <div style={{
+      {/* Right resize handle only - chart is left-aligned */}
+      <div
+        onMouseDown={handleChartResizeStart}
+        style={{
+          position: 'absolute',
+          left: `${chartWidthPercent}%`,
+          top: 0,
+          bottom: 0,
+          width: '8px',
+          cursor: 'ew-resize',
+          backgroundColor: isResizingChart ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
+          transition: 'background-color 0.15s ease',
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+        onMouseEnter={(e) => {
+          if (!isResizingChart) {
+            e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.2)'
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isResizingChart) {
+            e.currentTarget.style.backgroundColor = 'transparent'
+          }
+        }}
+      >
+        <div style={{
+          width: '3px',
+          height: '40px',
+          backgroundColor: isResizingChart ? '#3A8518' : '#CED6DE',
+          borderRadius: '2px',
+          transition: 'background-color 0.15s ease'
+        }} />
+      </div>
+      <div ref={chartContentRef} style={{
         transform: 'scale(0.9)',
-        transformOrigin: 'top center',
-        width: '110%',
-        marginLeft: '-5%'
+        transformOrigin: 'top left',
+        width: `${chartWidthPercent * 1.1}%`,
+        marginLeft: '0',
+        transition: isResizingChart ? 'none' : 'width 0.1s ease-out'
       }}>
       {(() => {
         devLog('Render Debug:', {

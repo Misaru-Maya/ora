@@ -125,6 +125,18 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
   const resizeStartWidth = React.useRef<number>(0)
   const FIRST_COL_DEFAULT_WIDTH = 150
 
+  // State for draggable title position (free movement within white space)
+  const [titleOffset, setTitleOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [isDraggingTitle, setIsDraggingTitle] = useState(false)
+  const titleDragStart = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const titleDragStartOffset = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  // State for draggable heatmap position (moves entire chart)
+  const [heatmapOffset, setHeatmapOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [isDraggingHeatmap, setIsDraggingHeatmap] = useState(false)
+  const heatmapDragStart = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const heatmapDragStartOffset = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+
   // Find sentiment column
   const sentimentColumn = useMemo(() => {
     return dataset.summary.columns.find(col =>
@@ -288,6 +300,75 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
       document.removeEventListener('mouseup', handleMouseUp)
     }
   }, [isResizing])
+
+  // Title drag handlers - allows free movement within white space
+  const handleTitleDragStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingTitle(true)
+    titleDragStart.current = { x: e.clientX, y: e.clientY }
+    titleDragStartOffset.current = { x: titleOffset.x, y: titleOffset.y }
+  }
+
+  useEffect(() => {
+    if (!isDraggingTitle) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - titleDragStart.current.x
+      const deltaY = e.clientY - titleDragStart.current.y
+      // Allow horizontal movement: -300px to +300px
+      // Allow vertical movement: -200px (up) to +50px (down)
+      const newOffsetX = Math.max(-300, Math.min(300, titleDragStartOffset.current.x + deltaX))
+      const newOffsetY = Math.max(-200, Math.min(50, titleDragStartOffset.current.y + deltaY))
+      setTitleOffset({ x: newOffsetX, y: newOffsetY })
+    }
+
+    const handleMouseUp = () => {
+      setIsDraggingTitle(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDraggingTitle])
+
+  // Heatmap drag handlers - allows moving entire chart
+  const handleHeatmapDragStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsDraggingHeatmap(true)
+    heatmapDragStart.current = { x: e.clientX, y: e.clientY }
+    heatmapDragStartOffset.current = { x: heatmapOffset.x, y: heatmapOffset.y }
+  }
+
+  useEffect(() => {
+    if (!isDraggingHeatmap) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - heatmapDragStart.current.x
+      const deltaY = e.clientY - heatmapDragStart.current.y
+      // Allow horizontal movement: -300px to +300px
+      // Allow vertical movement: -200px (up) to +200px (down)
+      const newOffsetX = Math.max(-300, Math.min(300, heatmapDragStartOffset.current.x + deltaX))
+      const newOffsetY = Math.max(-200, Math.min(200, heatmapDragStartOffset.current.y + deltaY))
+      setHeatmapOffset({ x: newOffsetX, y: newOffsetY })
+    }
+
+    const handleMouseUp = () => {
+      setIsDraggingHeatmap(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDraggingHeatmap])
 
   // Calculate first column width
   const firstColumnWidth = attributeColumnWidth ?? FIRST_COL_DEFAULT_WIDTH
@@ -511,22 +592,28 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
     <>
       {filterPortalTarget && createPortal(filterButtons, filterPortalTarget)}
       <div className="w-full" style={{ paddingLeft: '2px', paddingBottom: '10px', width: '95%', margin: '0 auto' }}>
-        {/* Header Row - Spacer (left 20%) | Question Type Badge | Title (center) | Spacer (right) */}
+        {/* Header Row - Title is draggable separately */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent: 'center',
             marginTop: '15px',
-            marginBottom: '10px',
+            marginBottom: '30px',
             gap: '16px'
           }}
         >
-          {/* Left: Spacer */}
-          <div style={{ flex: '0 0 auto', minWidth: '40px' }}></div>
-
-          {/* Center: Title */}
-          <div style={{ flex: '1 1 auto', textAlign: 'center', minWidth: 0 }}>
+          {/* Center: Draggable Title */}
+          <div
+            onMouseDown={handleTitleDragStart}
+            style={{
+              textAlign: 'center',
+              cursor: isDraggingTitle ? 'grabbing' : 'grab',
+              userSelect: 'none',
+              transition: isDraggingTitle ? 'none' : 'transform 0.1s ease-out',
+              transform: `translate(${titleOffset.x}px, ${titleOffset.y}px)`
+            }}
+          >
             {questionLabel && (
               editingQuestionLabel ? (
                 <input
@@ -550,6 +637,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                     }
                     if (e.key === 'Escape') setEditingQuestionLabel(false)
                   }}
+                  onMouseDown={(e) => e.stopPropagation()}
                   className="text-sm font-semibold text-brand-gray"
                   style={{
                     width: '100%',
@@ -569,19 +657,20 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                 <h3
                   className="text-sm font-semibold text-brand-gray"
                   style={{
-                    cursor: onSaveQuestionLabel ? 'pointer' : 'default',
                     whiteSpace: 'pre-wrap',
                     margin: 0,
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    cursor: isDraggingTitle ? 'grabbing' : 'grab'
                   }}
-                  onClick={() => {
+                  onDoubleClick={(e) => {
+                    e.stopPropagation()
                     if (onSaveQuestionLabel) {
                       setEditingQuestionLabel(true)
                       setQuestionLabelInput(questionLabel)
                     }
                   }}
                   onMouseEnter={(e) => {
-                    if (onSaveQuestionLabel) {
+                    if (!isDraggingTitle) {
                       e.currentTarget.style.color = '#3A8518'
                     }
                   }}
@@ -594,13 +683,19 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
               )
             )}
           </div>
-
-          {/* Right: Spacer for balance */}
-          <div style={{ flex: '0 0 auto', minWidth: '80px' }}></div>
         </div>
 
-        {/* Heatmap table */}
-        <div className="overflow-x-auto">
+        {/* Heatmap table - draggable */}
+        <div
+          className="overflow-x-auto"
+          onMouseDown={handleHeatmapDragStart}
+          style={{
+            cursor: isDraggingHeatmap ? 'grabbing' : 'grab',
+            userSelect: 'none',
+            transition: isDraggingHeatmap ? 'none' : 'transform 0.1s ease-out',
+            transform: `translate(${heatmapOffset.x}px, ${heatmapOffset.y}px)`
+          }}
+        >
           {transposed ? (
             /* Transposed view: products as rows, Advocates/Detractors as columns */
             <table style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%', tableLayout: 'fixed' }}>

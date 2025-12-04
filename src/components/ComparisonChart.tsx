@@ -1082,25 +1082,23 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
     <div ref={chartContainerRef} className="w-full bg-white" style={{ paddingBottom: 0, position: 'relative' }}>
       {/* Header: Legend and Title - stacked if legend is too long or stacked chart */}
       {isLegendTooLong ? (
-        // Stacked layout: Title on top, Legend below - centered with chart
+        // Stacked layout: Title on top, Legend below - aligned with chart area
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
+            alignItems: 'stretch',
             marginTop: '15px',
             marginBottom: '15px',
-            paddingLeft: '20px',
-            paddingRight: '20px',
+            marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
+            marginRight: isHorizontal ? '60px' : '48px',
             gap: '12px'
           }}
         >
-          {/* Title Row: Spacer | Title | Badge */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%', gap: '16px' }}>
-            {/* Left spacer for balance */}
-            <div style={{ flex: '0 0 auto', minWidth: '80px' }}></div>
+          {/* Title Row with Badge */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', width: '100%', position: 'relative' }}>
             {/* Center: Title */}
-            <div style={{ flex: '1 1 auto', textAlign: 'center', minWidth: 0 }}>
+            <div style={{ textAlign: 'center', maxWidth: 'calc(100% - 120px)' }}>
               {questionLabel && (
                 editingQuestionLabel ? (
                   <input
@@ -1167,18 +1165,14 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                 )
               )}
             </div>
-            {/* Right: Badge */}
-            <div style={{ flex: '0 0 auto', minWidth: '80px' }}>
+            {/* Right: Badge - positioned absolutely to not affect title centering */}
+            <div style={{ position: 'absolute', right: 0, top: 0 }}>
               {questionTypeBadge}
             </div>
           </div>
-          {/* Legend below title - centered, same width as title */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%', gap: '16px' }}>
-            <div style={{ flex: '0 0 auto', minWidth: '80px' }}></div>
-            <div style={{ flex: '1 1 auto', display: 'flex', justifyContent: 'center', minWidth: 0 }}>
-              {renderLegendContent()}
-            </div>
-            <div style={{ flex: '0 0 auto', minWidth: '80px' }}></div>
+          {/* Legend below title - centered */}
+          <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+            {renderLegendContent()}
           </div>
         </div>
       ) : (

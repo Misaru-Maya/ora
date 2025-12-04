@@ -135,6 +135,18 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
   const resizeStartX = React.useRef<number>(0)
   const resizeStartWidth = React.useRef<number>(0)
 
+  // State for draggable title position (free movement within white space)
+  const [titleOffset, setTitleOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [isDraggingTitle, setIsDraggingTitle] = useState(false)
+  const titleDragStart = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const titleDragStartOffset = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  // State for draggable heatmap position (moves entire chart)
+  const [heatmapOffset, setHeatmapOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [isDraggingHeatmap, setIsDraggingHeatmap] = useState(false)
+  const heatmapDragStart = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const heatmapDragStartOffset = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+
   // Strip "Advocates:" or "Detractors:" prefix from display label
   const displayQuestionLabel = questionLabel ? stripSentimentPrefix(questionLabel) : questionLabel
 
@@ -339,6 +351,75 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
       document.removeEventListener('mouseup', handleMouseUp)
     }
   }, [isResizing])
+
+  // Title drag handlers - allows free movement within white space
+  const handleTitleDragStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingTitle(true)
+    titleDragStart.current = { x: e.clientX, y: e.clientY }
+    titleDragStartOffset.current = { x: titleOffset.x, y: titleOffset.y }
+  }
+
+  useEffect(() => {
+    if (!isDraggingTitle) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - titleDragStart.current.x
+      const deltaY = e.clientY - titleDragStart.current.y
+      // Allow horizontal movement: -300px to +300px
+      // Allow vertical movement: -200px (up) to +50px (down)
+      const newOffsetX = Math.max(-300, Math.min(300, titleDragStartOffset.current.x + deltaX))
+      const newOffsetY = Math.max(-200, Math.min(50, titleDragStartOffset.current.y + deltaY))
+      setTitleOffset({ x: newOffsetX, y: newOffsetY })
+    }
+
+    const handleMouseUp = () => {
+      setIsDraggingTitle(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDraggingTitle])
+
+  // Heatmap drag handlers - allows moving entire chart
+  const handleHeatmapDragStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsDraggingHeatmap(true)
+    heatmapDragStart.current = { x: e.clientX, y: e.clientY }
+    heatmapDragStartOffset.current = { x: heatmapOffset.x, y: heatmapOffset.y }
+  }
+
+  useEffect(() => {
+    if (!isDraggingHeatmap) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - heatmapDragStart.current.x
+      const deltaY = e.clientY - heatmapDragStart.current.y
+      // Allow horizontal movement: -300px to +300px
+      // Allow vertical movement: -200px (up) to +200px (down)
+      const newOffsetX = Math.max(-300, Math.min(300, heatmapDragStartOffset.current.x + deltaX))
+      const newOffsetY = Math.max(-200, Math.min(200, heatmapDragStartOffset.current.y + deltaY))
+      setHeatmapOffset({ x: newOffsetX, y: newOffsetY })
+    }
+
+    const handleMouseUp = () => {
+      setIsDraggingHeatmap(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDraggingHeatmap])
 
   // Drag handlers for attribute filter (product ordering is now global via sidebar)
   const [customAttributeOrder, setCustomAttributeOrder] = useState<string[] | null>(null)
@@ -724,22 +805,28 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
     <>
       {filterPortalTarget && createPortal(filterButtons, filterPortalTarget)}
     <div className="w-full" style={{ paddingLeft: '2px', paddingBottom: '10px', width: '95%', margin: '0 auto' }}>
-      {/* Header Row - Spacer (left 20%) | Cards | Title (center) | Spacer (right) */}
+      {/* Header Row - Title is draggable separately */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          justifyContent: 'center',
           marginTop: '15px',
-          marginBottom: '10px',
+          marginBottom: '30px',
           gap: '16px'
         }}
       >
-        {/* Left: Spacer */}
-        <div style={{ flex: '0 0 auto', minWidth: '40px' }}></div>
-
-        {/* Center: Title */}
-        <div style={{ flex: '1 1 auto', textAlign: 'center', minWidth: 0 }}>
+        {/* Center: Draggable Title */}
+        <div
+          onMouseDown={handleTitleDragStart}
+          style={{
+            textAlign: 'center',
+            cursor: isDraggingTitle ? 'grabbing' : 'grab',
+            userSelect: 'none',
+            transition: isDraggingTitle ? 'none' : 'transform 0.1s ease-out',
+            transform: `translate(${titleOffset.x}px, ${titleOffset.y}px)`
+          }}
+        >
           {displayQuestionLabel && (
             editingQuestionLabel ? (
               <input
@@ -763,6 +850,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                   }
                   if (e.key === 'Escape') setEditingQuestionLabel(false)
                 }}
+                onMouseDown={(e) => e.stopPropagation()}
                 className="text-sm font-semibold text-brand-gray"
                 style={{
                   width: '100%',
@@ -785,7 +873,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                   whiteSpace: 'pre-wrap',
                   margin: 0,
                   textAlign: 'center',
-                  cursor: onSaveQuestionLabel ? 'pointer' : 'default'
+                  cursor: isDraggingTitle ? 'grabbing' : 'grab'
                 }}
                 onDoubleClick={(e) => {
                   e.stopPropagation()
@@ -795,7 +883,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                   }
                 }}
                 onMouseEnter={(e) => {
-                  if (onSaveQuestionLabel) {
+                  if (!isDraggingTitle) {
                     e.currentTarget.style.color = '#3A8518'
                   }
                 }}
@@ -808,13 +896,19 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
             )
           )}
         </div>
-
-        {/* Right: Spacer for balance */}
-        <div style={{ flex: '0 0 auto', minWidth: '80px' }}></div>
       </div>
 
-      {/* Heatmap table */}
-      <div className="overflow-x-auto">
+      {/* Heatmap table - draggable */}
+      <div
+        className="overflow-x-auto"
+        onMouseDown={handleHeatmapDragStart}
+        style={{
+          cursor: isDraggingHeatmap ? 'grabbing' : 'grab',
+          userSelect: 'none',
+          transition: isDraggingHeatmap ? 'none' : 'transform 0.1s ease-out',
+          transform: `translate(${heatmapOffset.x}px, ${heatmapOffset.y}px)`
+        }}
+      >
         <table style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%', tableLayout: 'fixed' }}>
           <thead>
             <tr>
