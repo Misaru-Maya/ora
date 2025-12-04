@@ -48,7 +48,7 @@ const getColor = (value: number, sentiment: 'advocate' | 'detractor', minVal: nu
   return { bg: bgColor, text: textColor }
 }
 
-export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
+export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
   dataset,
   productColumn,
   questionLabel,
@@ -1091,4 +1091,4 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
       </div>
     </>
   )
-}
+})
