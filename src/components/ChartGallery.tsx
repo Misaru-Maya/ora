@@ -1594,6 +1594,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               questionTypeBadge={questionTypeBadge}
               heightOffset={chartHeightOffset}
               hideSegment={hideSegment}
+              sentimentType={sentimentType}
             />
           )
         }

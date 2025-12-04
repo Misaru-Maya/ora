@@ -89,6 +89,7 @@ interface HeatmapTableProps {
   questionTypeBadge?: React.ReactNode
   heightOffset?: number
   hideSegment?: boolean
+  sentimentType?: 'advocates' | 'detractors' | null  // For product follow-up questions
 }
 
 // Get color based on value and sentiment
@@ -125,7 +126,7 @@ function stripSentimentPrefix(text: string): string {
   return text.replace(/^(advocates|detractors):\s*/i, '').trim()
 }
 
-export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [], transposed = false, questionTypeBadge, heightOffset = 0, hideSegment = false }) => {
+export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [], transposed = false, questionTypeBadge, heightOffset = 0, hideSegment = false, sentimentType = null }) => {
   const [editingOption, setEditingOption] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
@@ -963,7 +964,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                 />
                 {/* Advocates/Detractors indicator card + Question Type badge - right aligned with 10px margin from column edge */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end', paddingBottom: '4px', paddingRight: '10px' }}>
-                  {!hideSegment && questionLabel && questionLabel.toLowerCase().includes('advocate') && (
+                  {!hideSegment && sentimentType === 'advocates' && (
                     <div
                       style={{
                         display: 'inline-flex',
@@ -986,7 +987,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                       <span style={{ color: '#3A8518' }}>Advocates</span>
                     </div>
                   )}
-                  {!hideSegment && questionLabel && questionLabel.toLowerCase().includes('detractor') && (
+                  {!hideSegment && sentimentType === 'detractors' && (
                     <div
                       style={{
                         display: 'inline-flex',
