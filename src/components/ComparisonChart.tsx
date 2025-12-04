@@ -586,6 +586,7 @@ interface ComparisonChartProps {
   questionTypeBadge?: React.ReactNode
   heightOffset?: number
   hideSegment?: boolean
+  sentimentType?: 'advocates' | 'detractors' | null
 }
 
 const CustomTooltip: React.FC<any> = ({ active, payload }) => {
@@ -739,7 +740,8 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   onSaveQuestionLabel,
   questionTypeBadge,
   heightOffset = 0,
-  hideSegment = false
+  hideSegment = false,
+  sentimentType = null
 }) => {
   const isHorizontal = orientation === 'horizontal'
   const [editingOption, setEditingOption] = useState<string | null>(null)
@@ -1324,8 +1326,54 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                 )
               )}
             </div>
-            {/* Right: Badge - positioned absolutely to not affect title centering */}
-            <div style={{ position: 'absolute', right: 0, top: 0 }}>
+            {/* Right: Segment + Badge - positioned absolutely to not affect title centering */}
+            <div style={{ position: 'absolute', right: 0, top: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {!hideSegment && sentimentType === 'advocates' && (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '5px 10px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(58, 133, 24, 0.15)',
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    textTransform: 'uppercase' as const,
+                    letterSpacing: '0.5px'
+                  }}
+                >
+                  <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#3A8518' }} />
+                  <span style={{ color: '#3A8518' }}>Advocates</span>
+                </div>
+              )}
+              {!hideSegment && sentimentType === 'detractors' && (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '5px 10px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(212, 186, 51, 0.15)',
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 8px rgba(180, 150, 20, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    textTransform: 'uppercase' as const,
+                    letterSpacing: '0.5px'
+                  }}
+                >
+                  <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#D4BA33' }} />
+                  <span style={{ color: '#D4BA33' }}>Detractors</span>
+                </div>
+              )}
               {questionTypeBadge}
             </div>
           </div>
@@ -1436,8 +1484,54 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
             )}
           </div>
 
-          {/* Right: Question Type Badge */}
-          <div style={{ flex: '0 0 auto', minWidth: '80px', display: 'flex', justifyContent: 'flex-end' }}>
+          {/* Right: Segment Card + Question Type Badge */}
+          <div style={{ flex: '0 0 auto', minWidth: '80px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
+            {!hideSegment && sentimentType === 'advocates' && (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '5px 10px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(58, 133, 24, 0.15)',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase' as const,
+                  letterSpacing: '0.5px'
+                }}
+              >
+                <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#3A8518' }} />
+                <span style={{ color: '#3A8518' }}>Advocates</span>
+              </div>
+            )}
+            {!hideSegment && sentimentType === 'detractors' && (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '5px 10px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(212, 186, 51, 0.15)',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 8px rgba(180, 150, 20, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase' as const,
+                  letterSpacing: '0.5px'
+                }}
+              >
+                <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#D4BA33' }} />
+                <span style={{ color: '#D4BA33' }}>Detractors</span>
+              </div>
+            )}
             {questionTypeBadge}
           </div>
         </div>
