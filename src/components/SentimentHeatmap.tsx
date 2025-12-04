@@ -69,6 +69,7 @@ interface SentimentHeatmapProps {
   transposed?: boolean
   questionTypeBadge?: React.ReactNode
   heightOffset?: number
+  hideSegment?: boolean
 }
 
 interface ProductSentiment {
@@ -112,7 +113,8 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
   productOrder = [],
   transposed = false,
   questionTypeBadge,
-  heightOffset = 0
+  heightOffset = 0,
+  hideSegment = false
 }) => {
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
   const [questionLabelInput, setQuestionLabelInput] = useState('')
@@ -696,13 +698,14 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
 
         {/* Heatmap table - draggable with adjustable row height */}
         <div
-          className="overflow-x-auto"
           onMouseDown={handleHeatmapDragStart}
           style={{
             cursor: isDraggingHeatmap ? 'grabbing' : 'grab',
             userSelect: 'none',
             transition: isDraggingHeatmap ? 'none' : 'transform 0.1s ease-out',
-            transform: `translate(${heatmapOffset.x}px, ${heatmapOffset.y}px)`
+            transform: `translate(${heatmapOffset.x}px, ${heatmapOffset.y}px)`,
+            width: '100%',
+            overflow: 'hidden'
           }}
         >
           {transposed ? (
@@ -756,27 +759,31 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                     fontWeight: 600,
                     verticalAlign: 'middle'
                   }}>
-                    <div
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '5px 10px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                        backdropFilter: 'blur(12px)',
-                        WebkitBackdropFilter: 'blur(12px)',
-                        border: '1px solid rgba(58, 133, 24, 0.15)',
-                        borderRadius: '8px',
-                        boxShadow: '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
-                        fontSize: '10px',
-                        fontWeight: 600,
-                        textTransform: 'uppercase' as const,
-                        letterSpacing: '0.5px'
-                      }}
-                    >
-                      <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#3A8518' }} />
+                    {hideSegment ? (
                       <span style={{ color: '#3A8518' }}>Advocates</span>
-                    </div>
+                    ) : (
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '5px 10px',
+                          backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                          backdropFilter: 'blur(12px)',
+                          WebkitBackdropFilter: 'blur(12px)',
+                          border: '1px solid rgba(58, 133, 24, 0.15)',
+                          borderRadius: '8px',
+                          boxShadow: '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          textTransform: 'uppercase' as const,
+                          letterSpacing: '0.5px'
+                        }}
+                      >
+                        <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#3A8518' }} />
+                        <span style={{ color: '#3A8518' }}>Advocates</span>
+                      </div>
+                    )}
                   </th>
                   <th style={{
                     backgroundColor: '#FFFFFF',
@@ -786,27 +793,31 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                     fontWeight: 600,
                     verticalAlign: 'middle'
                   }}>
-                    <div
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '5px 10px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                        backdropFilter: 'blur(12px)',
-                        WebkitBackdropFilter: 'blur(12px)',
-                        border: '1px solid rgba(212, 186, 51, 0.15)',
-                        borderRadius: '8px',
-                        boxShadow: '0 2px 8px rgba(180, 150, 20, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
-                        fontSize: '10px',
-                        fontWeight: 600,
-                        textTransform: 'uppercase' as const,
-                        letterSpacing: '0.5px'
-                      }}
-                    >
-                      <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#D4BA33' }} />
+                    {hideSegment ? (
                       <span style={{ color: '#D4BA33' }}>Detractors</span>
-                    </div>
+                    ) : (
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '5px 10px',
+                          backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                          backdropFilter: 'blur(12px)',
+                          WebkitBackdropFilter: 'blur(12px)',
+                          border: '1px solid rgba(212, 186, 51, 0.15)',
+                          borderRadius: '8px',
+                          boxShadow: '0 2px 8px rgba(180, 150, 20, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          textTransform: 'uppercase' as const,
+                          letterSpacing: '0.5px'
+                        }}
+                      >
+                        <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#D4BA33' }} />
+                        <span style={{ color: '#D4BA33' }}>Detractors</span>
+                      </div>
+                    )}
                   </th>
                 </tr>
               </thead>
@@ -983,27 +994,31 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                         }
                       }}
                     />
-                    <div
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '5px 10px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                        backdropFilter: 'blur(12px)',
-                        WebkitBackdropFilter: 'blur(12px)',
-                        border: '1px solid rgba(58, 133, 24, 0.15)',
-                        borderRadius: '8px',
-                        boxShadow: '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
-                        fontSize: '10px',
-                        fontWeight: 600,
-                        textTransform: 'uppercase' as const,
-                        letterSpacing: '0.5px'
-                      }}
-                    >
-                      <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#3A8518' }} />
-                      <span style={{ color: '#3A8518' }}>Advocates</span>
-                    </div>
+                    {hideSegment ? (
+                      <span style={{ color: '#3A8518', fontSize: '12px', fontWeight: 600 }}>Advocates</span>
+                    ) : (
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '5px 10px',
+                          backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                          backdropFilter: 'blur(12px)',
+                          WebkitBackdropFilter: 'blur(12px)',
+                          border: '1px solid rgba(58, 133, 24, 0.15)',
+                          borderRadius: '8px',
+                          boxShadow: '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          textTransform: 'uppercase' as const,
+                          letterSpacing: '0.5px'
+                        }}
+                      >
+                        <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#3A8518' }} />
+                        <span style={{ color: '#3A8518' }}>Advocates</span>
+                      </div>
+                    )}
                   </td>
                   {filteredProducts.map(product => {
                     const { bg, text } = getColor(product.advocatePercent, 'advocate', advocateMinMax.min, advocateMinMax.max)
@@ -1064,27 +1079,31 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                         }
                       }}
                     />
-                    <div
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '5px 10px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                        backdropFilter: 'blur(12px)',
-                        WebkitBackdropFilter: 'blur(12px)',
-                        border: '1px solid rgba(212, 186, 51, 0.15)',
-                        borderRadius: '8px',
-                        boxShadow: '0 2px 8px rgba(180, 150, 20, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
-                        fontSize: '10px',
-                        fontWeight: 600,
-                        textTransform: 'uppercase' as const,
-                        letterSpacing: '0.5px'
-                      }}
-                    >
-                      <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#D4BA33' }} />
-                      <span style={{ color: '#D4BA33' }}>Detractors</span>
-                    </div>
+                    {hideSegment ? (
+                      <span style={{ color: '#D4BA33', fontSize: '12px', fontWeight: 600 }}>Detractors</span>
+                    ) : (
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '5px 10px',
+                          backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                          backdropFilter: 'blur(12px)',
+                          WebkitBackdropFilter: 'blur(12px)',
+                          border: '1px solid rgba(212, 186, 51, 0.15)',
+                          borderRadius: '8px',
+                          boxShadow: '0 2px 8px rgba(180, 150, 20, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          textTransform: 'uppercase' as const,
+                          letterSpacing: '0.5px'
+                        }}
+                      >
+                        <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#D4BA33' }} />
+                        <span style={{ color: '#D4BA33' }}>Detractors</span>
+                      </div>
+                    )}
                   </td>
                   {filteredProducts.map(product => {
                     const { bg, text } = getColor(product.detractorPercent, 'detractor', detractorMinMax.min, detractorMinMax.max)

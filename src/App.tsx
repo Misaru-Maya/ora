@@ -1636,9 +1636,14 @@ export default function App() {
                                   const newComparisonMode = !selections.comparisonMode
                                   // In filter mode, enable hideAsterisks by default (hide stat sig asterisks)
                                   // In compare mode, disable hideAsterisks by default (show stat sig asterisks)
+                                  // When switching to Filter mode, reset segments to Overall only
+                                  const newSegments = newComparisonMode
+                                    ? selections.segments // Keep current segments in Compare mode
+                                    : [{ column: 'Overall', value: 'Overall' }] // Reset to Overall in Filter mode
                                   setSelections({
                                     comparisonMode: newComparisonMode,
-                                    hideAsterisks: !newComparisonMode  // true for filter mode, false for compare mode
+                                    hideAsterisks: !newComparisonMode,  // true for filter mode, false for compare mode
+                                    segments: newSegments
                                   })
                                 }}
                                 style={{ opacity: 0, width: 0, height: 0 }}

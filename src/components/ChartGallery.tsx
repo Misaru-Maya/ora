@@ -47,6 +47,8 @@ interface ChartCardProps {
   onSaveOptionLabel: (option: string, newLabel: string) => void
   onSaveQuestionLabel?: (newLabel: string) => void
   productOrder?: string[]
+  hideSegment?: boolean
+  hideQuestionType?: boolean
 }
 
 const SORT_OPTIONS: CardSortOption[] = ['default', 'descending', 'ascending', 'alphabetical']
@@ -54,8 +56,8 @@ const SORT_OPTIONS: CardSortOption[] = ['default', 'descending', 'ascending', 'a
 const formatQuestionTitle = (question: QuestionDef): string => {
   let base = question.label === 'When were you born?' ? 'How old are you?' : question.label
 
-  // Replace (positive) with Advocates: and (Negative) with Detractors: for product follow-up questions
-  base = base.replace(/\(positive\)/gi, 'Advocates:').replace(/\(negative\)/gi, 'Detractors:')
+  // Remove (positive) and (negative) markers from question title - they are shown in segment badges instead
+  base = base.replace(/\s*\(positive\)/gi, '').replace(/\s*\(negative\)/gi, '')
 
   return base
 }
@@ -83,7 +85,9 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   optionLabels,
   onSaveOptionLabel,
   onSaveQuestionLabel,
-  productOrder = []
+  productOrder = [],
+  hideSegment = false,
+  hideQuestionType = false
 }) => {
   const [cardSort, setCardSort] = useState<CardSortOption>(question.isLikert ? 'alphabetical' : 'default')
   const [showFilter, setShowFilter] = useState(false)
@@ -310,6 +314,14 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     (question.label.toLowerCase().includes('(positive)') ||
      question.label.toLowerCase().includes('(negative)'))
 
+  // Determine sentiment type - show Advocates/Detractors whenever positive/negative appears in the label
+  // This works independently of whether heatmap is available
+  const hasPositiveNegative = question.label.toLowerCase().includes('(positive)') ||
+    question.label.toLowerCase().includes('(negative)')
+  const sentimentType: 'advocates' | 'detractors' | null = hasPositiveNegative
+    ? (question.label.toLowerCase().includes('(positive)') ? 'advocates' : 'detractors')
+    : null
+
   // Debug logging
   devLog('Chart Debug:', {
     qid: question.qid,
@@ -437,6 +449,33 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     // Note: We do NOT auto-upgrade from bar to pie/stacked here
     // because users should be able to manually select bar chart
   }, [canUsePie, canUseStacked, canUseHeatmap, chartVariant])
+
+  // Track previous comparison mode to detect mode changes
+  const prevComparisonModeRef = useRef<boolean | undefined>(comparisonMode)
+
+  useEffect(() => {
+    // When switching from Compare mode to Filter mode, reset chart variants
+    const wasCompareMode = prevComparisonModeRef.current
+    const isNowFilterMode = !comparisonMode
+
+    if (wasCompareMode && isNowFilterMode) {
+      // Priority: heatmap when available > stacked > pie
+      if (canUseHeatmap) {
+        // Heatmap available: always use heatmap as default in Filter mode
+        setChartVariant('heatmap')
+      } else if (canUseStacked) {
+        // Stacked available: use horizontal stacked
+        setChartVariant('stacked')
+        setChartOrientation('horizontal')
+      } else if (canUsePie) {
+        // Pie available: use pie
+        setChartVariant('pie')
+      }
+      // Otherwise keep current variant
+    }
+
+    prevComparisonModeRef.current = comparisonMode
+  }, [comparisonMode, canUseHeatmap, canUsePie, canUseStacked])
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -1222,7 +1261,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
       {/* Create question type badge element to pass to chart components */}
       {(() => {
-        const questionTypeBadge = (
+        const questionTypeBadge = hideQuestionType ? null : (
           <div
             ref={badgeRef}
             onMouseDown={handleBadgeMouseDown}
@@ -1349,6 +1388,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               questionLabel={displayLabel}
               onSaveQuestionLabel={onSaveQuestionLabel}
               questionTypeBadge={questionTypeBadge}
+              hideSegment={hideSegment}
             />
           )
         }
@@ -1367,6 +1407,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               onSaveQuestionLabel={onSaveQuestionLabel}
               questionTypeBadge={questionTypeBadge}
               heightOffset={chartHeightOffset}
+              hideSegment={hideSegment}
+              sentimentType={sentimentType}
             />
           )
         }
@@ -1499,6 +1541,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                   transposed={heatmapTransposed}
                   questionTypeBadge={questionTypeBadge}
                   heightOffset={chartHeightOffset}
+                  hideSegment={hideSegment}
                 />
               </div>
             )
@@ -1550,6 +1593,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               transposed={heatmapTransposed}
               questionTypeBadge={questionTypeBadge}
               heightOffset={chartHeightOffset}
+              hideSegment={hideSegment}
             />
           )
         }
@@ -1566,6 +1610,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
             onSaveQuestionLabel={onSaveQuestionLabel}
             questionTypeBadge={questionTypeBadge}
             heightOffset={chartHeightOffset}
+            hideSegment={hideSegment}
           />
         )
       })()}
@@ -1632,6 +1677,8 @@ interface ChartGalleryProps {
   questionLabels?: Record<string, string>
   onSaveQuestionLabel?: (qid: string, newLabel: string) => void
   productOrder?: string[]
+  hideSegment?: boolean
+  hideQuestionType?: boolean
 }
 
 export const ChartGallery: React.FC<ChartGalleryProps> = ({
@@ -1652,7 +1699,9 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
   onSaveOptionLabel,
   questionLabels = {},
   onSaveQuestionLabel,
-  productOrder = []
+  productOrder = [],
+  hideSegment = false,
+  hideQuestionType = false
 }) => {
   const renderableEntries = useMemo(() => {
     const hasSegments = segments && segments.length > 0
@@ -1735,6 +1784,8 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
                 onSaveOptionLabel={(option, newLabel) => onSaveOptionLabel?.(question.qid, option, newLabel)}
                 onSaveQuestionLabel={(newLabel) => onSaveQuestionLabel?.(question.qid, newLabel)}
                 productOrder={productOrder}
+                hideSegment={hideSegment}
+                hideQuestionType={hideQuestionType}
               />
             </div>
           )

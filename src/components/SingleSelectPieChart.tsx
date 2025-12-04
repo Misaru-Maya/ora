@@ -27,6 +27,7 @@ interface SingleSelectPieChartProps {
   questionTypeBadge?: React.ReactNode
   heightOffset?: number
   hideSegment?: boolean
+  sentimentType?: 'advocates' | 'detractors' | null  // For product follow-up questions
 }
 
 export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
@@ -40,7 +41,8 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
   onSaveQuestionLabel,
   questionTypeBadge,
   heightOffset = 0,
-  hideSegment = false
+  hideSegment = false,
+  sentimentType = null
 }) => {
   const [editingOption, setEditingOption] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
@@ -416,30 +418,66 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
             </ResponsiveContainer>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {/* Segment Label above legend - pill card style like advocate/detractor */}
+            {/* Segment Label above legend - show Advocates/Detractors for product questions, otherwise show segment label */}
             {!hideSegment && (
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  alignSelf: 'flex-start',
-                  gap: '6px',
-                  padding: '5px 10px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  border: '1px solid rgba(58, 133, 24, 0.15)',
-                  borderRadius: '16px',
-                  boxShadow: '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
-                  fontSize: '10px',
-                  fontWeight: 600,
-                  textTransform: 'uppercase' as const,
-                  letterSpacing: '0.5px'
-                }}
-              >
-                <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#3A8518' }} />
-                <span style={{ color: '#3A8518' }}>{group.label}</span>
-              </div>
+              sentimentType ? (
+                // Product follow-up question: show Advocates or Detractors badge with rectangular style
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    alignSelf: 'flex-start',
+                    gap: '6px',
+                    padding: '5px 10px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                    border: `1px solid ${sentimentType === 'advocates' ? 'rgba(58, 133, 24, 0.15)' : 'rgba(212, 186, 51, 0.15)'}`,
+                    borderRadius: '8px',
+                    boxShadow: sentimentType === 'advocates'
+                      ? '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)'
+                      : '0 2px 8px rgba(180, 150, 20, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    textTransform: 'uppercase' as const,
+                    letterSpacing: '0.5px'
+                  }}
+                >
+                  <div style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '2px',
+                    backgroundColor: sentimentType === 'advocates' ? '#3A8518' : '#D4BA33'
+                  }} />
+                  <span style={{ color: sentimentType === 'advocates' ? '#3A8518' : '#D4BA33' }}>
+                    {sentimentType === 'advocates' ? 'Advocates' : 'Detractors'}
+                  </span>
+                </div>
+              ) : (
+                // Regular question: show segment label with rectangular style (like advocate/detractor cards)
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    alignSelf: 'flex-start',
+                    gap: '6px',
+                    padding: '5px 10px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(58, 133, 24, 0.15)',
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    textTransform: 'uppercase' as const,
+                    letterSpacing: '0.5px'
+                  }}
+                >
+                  <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#3A8518' }} />
+                  <span style={{ color: '#3A8518' }}>{group.label}</span>
+                </div>
+              )
             )}
             {/* Question Type Badge below segment card */}
             <div style={{ alignSelf: 'flex-start' }}>

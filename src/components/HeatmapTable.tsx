@@ -88,6 +88,7 @@ interface HeatmapTableProps {
   transposed?: boolean
   questionTypeBadge?: React.ReactNode
   heightOffset?: number
+  hideSegment?: boolean
 }
 
 // Get color based on value and sentiment
@@ -124,7 +125,7 @@ function stripSentimentPrefix(text: string): string {
   return text.replace(/^(advocates|detractors):\s*/i, '').trim()
 }
 
-export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [], transposed = false, questionTypeBadge, heightOffset = 0 }) => {
+export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [], transposed = false, questionTypeBadge, heightOffset = 0, hideSegment = false }) => {
   const [editingOption, setEditingOption] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
@@ -908,7 +909,6 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
 
       {/* Heatmap table - draggable with adjustable row height */}
       <div
-        className="overflow-x-auto"
         onMouseDown={handleHeatmapDragStart}
         style={{
           cursor: isDraggingHeatmap ? 'grabbing' : 'grab',
@@ -916,7 +916,9 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
           transition: isDraggingHeatmap ? 'none' : 'transform 0.1s ease-out',
           transform: `translate(${heatmapOffset.x}px, ${heatmapOffset.y}px)`,
           // Pass heightOffset as CSS variable for row height adjustment
-          ['--row-height-offset' as any]: `${heightOffset}px`
+          ['--row-height-offset' as any]: `${heightOffset}px`,
+          width: '100%',
+          overflow: 'hidden'
         }}
       >
         <table style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%', tableLayout: 'fixed' }}>
@@ -961,7 +963,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                 />
                 {/* Advocates/Detractors indicator card + Question Type badge - right aligned with 10px margin from column edge */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end', paddingBottom: '4px', paddingRight: '10px' }}>
-                  {questionLabel && questionLabel.toLowerCase().includes('advocate') && (
+                  {!hideSegment && questionLabel && questionLabel.toLowerCase().includes('advocate') && (
                     <div
                       style={{
                         display: 'inline-flex',
@@ -984,7 +986,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                       <span style={{ color: '#3A8518' }}>Advocates</span>
                     </div>
                   )}
-                  {questionLabel && questionLabel.toLowerCase().includes('detractor') && (
+                  {!hideSegment && questionLabel && questionLabel.toLowerCase().includes('detractor') && (
                     <div
                       style={{
                         display: 'inline-flex',
@@ -1015,11 +1017,15 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                   key={group.key}
                   style={{
                     backgroundColor: '#FFFFFF',
-                    padding: '8px 12px',
+                    padding: '8px 4px',
                     textAlign: 'center',
-                    fontSize: '14px',
+                    fontSize: '12px',
                     fontWeight: 600,
-                    verticalAlign: 'middle'
+                    verticalAlign: 'middle',
+                    wordWrap: 'break-word',
+                    overflowWrap: 'break-word',
+                    whiteSpace: 'normal',
+                    lineHeight: '1.2'
                   }}
                 >
                   {stripQuotes(group.label)}
@@ -1149,14 +1155,14 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                       style={{
                         backgroundColor: bg,
                         color: text,
-                        padding: cellPadding,
+                        padding: `${rowPaddingVertical}px 4px`,
                         textAlign: 'center',
-                        fontSize: '14px',
+                        fontSize: '12px',
                         fontWeight: text === '#FFFFFF' ? 'normal' : 600,
                         verticalAlign: 'middle'
                       }}
                     >
-                      <span style={{ paddingRight: '2px' }}>{Math.round(value)}%</span>
+                      <span>{Math.round(value)}%</span>
                     </td>
                   )
                 })}

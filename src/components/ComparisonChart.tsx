@@ -585,6 +585,7 @@ interface ComparisonChartProps {
   onSaveQuestionLabel?: (newLabel: string) => void
   questionTypeBadge?: React.ReactNode
   heightOffset?: number
+  hideSegment?: boolean
 }
 
 const CustomTooltip: React.FC<any> = ({ active, payload }) => {
@@ -737,7 +738,8 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   onSaveOptionLabel,
   onSaveQuestionLabel,
   questionTypeBadge,
-  heightOffset = 0
+  heightOffset = 0,
+  hideSegment = false
 }) => {
   const isHorizontal = orientation === 'horizontal'
   const [editingOption, setEditingOption] = useState<string | null>(null)
@@ -1022,13 +1024,14 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   // Calculate dynamic height for X-axis based on maximum lines needed
   const calculateMaxLines = (text: string, maxWidth: number): number => {
     const _lineHeight = 14
+    const charWidth = 7 // Match the charWidth used in EditableXAxisTick
     const words = text.split(' ')
     let lines = 0
     let currentLine = ''
 
     words.forEach((word: string) => {
       const testLine = currentLine ? `${currentLine} ${word}` : word
-      if (testLine.length * 6 > maxWidth && currentLine) {
+      if (testLine.length * charWidth > maxWidth && currentLine) {
         lines++
         currentLine = word
       } else {
@@ -1043,8 +1046,8 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
     ? Math.max(...data.map(d => calculateMaxLines(d.optionDisplay, maxLabelWidth)), 3)
     : 3 // Default for horizontal
 
-  // Calculate height with extra padding for better spacing
-  const xAxisHeight = !isHorizontal ? Math.max(70, 8 + maxLinesNeeded * 14 + 15) : 70
+  // Calculate height with extra padding for better spacing - increased minimum and per-line height
+  const xAxisHeight = !isHorizontal ? Math.max(90, 12 + maxLinesNeeded * 16 + 20) : 70
 
   // Always show legend when there are groups to display
   const showLegend = groups.length > 0
