@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState, useRef, useTransition, useCallback } from 'react'
 import { CSVUpload, type CSVUploadHandle } from './components/CSVUpload'
 import { useORAStore } from './store'
-import type { QuestionDef } from './types'
-import { buildSeries } from './dataCalculations'
+import type { QuestionDef, ComparisonSet, SegmentDef } from './types'
+import { buildSeries, buildSeriesFromComparisonSets } from './dataCalculations'
 import { ChartGallery } from './components/ChartGallery'
 import { RegressionAnalysisPanel } from './components/RegressionAnalysisPanel'
 import { stripQuotes, isExcludedValue } from './utils'
@@ -181,7 +181,7 @@ export default function App() {
   const { dataset, selections, setSelections } = useORAStore()
   const [chartOrientation] = useState<'horizontal' | 'vertical'>('vertical')
   const [sidebarVisible, setSidebarVisible] = useState(true)
-  const [sidebarWidth, setSidebarWidth] = useState(288)
+  const [sidebarWidth, setSidebarWidth] = useState(() => Math.max(250, Math.min(window.innerWidth * 0.20, 500)))
   const [isResizing, setIsResizing] = useState(false)
   const [editingSegment, setEditingSegment] = useState<string | null>(null)
   const [segmentInput, setSegmentInput] = useState('')
@@ -193,6 +193,11 @@ export default function App() {
   const [questionSearchTerm, setQuestionSearchTerm] = useState('')
   const [expandedQuestionSegments, setExpandedQuestionSegments] = useState<Set<string>>(new Set())
   const [showRegressionPanel, setShowRegressionPanel] = useState(false)
+
+  // Multi-filter comparison state
+  const [editingComparisonSetId, setEditingComparisonSetId] = useState<string | null>(null)
+  const [comparisonSetLabelInput, setComparisonSetLabelInput] = useState('')
+  const [addingFiltersToSetId, setAddingFiltersToSetId] = useState<string | null>(null)
 
   // Performance: Use transition for non-urgent updates to keep UI responsive
   const [isPending, startTransition] = useTransition()
@@ -616,6 +621,84 @@ export default function App() {
     return uniqueRespondents.length
   }, [dataset, rows, selections.segments])
 
+  // Memoize respondent counts for each comparison set
+  const comparisonSetRespondentCounts = useMemo(() => {
+    const compSets = selections.comparisonSets || []
+    if (!dataset || !rows || compSets.length === 0) return {}
+
+    const respIdCol = dataset.summary.columns.find(
+      c => c.toLowerCase() === 'respondent id' || c.toLowerCase() === 'respondent_id'
+    ) || dataset.summary.columns[0]
+
+    const stripQuotes = (value: string): string => {
+      if (!value) return value
+      let result = value.trim()
+      if ((result.startsWith('"') && result.endsWith('"')) || (result.startsWith('"') && result.endsWith('"'))) {
+        result = result.slice(1, -1)
+      } else if (result.startsWith("'") && result.endsWith("'")) {
+        result = result.slice(1, -1)
+      }
+      return result.replace(/""/g, '"').trim()
+    }
+
+    const uniq = <T,>(arr: T[]): T[] => Array.from(new Set(arr))
+
+    const counts: Record<string, number> = {}
+
+    for (const compSet of compSets) {
+      if (compSet.filters.length === 0) {
+        counts[compSet.id] = 0
+        continue
+      }
+
+      // Group filters by column for AND logic across columns, OR within same column
+      const filtersByColumn = new Map<string, string[]>()
+      compSet.filters.forEach(filter => {
+        const values = filtersByColumn.get(filter.column) || []
+        values.push(filter.value)
+        filtersByColumn.set(filter.column, values)
+      })
+
+      // Filter rows that match ALL column groups (AND across columns, OR within each column)
+      const matchingRows = rows.filter(row => {
+        return Array.from(filtersByColumn.entries()).every(([column, values]) => {
+          // Check if this column is a consumer question
+          const consumerQuestion = dataset.questions.find(q => q.qid === column)
+
+          if (consumerQuestion) {
+            if (consumerQuestion.type === 'single' && consumerQuestion.singleSourceColumn) {
+              const rowValue = stripQuotes(String(row[consumerQuestion.singleSourceColumn]))
+              return values.some(value => stripQuotes(value) === rowValue)
+            } else if (consumerQuestion.type === 'multi') {
+              return values.some(value => {
+                const optionColumn = consumerQuestion.columns.find(col => col.optionLabel === value)
+                if (optionColumn) {
+                  const headersToCheck = [optionColumn.header, ...(optionColumn.alternateHeaders || [])]
+                  return headersToCheck.some(header => {
+                    const val = row[header]
+                    return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes'
+                  })
+                }
+                return false
+              })
+            }
+            return false
+          } else {
+            const rowValue = stripQuotes(String(row[column]))
+            return values.some(value => stripQuotes(value) === rowValue)
+          }
+        })
+      })
+
+      const uniqueRespondents = uniq(
+        matchingRows.map(r => stripQuotes(String(r[respIdCol] ?? '').trim())).filter(Boolean)
+      )
+      counts[compSet.id] = uniqueRespondents.length
+    }
+
+    return counts
+  }, [dataset, rows, selections.comparisonSets])
+
   // Create stable reference for segments to avoid unnecessary recalculations
   const segmentsKey = useMemo(() =>
     JSON.stringify(selections.segments || []),
@@ -796,6 +879,100 @@ export default function App() {
       }
     })
   }, [selections.segments, selections.statSigFilter, setSelections, startTransition])
+
+  // Multi-filter comparison set management functions
+  const generateSetId = () => `set_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+  const addComparisonSet = useCallback(() => {
+    const currentSets = selections.comparisonSets || []
+    const newSetNumber = currentSets.length + 1
+    const newSet: ComparisonSet = {
+      id: generateSetId(),
+      label: `Set ${newSetNumber}`,
+      filters: []
+    }
+    setSelections({
+      comparisonSets: [...currentSets, newSet],
+      multiFilterCompareMode: true
+    })
+    setAddingFiltersToSetId(newSet.id)
+  }, [selections.comparisonSets, setSelections])
+
+  const removeComparisonSet = useCallback((setId: string) => {
+    const currentSets = selections.comparisonSets || []
+    const newSets = currentSets.filter(s => s.id !== setId)
+    setSelections({
+      comparisonSets: newSets,
+      multiFilterCompareMode: newSets.length > 0
+    })
+    if (addingFiltersToSetId === setId) {
+      setAddingFiltersToSetId(null)
+    }
+  }, [selections.comparisonSets, addingFiltersToSetId, setSelections])
+
+  const updateComparisonSetLabel = useCallback((setId: string, newLabel: string) => {
+    const currentSets = selections.comparisonSets || []
+    const newSets = currentSets.map(s =>
+      s.id === setId ? { ...s, label: newLabel } : s
+    )
+    setSelections({ comparisonSets: newSets })
+  }, [selections.comparisonSets, setSelections])
+
+  const generateSetLabel = useCallback((filters: SegmentDef[]): string => {
+    if (filters.length === 0) return 'Empty'
+    return filters.map(f => f.value).join(' + ')
+  }, [])
+
+  const addFilterToComparisonSet = useCallback((setId: string, filter: SegmentDef) => {
+    let currentSets = selections.comparisonSets || []
+
+    // If the set doesn't exist yet (e.g., default_set_1), create it
+    const setExists = currentSets.some(s => s.id === setId)
+    if (!setExists) {
+      const newSet: ComparisonSet = {
+        id: setId,
+        label: 'Set 1',
+        filters: []
+      }
+      currentSets = [newSet]
+    }
+
+    const newSets = currentSets.map(s => {
+      if (s.id !== setId) return s
+      // Check if filter already exists
+      const exists = s.filters.some(f => f.column === filter.column && f.value === filter.value)
+      if (exists) return s
+      const newFilters = [...s.filters, filter]
+      // Auto-generate label
+      return { ...s, filters: newFilters, label: generateSetLabel(newFilters) }
+    })
+
+    // Check if we now have 2+ valid comparison sets - if so, reset sidebar segments to Overall
+    const validSetsCount = newSets.filter(s => s.filters.length > 0).length
+    if (validSetsCount >= 2) {
+      setSelections({
+        comparisonSets: newSets,
+        multiFilterCompareMode: true,
+        segments: [{ column: 'Overall', value: 'Overall' }]
+      })
+    } else {
+      setSelections({ comparisonSets: newSets })
+    }
+  }, [selections.comparisonSets, setSelections, generateSetLabel])
+
+  const removeFilterFromComparisonSet = useCallback((setId: string, filter: SegmentDef) => {
+    const currentSets = selections.comparisonSets || []
+    // If the set doesn't exist, nothing to remove
+    if (!currentSets.some(s => s.id === setId)) return
+
+    const newSets = currentSets.map(s => {
+      if (s.id !== setId) return s
+      const newFilters = s.filters.filter(f => !(f.column === filter.column && f.value === filter.value))
+      // Auto-generate label
+      return { ...s, filters: newFilters, label: generateSetLabel(newFilters) }
+    })
+    setSelections({ comparisonSets: newSets })
+  }, [selections.comparisonSets, setSelections, generateSetLabel])
 
   const toggleSegmentGroup = (column: string) => {
     const newExpanded = new Set(expandedSegmentGroups)
@@ -1031,7 +1208,8 @@ export default function App() {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return
       const newWidth = e.clientX
-      if (newWidth >= 200 && newWidth <= 600) {
+      const maxWidth = Math.min(window.innerWidth * 0.5, 800)
+      if (newWidth >= 200 && newWidth <= maxWidth) {
         setSidebarWidth(newWidth)
       }
     }
@@ -1545,6 +1723,10 @@ export default function App() {
                       })
                     }
 
+                    // Check if we have 2+ segments selected (for showing Compare toggle)
+                    const segmentCount = selectedSegments.filter(s => s.value !== 'Overall').length
+                    const showCompareToggle = segmentCount >= 2
+
                     if (activeFilters.length === 0) return null
 
                     return (
@@ -1592,7 +1774,7 @@ export default function App() {
                           ))}
                         </div>
 
-                        {/* Clear All + Compare Toggle Row */}
+                        {/* Clear All + Compare Toggle Row - Show Compare toggle when 2+ segments selected */}
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                           <button
                             onClick={() => {
@@ -1615,72 +1797,484 @@ export default function App() {
                             Clear All
                           </button>
 
-                          {/* Compare Toggle */}
-                          <div className="flex items-center" style={{ gap: '6px' }}>
-                            <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px' }}>
-                              <input
-                                type="checkbox"
-                                checked={selections.comparisonMode ?? true}
-                                onChange={(e) => {
-                                  e.stopPropagation()
-                                  const newComparisonMode = !selections.comparisonMode
-                                  // In filter mode, enable hideAsterisks by default (hide stat sig asterisks)
-                                  // In compare mode, disable hideAsterisks by default (show stat sig asterisks)
-                                  // When switching to Filter mode, reset segments to Overall only
-                                  const newSegments = newComparisonMode
-                                    ? selections.segments // Keep current segments in Compare mode
-                                    : [{ column: 'Overall', value: 'Overall' }] // Reset to Overall in Filter mode
-                                  setSelections({
-                                    comparisonMode: newComparisonMode,
-                                    hideAsterisks: !newComparisonMode,  // true for filter mode, false for compare mode
-                                    segments: newSegments
-                                  })
-                                }}
-                                style={{ opacity: 0, width: 0, height: 0 }}
-                              />
-                              <span
-                                style={{
-                                  position: 'absolute',
-                                  cursor: 'pointer',
-                                  top: 0,
-                                  left: 0,
-                                  right: 0,
-                                  bottom: 0,
-                                  backgroundColor: selections.comparisonMode ? '#3A8518' : '#D1D5DB',
-                                  transition: '0.3s',
-                                  borderRadius: '11px'
-                                }}
-                              >
+                          {/* Compare Toggle - Show when 2+ segments selected */}
+                          {showCompareToggle && (
+                            <div className="flex items-center" style={{ gap: '6px' }}>
+                              <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={selections.comparisonMode ?? false}
+                                  onChange={(e) => {
+                                    e.stopPropagation()
+                                    const newComparisonMode = !selections.comparisonMode
+                                    setSelections({
+                                      comparisonMode: newComparisonMode,
+                                      hideAsterisks: !newComparisonMode,
+                                      // Clear multi-filter comparison when switching to Filter mode
+                                      ...(newComparisonMode ? {} : { multiFilterCompareMode: false, comparisonSets: [] })
+                                    })
+                                  }}
+                                  style={{ opacity: 0, width: 0, height: 0 }}
+                                />
                                 <span
                                   style={{
                                     position: 'absolute',
-                                    height: '18px',
-                                    width: '18px',
-                                    left: selections.comparisonMode ? '20px' : '2px',
-                                    top: '2px',
-                                    backgroundColor: 'white',
+                                    cursor: 'pointer',
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    backgroundColor: selections.comparisonMode ? '#3A8518' : '#D1D5DB',
                                     transition: '0.3s',
-                                    borderRadius: '50%',
-                                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                    borderRadius: '11px'
                                   }}
-                                />
+                                >
+                                  <span
+                                    style={{
+                                      position: 'absolute',
+                                      height: '18px',
+                                      width: '18px',
+                                      left: selections.comparisonMode ? '20px' : '2px',
+                                      top: '2px',
+                                      backgroundColor: 'white',
+                                      transition: '0.3s',
+                                      borderRadius: '50%',
+                                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                    }}
+                                  />
+                                </span>
+                              </label>
+                              <span
+                                style={{
+                                  color: '#374151',
+                                  fontSize: '12px',
+                                  fontWeight: '500'
+                                }}
+                              >
+                                Compare
                               </span>
-                            </label>
-                            <span
-                              style={{
-                                color: '#374151',
-                                fontSize: '12px',
-                                fontWeight: '500'
-                              }}
-                            >
-                              Compare
-                            </span>
-                          </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )
                   })()}
                 </div>
+              </div>
+
+              {/* Multi-Filter Comparison Section - Always visible */}
+              <div
+                className="shadow-sm"
+                style={{
+                  marginBottom: '10px',
+                  width: '100%',
+                  overflow: 'hidden',
+                  borderRadius: '12px',
+                  backgroundColor: 'white'
+                }}
+              >
+                <div
+                  className="flex items-center justify-between cursor-pointer"
+                  onClick={() => toggleSection('multiFilterComparison')}
+                  style={{
+                    padding: '14px 16px',
+                    backgroundColor: 'white',
+                    borderRadius: '12px',
+                    transition: 'background-color 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#FEF3C7'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'white'
+                  }}
+                >
+                  <div className="flex items-center" style={{ gap: '10px' }}>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#3A8518"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="3" y="3" width="7" height="7" rx="1" />
+                      <rect x="14" y="3" width="7" height="7" rx="1" />
+                      <rect x="3" y="14" width="7" height="7" rx="1" />
+                      <rect x="14" y="14" width="7" height="7" rx="1" />
+                    </svg>
+                    <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#374151', letterSpacing: '0.025em' }}>Multi-Filter Comparison</h4>
+                    {/* Status indicator */}
+                    {(() => {
+                      const validSets = (selections.comparisonSets || []).filter(s => s.filters.length > 0)
+                      if (validSets.length >= 2) {
+                        return (
+                          <span style={{ fontSize: '10px', padding: '2px 6px', backgroundColor: '#E8F5E0', color: '#3A8518', borderRadius: '4px', fontWeight: 500 }}>
+                            Active
+                          </span>
+                        )
+                      } else if (validSets.length === 1) {
+                        return (
+                          <span style={{ fontSize: '10px', padding: '2px 6px', backgroundColor: '#FEF3C7', color: '#92400E', borderRadius: '4px', fontWeight: 500 }}>
+                            Need 1 more
+                          </span>
+                        )
+                      }
+                      return null
+                    })()}
+                  </div>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#3A8518"
+                    strokeWidth="2"
+                    className="flex-shrink-0 transition-transform"
+                    style={{ transform: expandedSections.has('multiFilterComparison') ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </div>
+                {expandedSections.has('multiFilterComparison') && (
+                  <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '0 0 12px 12px' }}>
+                    {/* Description */}
+                    <p style={{ fontSize: '12px', color: '#6B7280', marginBottom: '14px', lineHeight: '1.5' }}>
+                      Compare combined filters side-by-side. Click a set to edit filters, click outside to save.
+                    </p>
+
+                    {/* Comparison Sets List - Always show at least one set */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {(() => {
+                        // Ensure there's always at least one set displayed
+                        const currentSets = selections.comparisonSets || []
+                        const displaySets = currentSets.length > 0 ? currentSets : [{
+                          id: 'default_set_1',
+                          label: 'Set 1',
+                          filters: []
+                        }]
+                        // If showing the default set and no addingFiltersToSetId, auto-open it
+                        const effectiveAddingId = currentSets.length === 0 ? 'default_set_1' : addingFiltersToSetId
+
+                        return displaySets.map((compSet, idx) => {
+                        const isEditing = effectiveAddingId === compSet.id || (currentSets.length === 0 && idx === 0)
+                        return (
+                        <div
+                          key={compSet.id}
+                          onClick={(e) => {
+                            // Only activate editing if clicking on the card itself, not on buttons
+                            if ((e.target as HTMLElement).closest('button')) return
+                            if (!isEditing) {
+                              setAddingFiltersToSetId(compSet.id)
+                            }
+                          }}
+                          style={{
+                            padding: '12px',
+                            backgroundColor: isEditing ? '#FFFBEB' : '#F9FAFB',
+                            borderRadius: '8px',
+                            border: isEditing ? '2px solid #E7CB38' : '1px solid #E5E7EB',
+                            cursor: isEditing ? 'default' : 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          {/* Set Header */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              {editingComparisonSetId === compSet.id ? (
+                                <input
+                                  type="text"
+                                  value={comparisonSetLabelInput}
+                                  onChange={(e) => setComparisonSetLabelInput(e.target.value)}
+                                  onBlur={() => {
+                                    if (comparisonSetLabelInput.trim()) {
+                                      updateComparisonSetLabel(compSet.id, comparisonSetLabelInput.trim())
+                                    }
+                                    setEditingComparisonSetId(null)
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      if (comparisonSetLabelInput.trim()) {
+                                        updateComparisonSetLabel(compSet.id, comparisonSetLabelInput.trim())
+                                      }
+                                      setEditingComparisonSetId(null)
+                                    } else if (e.key === 'Escape') {
+                                      setEditingComparisonSetId(null)
+                                    }
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  autoFocus
+                                  style={{
+                                    fontSize: '13px',
+                                    fontWeight: 600,
+                                    color: '#374151',
+                                    border: '1px solid #D1D5DB',
+                                    borderRadius: '4px',
+                                    padding: '2px 6px',
+                                    width: '120px'
+                                  }}
+                                />
+                              ) : (
+                                <span
+                                  style={{ fontSize: '13px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setEditingComparisonSetId(compSet.id)
+                                    setComparisonSetLabelInput(compSet.label)
+                                  }}
+                                  title="Click to edit label"
+                                >
+                                  {compSet.label}
+                                </span>
+                              )}
+                              {/* Respondent count badge */}
+                              {compSet.filters.length > 0 && (
+                                <span style={{ fontSize: '10px', padding: '1px 5px', backgroundColor: '#E8F5E0', color: '#3A8518', borderRadius: '10px' }}>
+                                  {comparisonSetRespondentCounts[compSet.id] ?? 0}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              {/* Remove set button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  removeComparisonSet(compSet.id)
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = '#DC2626'
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = '#9CA3AF'
+                                }}
+                                style={{
+                                  padding: '4px',
+                                  backgroundColor: 'transparent',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: '#9CA3AF',
+                                  transition: 'color 0.15s ease'
+                                }}
+                                title="Remove set"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M18 6L6 18M6 6l12 12" />
+                                </svg>
+                              </button>
+                              {/* Done editing button - only show when editing */}
+                              {isEditing && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setAddingFiltersToSetId(null)
+                                  }}
+                                  style={{
+                                    padding: '4px',
+                                    backgroundColor: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: '#3A8518'
+                                  }}
+                                  title="Done editing"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <path d="M20 6L9 17l-5-5" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Filters in this set */}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {compSet.filters.length === 0 ? (
+                              <span style={{ fontSize: '11px', color: '#9CA3AF', fontStyle: 'italic' }}>
+                                {isEditing ? 'Select filters below' : 'Click to add filters'}
+                              </span>
+                            ) : (
+                              compSet.filters.map((filter) => (
+                                <div
+                                  key={`${filter.column}-${filter.value}`}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '4px 8px',
+                                    backgroundColor: '#E8F5E0',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    color: '#3A8518'
+                                  }}
+                                >
+                                  <span>{filter.value}</span>
+                                  {isEditing && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      removeFilterFromComparisonSet(compSet.id, filter)
+                                    }}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      padding: '0',
+                                      display: 'flex',
+                                      color: '#3A8518'
+                                    }}
+                                  >
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                      <path d="M18 6L6 18M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                  )}
+                                </div>
+                              ))
+                            )}
+                          </div>
+
+                          {/* Filter selection panel when editing */}
+                          {isEditing && (
+                            <div style={{ marginTop: '12px', padding: '10px', backgroundColor: 'white', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
+                              <div style={{ marginBottom: '8px' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 600, color: '#374151' }}>Select filters:</span>
+                              </div>
+                              <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                                {/* Segment columns - same order as Segmentation sidebar */}
+                                {segmentColumns
+                                  .filter(col => col !== 'Overall')
+                                  .sort((a, b) => {
+                                    // Put Product Preference first, then Country, then others (same as sidebar)
+                                    if (a.toLowerCase().includes('product preference')) return -1
+                                    if (b.toLowerCase().includes('product preference')) return 1
+                                    if (a.toLowerCase() === 'country') return -1
+                                    if (b.toLowerCase() === 'country') return 1
+                                    return 0
+                                  })
+                                  .map(column => {
+                                  // Count respondents for each value (same filtering as sidebar)
+                                  const valueCounts = new Map<string, number>()
+                                  rowsRaw.forEach(r => {
+                                    const val = stripQuotes(String(r[column]))
+                                    if (val) {
+                                      valueCounts.set(val, (valueCounts.get(val) || 0) + 1)
+                                    }
+                                  })
+
+                                  const MIN_RESPONDENTS_FOR_SEGMENT = 10
+                                  const rawValues = Array.from(new Set(rowsRaw.map(r => stripQuotes(String(r[column])))))
+                                    .filter(v => {
+                                      if (!v || v === 'null' || v === 'undefined') return false
+                                      const count = valueCounts.get(v) || 0
+                                      if (count < MIN_RESPONDENTS_FOR_SEGMENT) return false
+                                      const normalized = v.replace(/\s+/g, ' ').trim().toLowerCase()
+                                      if (normalized.includes('overall')) return false
+                                      if (normalized === 'not specified' || normalized === 'prefer not to say') return false
+                                      return true
+                                    })
+
+                                  // Sort values same as sidebar
+                                  const values = sortSegmentValues(rawValues, column)
+
+                                  if (values.length <= 1) return null
+
+                                  return (
+                                    <div key={column} style={{ marginBottom: '8px' }}>
+                                      <div style={{ fontSize: '11px', fontWeight: 500, color: '#6B7280', marginBottom: '4px' }}>{column}</div>
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                        {values.map(value => {
+                                          const isInSet = compSet.filters.some(f => f.column === column && f.value === value)
+                                          return (
+                                            <button
+                                              key={value}
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                if (isInSet) {
+                                                  removeFilterFromComparisonSet(compSet.id, { column, value })
+                                                } else {
+                                                  addFilterToComparisonSet(compSet.id, { column, value })
+                                                }
+                                              }}
+                                              style={{
+                                                padding: '3px 8px',
+                                                fontSize: '11px',
+                                                backgroundColor: isInSet ? '#3A8518' : '#F3F4F6',
+                                                color: isInSet ? 'white' : '#374151',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer'
+                                              }}
+                                            >
+                                              {value}
+                                            </button>
+                                          )
+                                        })}
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )})
+                      })()}
+
+                      {/* Add New Set Button */}
+                      <button
+                        onClick={addComparisonSet}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          padding: '10px',
+                          backgroundColor: '#F9FAFB',
+                          border: '2px dashed #D1D5DB',
+                          borderRadius: '8px',
+                          color: '#6B7280',
+                          fontSize: '13px',
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#F3F4F6'
+                          e.currentTarget.style.borderColor = '#9CA3AF'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#F9FAFB'
+                          e.currentTarget.style.borderColor = '#D1D5DB'
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 5v14M5 12h14" />
+                        </svg>
+                        Add Comparison Set
+                      </button>
+
+                      {/* Clear all button */}
+                      {(selections.comparisonSets || []).length > 0 && (
+                        <button
+                          onClick={() => setSelections({ comparisonSets: [], multiFilterCompareMode: false })}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '11px',
+                            backgroundColor: '#FEF2F2',
+                            border: 'none',
+                            borderRadius: '6px',
+                            color: '#DC2626',
+                            cursor: 'pointer',
+                            fontWeight: 500,
+                            marginTop: '4px'
+                          }}
+                        >
+                          Clear All
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col" style={{ gap: '10px' }}>
@@ -3079,6 +3673,8 @@ export default function App() {
                     groups={orderedGroups}
                     segments={selections.segments}
                     comparisonMode={selections.comparisonMode ?? true}
+                    multiFilterCompareMode={selections.multiFilterCompareMode || false}
+                    comparisonSets={selections.comparisonSets || []}
                     groupLabels={selections.groupLabels || EMPTY_OBJECT}
                     orientation={chartOrientation}
                     sortOrder={selections.sortOrder}

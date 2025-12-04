@@ -6,9 +6,9 @@ import { SingleSelectPieChart } from './SingleSelectPieChart'
 import { HeatmapTable } from './HeatmapTable'
 import { SentimentHeatmap } from './SentimentHeatmap'
 import { RankingDisplay } from './RankingDisplay'
-import { buildSeries } from '../dataCalculations'
+import { buildSeries, buildSeriesFromComparisonSets } from '../dataCalculations'
 import type { BuildSeriesResult } from '../dataCalculations'
-import type { ParsedCSV, QuestionDef, SortOrder, SegmentDef } from '../types'
+import type { ParsedCSV, QuestionDef, SortOrder, SegmentDef, ComparisonSet } from '../types'
 
 // Performance: Disable console logs in production
 const isDev = process.env.NODE_ENV === 'development'
@@ -41,6 +41,7 @@ interface ChartCardProps {
   sortOrder: SortOrder
   hideAsterisks?: boolean
   comparisonMode?: boolean
+  multiFilterCompareMode?: boolean
   chartColors: string[]
   optionLabels: Record<string, string>
   onSaveOptionLabel: (option: string, newLabel: string) => void
@@ -80,6 +81,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   sortOrder,
   hideAsterisks = false,
   comparisonMode = true,
+  multiFilterCompareMode = false,
   chartColors,
   optionLabels,
   onSaveOptionLabel,
@@ -391,13 +393,15 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   })
 
   // Set initial chart variant priority:
-  // 1. Sentiment questions in compare mode: vertical bar chart (alphabetical sort set elsewhere)
-  // 2. Heatmap for sentiment questions and product follow-up questions in filter mode
-  // 3. Pie chart when available (single select with one segment)
-  // 4. Stacked chart when available (single select with multiple segments)
-  // 5. Bar chart as fallback
+  // 1. Multi-filter comparison mode: vertical bar chart (never heatmap)
+  // 2. Sentiment questions in compare mode: vertical bar chart (alphabetical sort set elsewhere)
+  // 3. Heatmap for sentiment questions and product follow-up questions in filter mode
+  // 4. Pie chart when available (single select with one segment)
+  // 5. Stacked chart when available (single select with multiple segments)
+  // 6. Bar chart as fallback
   const isSentimentInCompareMode = isSentimentQuestion && comparisonMode
   const initialChartVariant: 'bar' | 'pie' | 'stacked' | 'heatmap' =
+    multiFilterCompareMode ? 'bar' :
     isSentimentInCompareMode ? 'bar' :
     (isSentimentQuestion || isProductFollowUpQuestion) ? 'heatmap' :
     canUsePie ? 'pie' :
@@ -1697,6 +1701,8 @@ interface ChartGalleryProps {
   groups?: string[]
   segments?: SegmentDef[]
   comparisonMode?: boolean
+  multiFilterCompareMode?: boolean
+  comparisonSets?: ComparisonSet[]
   groupLabels?: Record<string, string>
   orientation: 'horizontal' | 'vertical'
   sortOrder: SortOrder
@@ -1720,6 +1726,8 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
   groups,
   segments,
   comparisonMode = true,
+  multiFilterCompareMode = false,
+  comparisonSets = [],
   groupLabels = {},
   orientation,
   sortOrder,
@@ -1736,6 +1744,34 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
   hideQuestionType = false
 }) => {
   const renderableEntries = useMemo(() => {
+    // Check if we have valid comparison sets for multi-filter mode
+    const validComparisonSets = comparisonSets.filter(s => s.filters.length > 0)
+    const useMultiFilterMode = multiFilterCompareMode && validComparisonSets.length >= 2
+
+    // If using multi-filter comparison mode
+    if (useMultiFilterMode) {
+      return questions
+        .map(question => {
+          const series = buildSeriesFromComparisonSets({
+            dataset,
+            question,
+            comparisonSets: validComparisonSets,
+            sortOrder
+          })
+
+          // Apply custom labels to series data options
+          const questionOptionLabels = optionLabels[question.qid] || {}
+          series.data = series.data.map(dataPoint => ({
+            ...dataPoint,
+            optionDisplay: questionOptionLabels[dataPoint.option] || dataPoint.optionDisplay
+          }))
+
+          return { question, series }
+        })
+        .filter(entry => entry.series.data.length > 0)
+    }
+
+    // Standard mode (segments-based)
     const hasSegments = segments && segments.length > 0
     const hasOldStyle = segmentColumn && groups && groups.length > 0
 
@@ -1788,7 +1824,7 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
         return { question, series }
       })
       .filter(entry => entry.series.data.length > 0)
-  }, [dataset, questions, segmentColumn, groups, segments, sortOrder, groupLabels, optionLabels, comparisonMode])
+  }, [dataset, questions, segmentColumn, groups, segments, sortOrder, groupLabels, optionLabels, comparisonMode, multiFilterCompareMode, comparisonSets])
 
   // Create a wrapper div with ref for each chart
   return (
@@ -1811,6 +1847,7 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
                 sortOrder={sortOrder}
                 hideAsterisks={hideAsterisks}
                 comparisonMode={comparisonMode}
+                multiFilterCompareMode={multiFilterCompareMode}
                 chartColors={chartColors}
                 optionLabels={optionLabels[question.qid] || {}}
                 onSaveOptionLabel={(option, newLabel) => onSaveOptionLabel?.(question.qid, option, newLabel)}

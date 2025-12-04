@@ -50,11 +50,22 @@ export interface SegmentDef {
   value: string   // e.g., "CRM"
 }
 
+// Multi-filter comparison: each ComparisonSet is a group of filters with AND logic
+// Multiple ComparisonSets are compared side-by-side
+export interface ComparisonSet {
+  id: string           // Unique identifier
+  label: string        // Display label (e.g., "Men + CRM")
+  filters: SegmentDef[] // Filters combined with AND logic
+  color?: string       // Optional custom color for this set
+}
+
 export interface Selections {
   segmentColumn?: string
   groups: string[]
   segments?: SegmentDef[]  // New: supports multiple columns
   comparisonMode?: boolean // true = Compare mode (segments shown side-by-side), false = Filter mode (segments treated as one group)
+  multiFilterCompareMode?: boolean // true = Multi-filter comparison mode (compare sets of combined filters)
+  comparisonSets?: ComparisonSet[] // Sets of filters to compare (each set has AND logic, sets compared side-by-side)
   groupLabels?: Record<string, string> // Map of group key to custom label
   segmentColumnLabels?: Record<string, string> // Map of segment column name to custom label
   productColumn?: string

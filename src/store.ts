@@ -16,6 +16,8 @@ const initialSelections: Selections = {
   groups: [],
   segments: [],
   comparisonMode: false, // Default to Filter mode
+  multiFilterCompareMode: false, // Default to regular comparison mode
+  comparisonSets: [], // Empty comparison sets by default
   groupLabels: {},
   segmentColumnLabels: {},
   sortOrder: 'descending',
