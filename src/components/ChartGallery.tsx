@@ -790,7 +790,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   }
 
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-md transition-shadow hover:shadow-lg space-y-4">
+    <div className="rounded-2xl bg-white p-5 shadow-md transition-shadow hover:shadow-lg space-y-4" style={{ paddingRight: '30px' }}>
       <div className="flex items-center gap-2 pb-2" style={{ width: '95%', margin: '0 auto', marginBottom: '20px' }}>
         <div className="flex items-center gap-2">
           {/* 1. Filter Icon Button */}
@@ -1230,16 +1230,16 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '5px 10px',
+              padding: '5.25px 10.5px',
               backgroundColor: isDraggingBadge ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.85)',
               backdropFilter: 'blur(12px)',
               WebkitBackdropFilter: 'blur(12px)',
               border: isDraggingBadge ? '1px solid rgba(58, 133, 24, 0.3)' : '1px solid rgba(0, 0, 0, 0.06)',
-              borderRadius: '16px',
+              borderRadius: '17px',
               boxShadow: isDraggingBadge
                 ? '0 4px 16px rgba(58, 133, 24, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.9)'
                 : '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
-              fontSize: '10px',
+              fontSize: '10.5px',
               fontWeight: 600,
               color: '#64748b',
               textTransform: 'uppercase' as const,
@@ -1252,8 +1252,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
           >
             <span
               style={{
-                width: '5px',
-                height: '5px',
+                width: '8px',
+                height: '8px',
                 borderRadius: '50%',
                 // All green dots with different intensities for different question types
                 backgroundColor: question.isLikert ? '#2D6912' : // Darkest green for Likert
@@ -1269,7 +1269,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         return (
       <div ref={chartContainerRef} style={{
         display: 'flex',
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         alignItems: 'flex-start',
         width: '100%',
         paddingTop: '0px',
@@ -1278,49 +1278,13 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         minHeight: `${300 + chartHeightOffset}px`,
         transition: isResizingHeight ? 'none' : 'min-height 0.1s ease-out'
       }}>
-      {/* Left resize handle */}
-      <div
-        onMouseDown={handleChartResizeStart('left')}
-        style={{
-          position: 'absolute',
-          left: `calc(50% - ${chartWidthPercent / 2}% - 12px)`,
-          top: 0,
-          bottom: 30,
-          width: '8px',
-          cursor: 'ew-resize',
-          backgroundColor: isResizingChart && resizingHandle === 'left' ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
-          transition: 'background-color 0.15s ease',
-          zIndex: 10,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}
-        onMouseEnter={(e) => {
-          if (!isResizingChart) {
-            e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.2)'
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isResizingChart || resizingHandle !== 'left') {
-            e.currentTarget.style.backgroundColor = 'transparent'
-          }
-        }}
-      >
-        <div style={{
-          width: '3px',
-          height: '40px',
-          backgroundColor: isResizingChart && resizingHandle === 'left' ? '#3A8518' : '#CED6DE',
-          borderRadius: '2px',
-          transition: 'background-color 0.15s ease'
-        }} />
-      </div>
       {/* Right resize handle */}
       <div
         onMouseDown={handleChartResizeStart('right')}
         style={{
           position: 'absolute',
-          left: `calc(50% + ${chartWidthPercent / 2}% + 4px)`,
-          top: 0,
+          left: `calc(${chartWidthPercent}% + 20px)`,
+          top: 10,
           bottom: 30,
           width: '8px',
           cursor: 'ew-resize',
@@ -1351,8 +1315,6 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         }} />
       </div>
       <div ref={chartContentRef} style={{
-        transform: 'scale(0.9)',
-        transformOrigin: 'top center',
         width: `${chartWidthPercent}%`,
         transition: isResizingChart ? 'none' : 'width 0.1s ease-out'
       }}>
