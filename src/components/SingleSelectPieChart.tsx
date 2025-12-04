@@ -24,6 +24,7 @@ interface SingleSelectPieChartProps {
   optionLabels?: Record<string, string>
   onSaveOptionLabel?: (option: string, newLabel: string) => void
   onSaveQuestionLabel?: (newLabel: string) => void
+  questionTypeBadge?: React.ReactNode
 }
 
 export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
@@ -34,7 +35,8 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
   colors = PIE_COLORS,
   optionLabels: _optionLabels = {},
   onSaveOptionLabel,
-  onSaveQuestionLabel
+  onSaveQuestionLabel,
+  questionTypeBadge
 }) => {
   const [editingOption, setEditingOption] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
@@ -191,74 +193,102 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
   return (
     <div className="w-full flex justify-center">
       <div style={{ maxWidth: '800px', width: '100%' }}>
-        {questionLabel && (
-          <div className="mx-auto text-center" style={{ marginTop: '15px', marginBottom: '20px' }}>
-            {editingQuestionLabel ? (
-              <textarea
-                autoFocus
-                value={questionLabelInput}
-                onChange={(e) => setQuestionLabelInput(e.target.value)}
-                onBlur={() => {
-                  if (questionLabelInput.trim() && onSaveQuestionLabel) {
-                    onSaveQuestionLabel(questionLabelInput.trim())
-                  }
-                  setEditingQuestionLabel(false)
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
+        {/* Header Row: Spacer (left) | Title (center) | Badge (right) */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            marginTop: '15px',
+            marginBottom: '15px',
+            paddingLeft: '16px',
+            paddingRight: '16px',
+            gap: '16px'
+          }}
+        >
+          {/* Left: Spacer for balance */}
+          <div style={{ flex: '0 0 auto', minWidth: '80px' }}></div>
+
+          {/* Center: Title */}
+          <div
+            style={{
+              flex: '1 1 auto',
+              textAlign: 'center',
+              minWidth: 0,
+              maxWidth: 'calc(100% - 200px)'
+            }}
+          >
+            {questionLabel && (
+              editingQuestionLabel ? (
+                <input
+                  type="text"
+                  autoFocus
+                  value={questionLabelInput}
+                  onChange={(e) => setQuestionLabelInput(e.target.value)}
+                  onBlur={() => {
                     if (questionLabelInput.trim() && onSaveQuestionLabel) {
                       onSaveQuestionLabel(questionLabelInput.trim())
                     }
                     setEditingQuestionLabel(false)
-                  }
-                  if (e.key === 'Escape') setEditingQuestionLabel(false)
-                }}
-                className="text-sm font-semibold text-brand-gray"
-                style={{
-                  width: '100%',
-                  fontSize: '16px',
-                  padding: '6px 8px',
-                  border: '2px solid #3A8518',
-                  borderRadius: '3px',
-                  outline: 'none',
-                  backgroundColor: 'white',
-                  minHeight: '60px',
-                  resize: 'vertical',
-                  fontFamily: 'Space Grotesk, sans-serif',
-                  fontWeight: 600,
-                  lineHeight: '1.4',
-                  textAlign: 'center'
-                }}
-              />
-            ) : (
-              <h3
-                className="text-sm font-semibold text-brand-gray"
-                style={{
-                  cursor: onSaveQuestionLabel ? 'pointer' : 'default',
-                  whiteSpace: 'pre-wrap'
-                }}
-                onClick={() => {
-                  if (onSaveQuestionLabel) {
-                    setEditingQuestionLabel(true)
-                    setQuestionLabelInput(questionLabel)
-                  }
-                }}
-                onMouseEnter={(e) => {
-                  if (onSaveQuestionLabel) {
-                    e.currentTarget.style.color = '#3A8518'
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = ''
-                }}
-              >
-                {questionLabel}
-              </h3>
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      if (questionLabelInput.trim() && onSaveQuestionLabel) {
+                        onSaveQuestionLabel(questionLabelInput.trim())
+                      }
+                      setEditingQuestionLabel(false)
+                    }
+                    if (e.key === 'Escape') setEditingQuestionLabel(false)
+                  }}
+                  className="text-sm font-semibold text-brand-gray"
+                  style={{
+                    width: '100%',
+                    fontSize: '14px',
+                    padding: '4px 8px',
+                    border: '2px solid #3A8518',
+                    borderRadius: '4px',
+                    outline: 'none',
+                    backgroundColor: 'white',
+                    fontFamily: 'Space Grotesk, sans-serif',
+                    fontWeight: 600,
+                    textAlign: 'center'
+                  }}
+                />
+              ) : (
+                <h3
+                  className="text-sm font-semibold text-brand-gray"
+                  style={{
+                    whiteSpace: 'pre-wrap',
+                    margin: 0,
+                    cursor: onSaveQuestionLabel ? 'pointer' : 'default'
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation()
+                    if (onSaveQuestionLabel) {
+                      setEditingQuestionLabel(true)
+                      setQuestionLabelInput(questionLabel)
+                    }
+                  }}
+                  onMouseEnter={(e) => {
+                    if (onSaveQuestionLabel) {
+                      e.currentTarget.style.color = '#3A8518'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = ''
+                  }}
+                >
+                  {questionLabel}
+                </h3>
+              )
             )}
-            <p className="text-xs text-brand-gray/60">Segment: {group.label}</p>
           </div>
-        )}
+
+          {/* Right: Spacer for balance */}
+          <div style={{ flex: '0 0 auto', minWidth: '80px' }}></div>
+        </div>
+
         <div className={`flex justify-center ${legendOrientation === 'horizontal' ? 'flex-row items-center' : 'flex-col items-center gap-4'}`} style={{ gap: legendOrientation === 'horizontal' ? '30px' : undefined }}>
           <div style={{ width: '280px', height: '280px', flexShrink: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -290,7 +320,37 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
               </PieChart>
             </ResponsiveContainer>
           </div>
-          {legendContent}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Segment Label above legend - glassmorphic card */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                alignSelf: 'flex-start',
+                gap: '6px',
+                padding: '6px 12px',
+                backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                border: '1px solid rgba(0, 0, 0, 0.06)',
+                borderRadius: '8px',
+                boxShadow: '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                fontSize: '10px',
+                fontWeight: 600,
+                color: '#64748b',
+                textTransform: 'uppercase' as const,
+                letterSpacing: '0.5px'
+              }}
+            >
+              <span>Segment:</span>
+              <span style={{ color: '#374151' }}>{group.label}</span>
+            </div>
+            {/* Question Type Badge below segment card */}
+            <div style={{ alignSelf: 'flex-start' }}>
+              {questionTypeBadge}
+            </div>
+            {legendContent}
+          </div>
         </div>
       </div>
     </div>

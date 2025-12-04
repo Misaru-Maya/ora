@@ -86,6 +86,7 @@ interface HeatmapTableProps {
   onSaveQuestionLabel?: (newLabel: string) => void
   productOrder?: string[]
   transposed?: boolean
+  questionTypeBadge?: React.ReactNode
 }
 
 // Get color based on value and sentiment
@@ -115,11 +116,21 @@ const getColor = (value: number, sentiment: 'positive' | 'negative', minVal: num
   return { bg: bgColor, text: textColor }
 }
 
-export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [], transposed = false }) => {
+// Utility function to strip "Advocates:" or "Detractors:" prefix from title
+function stripSentimentPrefix(text: string): string {
+  if (!text) return text
+  // Remove "Advocates:" or "Detractors:" prefix (case insensitive)
+  return text.replace(/^(advocates|detractors):\s*/i, '').trim()
+}
+
+export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [], transposed = false, questionTypeBadge }) => {
   const [editingOption, setEditingOption] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
   const [questionLabelInput, setQuestionLabelInput] = useState('')
+
+  // Strip "Advocates:" or "Detractors:" prefix from display label
+  const displayQuestionLabel = questionLabel ? stripSentimentPrefix(questionLabel) : questionLabel
 
   devLog('🔥 HeatmapTable Received:', {
     dataLength: data.length,
@@ -673,74 +684,95 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
   return (
     <>
       {filterPortalTarget && createPortal(filterButtons, filterPortalTarget)}
-    <div className="w-full" style={{ paddingLeft: '2px', paddingRight: '20px', paddingBottom: '10px' }}>
-      {questionLabel && (
-        <div className="text-center" style={{ marginTop: '15px', marginBottom: '10px' }}>
-          {editingQuestionLabel ? (
-            <textarea
-              autoFocus
-              value={questionLabelInput}
-              onChange={(e) => setQuestionLabelInput(e.target.value)}
-              onBlur={() => {
-                if (questionLabelInput.trim() && onSaveQuestionLabel) {
-                  onSaveQuestionLabel(questionLabelInput.trim())
-                }
-                setEditingQuestionLabel(false)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
+    <div className="w-full" style={{ paddingLeft: '2px', paddingBottom: '10px', width: '95%', margin: '0 auto' }}>
+      {/* Header Row - Spacer (left 20%) | Cards | Title (center) | Spacer (right) */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginTop: '15px',
+          marginBottom: '10px',
+          gap: '16px'
+        }}
+      >
+        {/* Left: Spacer */}
+        <div style={{ flex: '0 0 auto', minWidth: '40px' }}></div>
+
+        {/* Center: Title */}
+        <div style={{ flex: '1 1 auto', textAlign: 'center', minWidth: 0 }}>
+          {displayQuestionLabel && (
+            editingQuestionLabel ? (
+              <input
+                type="text"
+                autoFocus
+                value={questionLabelInput}
+                onChange={(e) => setQuestionLabelInput(e.target.value)}
+                onBlur={() => {
                   if (questionLabelInput.trim() && onSaveQuestionLabel) {
                     onSaveQuestionLabel(questionLabelInput.trim())
                   }
                   setEditingQuestionLabel(false)
-                }
-                if (e.key === 'Escape') setEditingQuestionLabel(false)
-              }}
-              className="text-sm font-semibold text-brand-gray"
-              style={{
-                width: '100%',
-                fontSize: '16px',
-                padding: '6px 8px',
-                border: '2px solid #3A8518',
-                borderRadius: '3px',
-                outline: 'none',
-                backgroundColor: 'white',
-                minHeight: '60px',
-                resize: 'vertical',
-                fontFamily: 'Space Grotesk, sans-serif',
-                fontWeight: 600,
-                lineHeight: '1.4',
-                textAlign: 'center'
-              }}
-            />
-          ) : (
-            <h3
-              className="text-sm font-semibold text-brand-gray"
-              style={{
-                cursor: onSaveQuestionLabel ? 'pointer' : 'default',
-                whiteSpace: 'pre-wrap'
-              }}
-              onClick={() => {
-                if (onSaveQuestionLabel) {
-                  setEditingQuestionLabel(true)
-                  setQuestionLabelInput(questionLabel)
-                }
-              }}
-              onMouseEnter={(e) => {
-                if (onSaveQuestionLabel) {
-                  e.currentTarget.style.color = '#3A8518'
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = ''
-              }}
-            >
-              {questionLabel}
-            </h3>
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    if (questionLabelInput.trim() && onSaveQuestionLabel) {
+                      onSaveQuestionLabel(questionLabelInput.trim())
+                    }
+                    setEditingQuestionLabel(false)
+                  }
+                  if (e.key === 'Escape') setEditingQuestionLabel(false)
+                }}
+                className="text-sm font-semibold text-brand-gray"
+                style={{
+                  width: '100%',
+                  fontSize: '14px',
+                  padding: '4px 8px',
+                  border: '2px solid #3A8518',
+                  borderRadius: '4px',
+                  outline: 'none',
+                  backgroundColor: 'white',
+                  fontFamily: 'Space Grotesk, sans-serif',
+                  fontWeight: 600,
+                  lineHeight: '1.4',
+                  textAlign: 'center'
+                }}
+              />
+            ) : (
+              <h3
+                className="text-sm font-semibold text-brand-gray"
+                style={{
+                  whiteSpace: 'pre-wrap',
+                  margin: 0,
+                  textAlign: 'center',
+                  cursor: onSaveQuestionLabel ? 'pointer' : 'default'
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation()
+                  if (onSaveQuestionLabel) {
+                    setEditingQuestionLabel(true)
+                    setQuestionLabelInput(displayQuestionLabel)
+                  }
+                }}
+                onMouseEnter={(e) => {
+                  if (onSaveQuestionLabel) {
+                    e.currentTarget.style.color = '#3A8518'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = ''
+                }}
+              >
+                {displayQuestionLabel}
+              </h3>
+            )
           )}
         </div>
-      )}
+
+        {/* Right: Spacer for balance */}
+        <div style={{ flex: '0 0 auto', minWidth: '80px' }}></div>
+      </div>
 
       {/* Heatmap table */}
       <div className="overflow-x-auto">
@@ -750,12 +782,65 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
               <th style={{
                 backgroundColor: '#FFFFFF',
                 padding: '8px 12px',
-                textAlign: 'left',
+                textAlign: 'center',
                 fontSize: '14px',
                 fontWeight: 600,
                 width: `${firstColumnWidth}px`,
-                verticalAlign: 'middle'
-              }}></th>
+                verticalAlign: 'bottom'
+              }}>
+                {/* Advocates/Detractors indicator card + Question Type badge - center aligned with attribute column */}
+                {questionLabel && (questionLabel.toLowerCase().includes('advocate') || questionLabel.toLowerCase().includes('detractor')) && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center', paddingBottom: '4px' }}>
+                    {questionLabel.toLowerCase().includes('advocate') && (
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '5px 10px',
+                          backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                          backdropFilter: 'blur(12px)',
+                          WebkitBackdropFilter: 'blur(12px)',
+                          border: '1px solid rgba(58, 133, 24, 0.15)',
+                          borderRadius: '8px',
+                          boxShadow: '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          textTransform: 'uppercase' as const,
+                          letterSpacing: '0.5px'
+                        }}
+                      >
+                        <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#3A8518' }} />
+                        <span style={{ color: '#3A8518' }}>Advocates</span>
+                      </div>
+                    )}
+                    {questionLabel.toLowerCase().includes('detractor') && (
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '5px 10px',
+                          backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                          backdropFilter: 'blur(12px)',
+                          WebkitBackdropFilter: 'blur(12px)',
+                          border: '1px solid rgba(212, 186, 51, 0.15)',
+                          borderRadius: '8px',
+                          boxShadow: '0 2px 8px rgba(180, 150, 20, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          textTransform: 'uppercase' as const,
+                          letterSpacing: '0.5px'
+                        }}
+                      >
+                        <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#D4BA33' }} />
+                        <span style={{ color: '#D4BA33' }}>Detractors</span>
+                      </div>
+                    )}
+                    {questionTypeBadge}
+                  </div>
+                )}
+              </th>
               {displayGroups.map((group) => (
                 <th
                   key={group.key}

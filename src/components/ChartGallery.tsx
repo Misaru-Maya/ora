@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, memo } from 'react'
 import html2canvas from 'html2canvas'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faSort, faFilter, faStar, faRotate, faChartSimple, faArrowUpShortWide, faArrowDownWideShort, faArrowUpAZ, faChartPie, faTableCellsLarge, faBars, faChartBar } from '@fortawesome/free-solid-svg-icons'
+import { faSort, faFilter, faRotate, faChartSimple, faArrowUpShortWide, faArrowDownWideShort, faArrowUpAZ, faChartPie, faTableCellsLarge, faBars, faChartBar } from '@fortawesome/free-solid-svg-icons'
 import { ComparisonChart } from './ComparisonChart'
 import { SingleSelectPieChart } from './SingleSelectPieChart'
 import { HeatmapTable } from './HeatmapTable'
@@ -57,16 +57,15 @@ const formatQuestionTitle = (question: QuestionDef): string => {
   // Replace (positive) with Advocates: and (Negative) with Detractors: for product follow-up questions
   base = base.replace(/\(positive\)/gi, 'Advocates:').replace(/\(negative\)/gi, 'Detractors:')
 
-  const typeLabel = question.isLikert
-    ? 'likert'
-    : question.type === 'single'
-      ? 'single select'
-      : question.type === 'multi'
-        ? 'multi select'
-        : question.type === 'ranking'
-          ? 'ranking'
-          : question.type
-  return `${base} (${typeLabel})`
+  return base
+}
+
+const getQuestionTypeLabel = (question: QuestionDef): string => {
+  if (question.isLikert) return 'Likert'
+  if (question.type === 'single') return 'Single Select'
+  if (question.type === 'multi') return 'Multi Select'
+  if (question.type === 'ranking') return 'Ranking'
+  return question.type
 }
 
 const ChartCard: React.FC<ChartCardProps> = memo(({
@@ -90,14 +89,18 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   const [showFilter, setShowFilter] = useState(false)
   const [showSortMenu, setShowSortMenu] = useState(false)
   const [selectedOptions, setSelectedOptions] = useState<string[]>([])
-  const [showStatSigMenu, setShowStatSigMenu] = useState(false)
-  const [statSigFilter, setStatSigFilter] = useState<'all' | 'statSigOnly'>(filterSignificantOnly ? 'statSigOnly' : 'all')
   const [chartOrientation, setChartOrientation] = useState<'horizontal' | 'vertical'>(orientation)
   const [pieLegendOrientation, setPieLegendOrientation] = useState<'horizontal' | 'vertical'>('horizontal')
   const [customOptionOrder, setCustomOptionOrder] = useState<string[]>([])
   const [draggedOptionIndex, setDraggedOptionIndex] = useState<number | null>(null)
   const [axesSwapped, setAxesSwapped] = useState(false)
   const chartContentRef = useRef<HTMLDivElement | null>(null)
+
+  // Badge drag state
+  const [badgePosition, setBadgePosition] = useState<{ x: number; y: number } | null>(null)
+  const [isDraggingBadge, setIsDraggingBadge] = useState(false)
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const badgeRef = useRef<HTMLDivElement | null>(null)
 
   // Screenshot handler - captures only chart content without buttons
   const _handleScreenshot = async () => {
@@ -117,6 +120,72 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       console.error('Screenshot failed:', error)
     }
   }
+
+  // Badge drag handlers
+  const handleBadgeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingBadge(true)
+
+    const badge = badgeRef.current
+    const container = chartContentRef.current
+    if (badge && container) {
+      const badgeRect = badge.getBoundingClientRect()
+      const containerRect = container.getBoundingClientRect()
+
+      // Calculate offset from mouse position to badge position
+      setDragOffset({
+        x: e.clientX - badgeRect.left,
+        y: e.clientY - badgeRect.top
+      })
+
+      // If no position set yet, initialize from current position
+      if (!badgePosition) {
+        setBadgePosition({
+          x: badgeRect.left - containerRect.left,
+          y: badgeRect.top - containerRect.top
+        })
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!isDraggingBadge) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const container = chartContentRef.current
+      if (!container) return
+
+      const containerRect = container.getBoundingClientRect()
+
+      // Calculate new position relative to container
+      const newX = e.clientX - containerRect.left - dragOffset.x
+      const newY = e.clientY - containerRect.top - dragOffset.y
+
+      // Clamp to container bounds
+      const badge = badgeRef.current
+      if (badge) {
+        const badgeWidth = badge.offsetWidth
+        const badgeHeight = badge.offsetHeight
+        const clampedX = Math.max(0, Math.min(newX, containerRect.width - badgeWidth))
+        const clampedY = Math.max(0, Math.min(newY, containerRect.height - badgeHeight))
+
+        setBadgePosition({ x: clampedX, y: clampedY })
+      }
+    }
+
+    const handleMouseUp = () => {
+      setIsDraggingBadge(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDraggingBadge, dragOffset])
 
   // Can use alternate chart types for single select with < 7 visible options (after filtering)
   const visibleOptionsCount = series.data.length
@@ -181,7 +250,6 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   const [_showHeatmapAttributeFilter, _setShowHeatmapAttributeFilter] = useState(false)
   const sortMenuRef = useRef<HTMLDivElement | null>(null)
   const filterMenuRef = useRef<HTMLDivElement | null>(null)
-  const statSigMenuRef = useRef<HTMLDivElement | null>(null)
   const _heatmapProductFilterRef = useRef<HTMLDivElement | null>(null)
   const _heatmapAttributeFilterRef = useRef<HTMLDivElement | null>(null)
   const previousQuestionIdRef = useRef<string | null>(null)
@@ -255,19 +323,12 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       if (showFilter && filterMenuRef.current && !filterMenuRef.current.contains(target)) {
         setShowFilter(false)
       }
-      if (showStatSigMenu && statSigMenuRef.current && !statSigMenuRef.current.contains(target)) {
-        setShowStatSigMenu(false)
-      }
     }
-    if (showSortMenu || showFilter || showStatSigMenu) {
+    if (showSortMenu || showFilter) {
       document.addEventListener('click', handleClickOutside)
       return () => document.removeEventListener('click', handleClickOutside)
     }
-  }, [showSortMenu, showFilter, showStatSigMenu])
-
-  useEffect(() => {
-    setStatSigFilter(filterSignificantOnly ? 'statSigOnly' : 'all')
-  }, [filterSignificantOnly])
+  }, [showSortMenu, showFilter])
 
   // Reset custom order when sort changes
   useEffect(() => {
@@ -309,7 +370,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     setDraggedOptionIndex(null)
   }
 
-  const shouldFilterByStatSig = filterSignificantOnly || statSigFilter === 'statSigOnly'
+  const shouldFilterByStatSig = filterSignificantOnly
 
   const statSigFilteredData = useMemo(() => {
     if (!shouldFilterByStatSig) return series.data
@@ -605,76 +666,15 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-md transition-shadow hover:shadow-lg space-y-4">
-      <div className="flex items-center justify-between gap-2 pb-2">
-        <div className="flex items-center gap-2" style={{ paddingLeft: '40px' }}>
-          {/* Chart Orientation Toggle - for bar charts, stacked charts, and heatmaps */}
-          {((chartVariant === 'bar' || chartVariant === 'stacked') && question.type !== 'ranking') || chartVariant === 'heatmap' ? (
-            <button
-              onClick={() => {
-                if (chartVariant === 'heatmap') {
-                  setHeatmapTransposed(prev => !prev)
-                } else {
-                  setChartOrientation(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')
-                }
-              }}
-              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
-              style={{
-                height: '32px',
-                width: '32px',
-                backgroundColor: (chartVariant === 'heatmap' && heatmapTransposed) ? 'rgba(58, 133, 24, 0.12)' : 'rgba(255, 255, 255, 0.7)',
-                border: (chartVariant === 'heatmap' && heatmapTransposed) ? '1px solid rgba(58, 133, 24, 0.25)' : '1px solid rgba(0, 0, 0, 0.08)',
-                borderRadius: '8px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
-                backdropFilter: 'blur(8px)'
-              }}
-              title={chartVariant === 'heatmap' ? 'Swap rows and columns' : `Switch to ${chartOrientation === 'horizontal' ? 'vertical' : 'horizontal'} orientation`}
-              aria-label={chartVariant === 'heatmap' ? 'Swap rows and columns' : 'Toggle chart orientation'}
-              type="button"
-            >
-              <FontAwesomeIcon
-                icon={faBars}
-                style={{
-                  fontSize: '14px',
-                  color: (chartVariant === 'heatmap' && heatmapTransposed) ? '#3A8518' : '#64748b',
-                  transform: chartVariant === 'heatmap'
-                    ? (heatmapTransposed ? 'rotate(90deg)' : 'rotate(0deg)')
-                    : (chartOrientation === 'horizontal' ? 'rotate(0deg)' : 'rotate(90deg)'),
-                  transition: 'transform 0.2s ease'
-                }}
-              />
-            </button>
-          ) : null}
-          {/* Pie Legend Orientation Toggle - for pie charts */}
-          {chartVariant !== 'heatmap' && chartVariant === 'pie' && canUsePie && (
-            <button
-              onClick={() => {
-                setPieLegendOrientation(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')
-              }}
-              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
-              style={{ height: '32px', width: '32px', backgroundColor: 'rgba(255, 255, 255, 0.7)', border: '1px solid rgba(0, 0, 0, 0.08)', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(8px)' }}
-              title={`Switch to ${pieLegendOrientation === 'horizontal' ? 'vertical' : 'horizontal'} legend`}
-              aria-label="Toggle legend orientation"
-              type="button"
-            >
-              <FontAwesomeIcon
-                icon={faBars}
-                style={{
-                  fontSize: '14px',
-                  color: '#64748b',
-                  transform: pieLegendOrientation === 'horizontal' ? 'rotate(0deg)' : 'rotate(90deg)',
-                  transition: 'transform 0.2s ease'
-                }}
-              />
-            </button>
-          )}
-          {/* Filter Icon Button - shows for all question types (ALWAYS FIRST) */}
+      <div className="flex items-center gap-2 pb-2" style={{ width: '95%', margin: '0 auto' }}>
+        <div className="flex items-center gap-2">
+          {/* 1. Filter Icon Button */}
           <div className="relative" ref={filterMenuRef}>
             <button
               onClick={(e) => {
                 e.stopPropagation()
                 setShowFilter(!showFilter)
                 setShowSortMenu(false)
-                setShowStatSigMenu(false)
               }}
               className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
               style={{
@@ -813,32 +813,11 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               </div>
             )}
           </div>
-          {/* Swap Axes Button - shows for all questions (ALWAYS SECOND) */}
-          {chartVariant !== 'heatmap' && (chartVariant === 'bar' || chartVariant === 'stacked') && series.groups.length > 1 && question.type !== 'ranking' && (
-            <button
-              onClick={() => setAxesSwapped(prev => !prev)}
-              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
-              style={{
-                height: '32px',
-                width: '32px',
-                backgroundColor: axesSwapped ? 'rgba(58, 133, 24, 0.12)' : 'rgba(255, 255, 255, 0.7)',
-                border: axesSwapped ? '1px solid rgba(58, 133, 24, 0.25)' : '1px solid rgba(0, 0, 0, 0.08)',
-                borderRadius: '8px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
-                backdropFilter: 'blur(8px)'
-              }}
-              title="Swap X/Y axes"
-              aria-label="Swap X and Y axes"
-              type="button"
-            >
-              <FontAwesomeIcon icon={faRotate} style={{ fontSize: '13px', color: axesSwapped ? '#3A8518' : '#64748b' }} />
-            </button>
-          )}
-          {/* Heatmap product filter portal - positioned before sort button */}
-          {chartVariant === 'heatmap' && !isSentimentQuestion && (
+          {/* 2. Heatmap product filter portal */}
+          {chartVariant === 'heatmap' && (
             <div id={`heatmap-filters-${question.qid}`}></div>
           )}
-          {/* Sort Icon Dropdown */}
+          {/* 3. Sort Icon Dropdown */}
           {chartVariant !== 'heatmap' && question.type !== 'ranking' && (
           <div className="relative" ref={sortMenuRef}>
             <button
@@ -846,7 +825,6 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                 e.stopPropagation()
                 setShowSortMenu(!showSortMenu)
                 setShowFilter(false)
-                setShowStatSigMenu(false)
                 }}
               className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
               style={{
@@ -955,96 +933,88 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
             )}
           </div>
           )}
-          {/* Heatmap product filter portal */}
-          {chartVariant === 'heatmap' && isSentimentQuestion && (
-            <div id={`heatmap-filters-${question.qid}`}></div>
-          )}
-          {/* Stat Sig Dropdown */}
-          {chartVariant !== 'heatmap' && !isOverallSegment && question.type !== 'ranking' && (
-          <div className="relative" ref={statSigMenuRef}>
+          {/* 4. Chart Orientation Toggle - for bar charts, stacked charts, and heatmaps */}
+          {((chartVariant === 'bar' || chartVariant === 'stacked') && question.type !== 'ranking') || chartVariant === 'heatmap' ? (
             <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setShowStatSigMenu(prev => !prev)
-                setShowFilter(false)
-                setShowSortMenu(false)
+              onClick={() => {
+                if (chartVariant === 'heatmap') {
+                  setHeatmapTransposed(prev => !prev)
+                } else {
+                  setChartOrientation(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')
+                }
               }}
               className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
               style={{
                 height: '32px',
                 width: '32px',
-                backgroundColor: filterSignificantOnly || statSigFilter === 'statSigOnly' ? 'rgba(58, 133, 24, 0.12)' : 'rgba(255, 255, 255, 0.7)',
-                border: filterSignificantOnly || statSigFilter === 'statSigOnly' ? '1px solid rgba(58, 133, 24, 0.25)' : '1px solid rgba(0, 0, 0, 0.08)',
+                backgroundColor: (chartVariant === 'heatmap' && heatmapTransposed) ? 'rgba(58, 133, 24, 0.12)' : 'rgba(255, 255, 255, 0.7)',
+                border: (chartVariant === 'heatmap' && heatmapTransposed) ? '1px solid rgba(58, 133, 24, 0.25)' : '1px solid rgba(0, 0, 0, 0.08)',
                 borderRadius: '8px',
                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
                 backdropFilter: 'blur(8px)'
               }}
-              title="Statistical Significance Filter"
-              aria-label="Toggle stat significance filter menu"
+              title={chartVariant === 'heatmap' ? 'Swap rows and columns' : `Switch to ${chartOrientation === 'horizontal' ? 'vertical' : 'horizontal'} orientation`}
+              aria-label={chartVariant === 'heatmap' ? 'Swap rows and columns' : 'Toggle chart orientation'}
               type="button"
             >
-              <FontAwesomeIcon icon={faStar} style={{ fontSize: '13px', color: filterSignificantOnly || statSigFilter === 'statSigOnly' ? '#3A8518' : '#64748b' }} />
+              <FontAwesomeIcon
+                icon={faBars}
+                style={{
+                  fontSize: '14px',
+                  color: (chartVariant === 'heatmap' && heatmapTransposed) ? '#3A8518' : '#64748b',
+                  transform: chartVariant === 'heatmap'
+                    ? (heatmapTransposed ? 'rotate(90deg)' : 'rotate(0deg)')
+                    : (chartOrientation === 'horizontal' ? 'rotate(0deg)' : 'rotate(90deg)'),
+                  transition: 'transform 0.2s ease'
+                }}
+              />
             </button>
-            {showStatSigMenu && (
-              <div className="absolute right-0 top-10 z-10 w-60 shadow-xl" style={{ backgroundColor: '#EEF2F6', border: '1px solid #EEF2F6', borderRadius: '3px', opacity: 1 }}>
-                <div className="px-4 py-3" style={{ backgroundColor: '#EEF2F6', borderRadius: '3px' }}>
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setStatSigFilter('all')
-                      setShowStatSigMenu(false)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        setStatSigFilter('all')
-                        setShowStatSigMenu(false)
-                      }
-                    }}
-                    className="flex w-full items-center cursor-pointer px-2 py-2 text-sm transition hover:bg-gray-100 whitespace-nowrap rounded"
-                    style={{ backgroundColor: '#EEF2F6', gap: '2px' }}
-                  >
-                    <input
-                      type="checkbox"
-                      readOnly
-                      checked={!filterSignificantOnly && statSigFilter === 'all'}
-                      className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
-                    />
-                    <span className="whitespace-nowrap text-gray-900 text-sm">All Results</span>
-                  </div>
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setStatSigFilter('statSigOnly')
-                      setShowStatSigMenu(false)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        setStatSigFilter('statSigOnly')
-                        setShowStatSigMenu(false)
-                      }
-                    }}
-                    className="flex w-full items-center cursor-pointer px-2 py-2 text-sm transition hover:bg-gray-100 whitespace-nowrap rounded"
-                    style={{ backgroundColor: '#EEF2F6', gap: '2px' }}
-                  >
-                    <input
-                      type="checkbox"
-                      readOnly
-                      checked={filterSignificantOnly || statSigFilter === 'statSigOnly'}
-                      className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green flex-shrink-0"
-                    />
-                    <span className="whitespace-nowrap text-gray-900 text-sm">Stat Sig Only</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          ) : null}
+          {/* Pie Legend Orientation Toggle - for pie charts */}
+          {chartVariant !== 'heatmap' && chartVariant === 'pie' && canUsePie && (
+            <button
+              onClick={() => {
+                setPieLegendOrientation(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')
+              }}
+              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
+              style={{ height: '32px', width: '32px', backgroundColor: 'rgba(255, 255, 255, 0.7)', border: '1px solid rgba(0, 0, 0, 0.08)', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(8px)' }}
+              title={`Switch to ${pieLegendOrientation === 'horizontal' ? 'vertical' : 'horizontal'} legend`}
+              aria-label="Toggle legend orientation"
+              type="button"
+            >
+              <FontAwesomeIcon
+                icon={faBars}
+                style={{
+                  fontSize: '14px',
+                  color: '#64748b',
+                  transform: pieLegendOrientation === 'horizontal' ? 'rotate(0deg)' : 'rotate(90deg)',
+                  transition: 'transform 0.2s ease'
+                }}
+              />
+            </button>
           )}
+          {/* 5. Swap Axes Button */}
+          {chartVariant !== 'heatmap' && (chartVariant === 'bar' || chartVariant === 'stacked') && series.groups.length > 1 && question.type !== 'ranking' && (
+            <button
+              onClick={() => setAxesSwapped(prev => !prev)}
+              className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
+              style={{
+                height: '32px',
+                width: '32px',
+                backgroundColor: axesSwapped ? 'rgba(58, 133, 24, 0.12)' : 'rgba(255, 255, 255, 0.7)',
+                border: axesSwapped ? '1px solid rgba(58, 133, 24, 0.25)' : '1px solid rgba(0, 0, 0, 0.08)',
+                borderRadius: '8px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+                backdropFilter: 'blur(8px)'
+              }}
+              title="Swap X/Y axes"
+              aria-label="Swap X and Y axes"
+              type="button"
+            >
+              <FontAwesomeIcon icon={faRotate} style={{ fontSize: '13px', color: axesSwapped ? '#3A8518' : '#64748b' }} />
+            </button>
+          )}
+          {/* 6. Chart type selection */}
           {(canUsePie || canUseStacked || canUseHeatmap) && question.type !== 'ranking' && (
             <>
               {/* Divider before chart type controls */}
@@ -1125,15 +1095,66 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         </div>
       </div>
 
+      {/* Create question type badge element to pass to chart components */}
+      {(() => {
+        const questionTypeBadge = (
+          <div
+            ref={badgeRef}
+            onMouseDown={handleBadgeMouseDown}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 10px',
+              backgroundColor: isDraggingBadge ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.85)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              border: isDraggingBadge ? '1px solid rgba(58, 133, 24, 0.3)' : '1px solid rgba(0, 0, 0, 0.06)',
+              borderRadius: '16px',
+              boxShadow: isDraggingBadge
+                ? '0 4px 16px rgba(58, 133, 24, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.9)'
+                : '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+              fontSize: '10px',
+              fontWeight: 600,
+              color: '#64748b',
+              textTransform: 'uppercase' as const,
+              letterSpacing: '0.5px',
+              whiteSpace: 'nowrap' as const,
+              cursor: isDraggingBadge ? 'grabbing' : 'grab',
+              userSelect: 'none' as const,
+              transition: isDraggingBadge ? 'none' : 'box-shadow 0.2s ease, border-color 0.2s ease'
+            }}
+          >
+            <span
+              style={{
+                width: '5px',
+                height: '5px',
+                borderRadius: '50%',
+                // All green dots with different intensities for different question types
+                backgroundColor: question.isLikert ? '#2D6912' : // Darkest green for Likert
+                  question.type === 'single' ? '#3A8518' : // Standard green for Single
+                  question.type === 'multi' ? '#6AAD47' : // Lighter green for Multi
+                  question.type === 'ranking' ? '#8BC474' : '#64748b' // Lightest green for Ranking
+              }}
+            />
+            {getQuestionTypeLabel(question)}
+          </div>
+        )
+
+        return (
       <div ref={chartContentRef} style={{
-        display: 'inline-block',
-        minWidth: '100%',
+        display: 'flex',
+        justifyContent: 'center',
+        width: '100%',
         paddingTop: '20px',
-        paddingBottom: '20px'
+        paddingBottom: '20px',
+        position: 'relative'
       }}>
       <div style={{
         transform: 'scale(0.9)',
-        transformOrigin: 'top center'
+        transformOrigin: 'top center',
+        width: '110%',
+        marginLeft: '-5%'
       }}>
       {(() => {
         devLog('Render Debug:', {
@@ -1165,6 +1186,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               group={series.groups[0]}
               questionLabel={displayLabel}
               onSaveQuestionLabel={onSaveQuestionLabel}
+              questionTypeBadge={questionTypeBadge}
             />
           )
         }
@@ -1181,6 +1203,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               optionLabels={optionLabels}
               onSaveOptionLabel={onSaveOptionLabel}
               onSaveQuestionLabel={onSaveQuestionLabel}
+              questionTypeBadge={questionTypeBadge}
             />
           )
         }
@@ -1232,6 +1255,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               optionLabels={optionLabels}
               onSaveOptionLabel={onSaveOptionLabel}
               onSaveQuestionLabel={onSaveQuestionLabel}
+              questionTypeBadge={questionTypeBadge}
             />
           )
         }
@@ -1309,6 +1333,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                   onSaveQuestionLabel={onSaveQuestionLabel}
                   productOrder={productOrder}
                   transposed={heatmapTransposed}
+                  questionTypeBadge={questionTypeBadge}
                 />
               </div>
             )
@@ -1358,6 +1383,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               onSaveQuestionLabel={onSaveQuestionLabel}
               productOrder={productOrder}
               transposed={heatmapTransposed}
+              questionTypeBadge={questionTypeBadge}
             />
           )
         }
@@ -1372,11 +1398,14 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
             optionLabels={optionLabels}
             onSaveOptionLabel={onSaveOptionLabel}
             onSaveQuestionLabel={onSaveQuestionLabel}
+            questionTypeBadge={questionTypeBadge}
           />
         )
       })()}
       </div>
       </div>
+        )
+      })()}
     </div>
   )
 })

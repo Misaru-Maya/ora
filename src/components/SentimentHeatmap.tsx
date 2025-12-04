@@ -67,6 +67,7 @@ interface SentimentHeatmapProps {
   onSaveQuestionLabel?: (newLabel: string) => void
   productOrder?: string[]
   transposed?: boolean
+  questionTypeBadge?: React.ReactNode
 }
 
 interface ProductSentiment {
@@ -108,7 +109,8 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
   hideAsterisks: _hideAsterisks = false,
   onSaveQuestionLabel,
   productOrder = [],
-  transposed = false
+  transposed = false,
+  questionTypeBadge
 }) => {
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
   const [questionLabelInput, setQuestionLabelInput] = useState('')
@@ -297,7 +299,6 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
 
   // Filter buttons JSX
   const filterButtons = (
-    <div className="flex items-center gap-2">
       <div className="relative sentiment-heatmap-dropdown">
         <button
           onClick={() => setShowProductFilter(!showProductFilter)}
@@ -460,7 +461,6 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
           </div>
         )}
       </div>
-    </div>
   )
 
   // Get portal target element
@@ -469,74 +469,94 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
   return (
     <>
       {filterPortalTarget && createPortal(filterButtons, filterPortalTarget)}
-      <div className="w-full" style={{ paddingLeft: '2px', paddingRight: '20px', paddingBottom: '10px' }}>
-        {questionLabel && (
-          <div className="text-center" style={{ marginTop: '15px', marginBottom: '10px' }}>
-            {editingQuestionLabel ? (
-              <textarea
-                autoFocus
-                value={questionLabelInput}
-                onChange={(e) => setQuestionLabelInput(e.target.value)}
-                onBlur={() => {
-                  if (questionLabelInput.trim() && onSaveQuestionLabel) {
-                    onSaveQuestionLabel(questionLabelInput.trim())
-                  }
-                  setEditingQuestionLabel(false)
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
+      <div className="w-full" style={{ paddingLeft: '2px', paddingBottom: '10px', width: '95%', margin: '0 auto' }}>
+        {/* Header Row - Spacer (left 20%) | Question Type Badge | Title (center) | Spacer (right) */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: '15px',
+            marginBottom: '10px',
+            gap: '16px'
+          }}
+        >
+          {/* Left: Spacer */}
+          <div style={{ flex: '0 0 auto', minWidth: '40px' }}></div>
+
+          {/* Center: Title */}
+          <div style={{ flex: '1 1 auto', textAlign: 'center', minWidth: 0 }}>
+            {questionLabel && (
+              editingQuestionLabel ? (
+                <input
+                  type="text"
+                  autoFocus
+                  value={questionLabelInput}
+                  onChange={(e) => setQuestionLabelInput(e.target.value)}
+                  onBlur={() => {
                     if (questionLabelInput.trim() && onSaveQuestionLabel) {
                       onSaveQuestionLabel(questionLabelInput.trim())
                     }
                     setEditingQuestionLabel(false)
-                  }
-                  if (e.key === 'Escape') setEditingQuestionLabel(false)
-                }}
-                className="text-sm font-semibold text-brand-gray"
-                style={{
-                  width: '100%',
-                  fontSize: '16px',
-                  padding: '6px 8px',
-                  border: '2px solid #3A8518',
-                  borderRadius: '3px',
-                  outline: 'none',
-                  backgroundColor: 'white',
-                  minHeight: '60px',
-                  resize: 'vertical',
-                  fontFamily: 'Space Grotesk, sans-serif',
-                  fontWeight: 600,
-                  lineHeight: '1.4',
-                  textAlign: 'center'
-                }}
-              />
-            ) : (
-              <h3
-                className="text-sm font-semibold text-brand-gray"
-                style={{
-                  cursor: onSaveQuestionLabel ? 'pointer' : 'default',
-                  whiteSpace: 'pre-wrap'
-                }}
-                onClick={() => {
-                  if (onSaveQuestionLabel) {
-                    setEditingQuestionLabel(true)
-                    setQuestionLabelInput(questionLabel)
-                  }
-                }}
-                onMouseEnter={(e) => {
-                  if (onSaveQuestionLabel) {
-                    e.currentTarget.style.color = '#3A8518'
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = ''
-                }}
-              >
-                {questionLabel}
-              </h3>
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      if (questionLabelInput.trim() && onSaveQuestionLabel) {
+                        onSaveQuestionLabel(questionLabelInput.trim())
+                      }
+                      setEditingQuestionLabel(false)
+                    }
+                    if (e.key === 'Escape') setEditingQuestionLabel(false)
+                  }}
+                  className="text-sm font-semibold text-brand-gray"
+                  style={{
+                    width: '100%',
+                    fontSize: '14px',
+                    padding: '4px 8px',
+                    border: '2px solid #3A8518',
+                    borderRadius: '4px',
+                    outline: 'none',
+                    backgroundColor: 'white',
+                    fontFamily: 'Space Grotesk, sans-serif',
+                    fontWeight: 600,
+                    lineHeight: '1.4',
+                    textAlign: 'center'
+                  }}
+                />
+              ) : (
+                <h3
+                  className="text-sm font-semibold text-brand-gray"
+                  style={{
+                    cursor: onSaveQuestionLabel ? 'pointer' : 'default',
+                    whiteSpace: 'pre-wrap',
+                    margin: 0,
+                    textAlign: 'center'
+                  }}
+                  onClick={() => {
+                    if (onSaveQuestionLabel) {
+                      setEditingQuestionLabel(true)
+                      setQuestionLabelInput(questionLabel)
+                    }
+                  }}
+                  onMouseEnter={(e) => {
+                    if (onSaveQuestionLabel) {
+                      e.currentTarget.style.color = '#3A8518'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = ''
+                  }}
+                >
+                  {questionLabel}
+                </h3>
+              )
             )}
           </div>
-        )}
+
+          {/* Right: Spacer for balance */}
+          <div style={{ flex: '0 0 auto', minWidth: '80px' }}></div>
+        </div>
 
         {/* Heatmap table */}
         <div className="overflow-x-auto">
@@ -562,7 +582,27 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                     fontWeight: 600,
                     verticalAlign: 'middle'
                   }}>
-                    Advocates
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '5px 10px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                        backdropFilter: 'blur(12px)',
+                        WebkitBackdropFilter: 'blur(12px)',
+                        border: '1px solid rgba(58, 133, 24, 0.15)',
+                        borderRadius: '8px',
+                        boxShadow: '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        textTransform: 'uppercase' as const,
+                        letterSpacing: '0.5px'
+                      }}
+                    >
+                      <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#3A8518' }} />
+                      <span style={{ color: '#3A8518' }}>Advocates</span>
+                    </div>
                   </th>
                   <th style={{
                     backgroundColor: '#FFFFFF',
@@ -572,7 +612,27 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                     fontWeight: 600,
                     verticalAlign: 'middle'
                   }}>
-                    Detractors
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '5px 10px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                        backdropFilter: 'blur(12px)',
+                        WebkitBackdropFilter: 'blur(12px)',
+                        border: '1px solid rgba(212, 186, 51, 0.15)',
+                        borderRadius: '8px',
+                        boxShadow: '0 2px 8px rgba(180, 150, 20, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        textTransform: 'uppercase' as const,
+                        letterSpacing: '0.5px'
+                      }}
+                    >
+                      <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#D4BA33' }} />
+                      <span style={{ color: '#D4BA33' }}>Detractors</span>
+                    </div>
                   </th>
                 </tr>
               </thead>
@@ -662,9 +722,29 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                     fontWeight: 600,
                     width: '150px',
                     verticalAlign: 'middle',
-                    textAlign: 'right'
+                    textAlign: 'left'
                   }}>
-                    Advocates
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '5px 10px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                        backdropFilter: 'blur(12px)',
+                        WebkitBackdropFilter: 'blur(12px)',
+                        border: '1px solid rgba(58, 133, 24, 0.15)',
+                        borderRadius: '8px',
+                        boxShadow: '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        textTransform: 'uppercase' as const,
+                        letterSpacing: '0.5px'
+                      }}
+                    >
+                      <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#3A8518' }} />
+                      <span style={{ color: '#3A8518' }}>Advocates</span>
+                    </div>
                   </td>
                   {filteredProducts.map(product => {
                     const { bg, text } = getColor(product.advocatePercent, 'advocate', advocateMinMax.min, advocateMinMax.max)
@@ -695,9 +775,29 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = ({
                     fontWeight: 600,
                     width: '150px',
                     verticalAlign: 'middle',
-                    textAlign: 'right'
+                    textAlign: 'left'
                   }}>
-                    Detractors
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '5px 10px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                        backdropFilter: 'blur(12px)',
+                        WebkitBackdropFilter: 'blur(12px)',
+                        border: '1px solid rgba(212, 186, 51, 0.15)',
+                        borderRadius: '8px',
+                        boxShadow: '0 2px 8px rgba(180, 150, 20, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        textTransform: 'uppercase' as const,
+                        letterSpacing: '0.5px'
+                      }}
+                    >
+                      <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#D4BA33' }} />
+                      <span style={{ color: '#D4BA33' }}>Detractors</span>
+                    </div>
                   </td>
                   {filteredProducts.map(product => {
                     const { bg, text } = getColor(product.detractorPercent, 'detractor', detractorMinMax.min, detractorMinMax.max)

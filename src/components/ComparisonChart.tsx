@@ -307,9 +307,37 @@ const EditableYAxisTick: React.FC<any & {
     setEditingOption(null)
   }
 
+  // Word wrapping for long labels, respecting manual line breaks
+  const lineHeight = 14
+  const lines: string[] = []
+
+  // First split by newlines to preserve user's manual line breaks
+  const manualLines = text.split('\n')
+
+  manualLines.forEach((manualLine: string) => {
+    const words = manualLine.split(' ')
+    let currentLine = ''
+
+    words.forEach((word: string) => {
+      const testLine = currentLine ? `${currentLine} ${word}` : word
+      // Rough estimate: 6 pixels per character to allow wider text display matching input box width
+      if (testLine.length * 6 > maxWidth && currentLine) {
+        lines.push(currentLine)
+        currentLine = word
+      } else {
+        currentLine = testLine
+      }
+    })
+    if (currentLine) lines.push(currentLine)
+  })
+
+  // Calculate actual text width based on the longest line
+  const longestLine = lines.reduce((a, b) => a.length > b.length ? a : b, '')
+  const actualTextWidth = Math.max(longestLine.length * 8 + 20, 60) // 8px per char + padding, min 60px
+
   if (isEditing) {
     return (
-      <foreignObject x={x - maxWidth} y={y - 35} width={maxWidth} height={80}>
+      <foreignObject x={x - actualTextWidth} y={y - 35} width={actualTextWidth} height={80}>
         <textarea
           ref={inputRef as any}
           value={editInput}
@@ -340,30 +368,6 @@ const EditableYAxisTick: React.FC<any & {
       </foreignObject>
     )
   }
-
-  // Word wrapping for long labels, respecting manual line breaks
-  const lineHeight = 14
-  const lines: string[] = []
-
-  // First split by newlines to preserve user's manual line breaks
-  const manualLines = text.split('\n')
-
-  manualLines.forEach((manualLine: string) => {
-    const words = manualLine.split(' ')
-    let currentLine = ''
-
-    words.forEach((word: string) => {
-      const testLine = currentLine ? `${currentLine} ${word}` : word
-      // Rough estimate: 7 pixels per character
-      if (testLine.length * 7 > maxWidth && currentLine) {
-        lines.push(currentLine)
-        currentLine = word
-      } else {
-        currentLine = testLine
-      }
-    })
-    if (currentLine) lines.push(currentLine)
-  })
 
   return (
     <g
@@ -493,8 +497,8 @@ const EditableXAxisTick: React.FC<any & {
 
     words.forEach((word: string) => {
       const testLine = currentLine ? `${currentLine} ${word}` : word
-      // Rough estimate: 7 pixels per character
-      if (testLine.length * 7 > maxWidth && currentLine) {
+      // Rough estimate: 6 pixels per character to allow wider text display matching input box width
+      if (testLine.length * 6 > maxWidth && currentLine) {
         lines.push(currentLine)
         currentLine = word
       } else {
@@ -550,6 +554,7 @@ interface ComparisonChartProps {
   optionLabels?: Record<string, string>
   onSaveOptionLabel?: (option: string, newLabel: string) => void
   onSaveQuestionLabel?: (newLabel: string) => void
+  questionTypeBadge?: React.ReactNode
 }
 
 const CustomTooltip: React.FC<any> = ({ active, payload }) => {
@@ -700,7 +705,8 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   colors = GROUP_COLORS,
   optionLabels: _optionLabels = {},
   onSaveOptionLabel,
-  onSaveQuestionLabel
+  onSaveQuestionLabel,
+  questionTypeBadge
 }) => {
   const isHorizontal = orientation === 'horizontal'
   const [editingOption, setEditingOption] = useState<string | null>(null)
@@ -875,7 +881,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
 
     words.forEach((word: string) => {
       const testLine = currentLine ? `${currentLine} ${word}` : word
-      if (testLine.length * 7 > maxWidth && currentLine) {
+      if (testLine.length * 6 > maxWidth && currentLine) {
         lines++
         currentLine = word
       } else {
@@ -901,81 +907,375 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   const _legendPaddingLeft =
     (isHorizontal ? horizontalAxisWidth : 0) + legendOffset - (isHorizontal ? horizontalLegendAdjustment : 0)
 
+  // Render the legend content (reusable for header row)
+  const renderLegendContent = () => {
+    if (!showLegend) return null
+
+    if (stacked) {
+      // Stacked chart legend
+      return (
+        <div className="flex flex-wrap items-center gap-y-2" style={{ columnGap: '16px' }}>
+          {groups.map((group, index) => {
+            const isEditing = editingLegend === group.key
+            const hasAsterisk = group.label.endsWith('*')
+            const labelWithoutAsterisk = hasAsterisk ? group.label.slice(0, -1) : group.label
+
+            const handleSave = () => {
+              if (legendEditInput.trim() && onSaveOptionLabel) {
+                const cleanedInput = legendEditInput.trim().replace(/\*+$/, '')
+                if (cleanedInput !== labelWithoutAsterisk) {
+                  onSaveOptionLabel(group.key, cleanedInput)
+                }
+              }
+              setEditingLegend(null)
+            }
+
+            return (
+              <span key={group.key} className="inline-flex items-center text-xs font-semibold text-brand-gray" style={{ gap: '5px' }}>
+                <span
+                  className="inline-block h-3 w-6"
+                  style={{
+                    backgroundColor: colors[index % colors.length],
+                    minWidth: '16px',
+                    minHeight: '12px',
+                    borderRadius: '3px'
+                  }}
+                />
+                {isEditing ? (
+                  <textarea
+                    autoFocus
+                    value={legendEditInput}
+                    onChange={(e) => setLegendEditInput(e.target.value)}
+                    onBlur={handleSave}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSave()
+                      }
+                      if (e.key === 'Escape') setEditingLegend(null)
+                    }}
+                    style={{
+                      fontSize: '12px',
+                      padding: '2px 4px',
+                      border: '2px solid #3A8518',
+                      borderRadius: '3px',
+                      outline: 'none',
+                      backgroundColor: 'white',
+                      minWidth: '80px',
+                      fontWeight: 600,
+                      minHeight: '24px',
+                      resize: 'vertical',
+                      fontFamily: 'inherit',
+                      lineHeight: '1.4'
+                    }}
+                  />
+                ) : (
+                  <span
+                    style={{ cursor: onSaveOptionLabel ? 'pointer' : 'default' }}
+                    onClick={() => {
+                      if (onSaveOptionLabel) {
+                        setEditingLegend(group.key)
+                        setLegendEditInput(labelWithoutAsterisk)
+                      }
+                    }}
+                    onMouseEnter={(e) => { if (onSaveOptionLabel) e.currentTarget.style.color = '#3A8518' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = '' }}
+                  >
+                    {group.label}
+                  </span>
+                )}
+              </span>
+            )
+          })}
+        </div>
+      )
+    } else {
+      // Regular bar chart legend
+      return (
+        <div className="flex flex-wrap items-center gap-y-2" style={{ columnGap: '16px' }}>
+          {groups.map((group, index) => {
+            const isEditing = editingLegend === group.key
+            const hasAsterisk = group.label.endsWith('*')
+            const labelWithoutAsterisk = hasAsterisk ? group.label.slice(0, -1) : group.label
+
+            const handleSave = () => {
+              if (legendEditInput.trim() && onSaveOptionLabel) {
+                const cleanedInput = legendEditInput.trim().replace(/\*+$/, '')
+                if (cleanedInput !== labelWithoutAsterisk) {
+                  onSaveOptionLabel(group.key, cleanedInput)
+                }
+              }
+              setEditingLegend(null)
+            }
+
+            return (
+              <span key={group.key} className="inline-flex items-center text-xs font-semibold text-brand-gray" style={{ gap: '5px' }}>
+                <span
+                  className="inline-block h-3 w-6"
+                  style={{
+                    backgroundColor: colors[index % colors.length],
+                    minWidth: '16px',
+                    minHeight: '12px',
+                    borderRadius: '3px'
+                  }}
+                />
+                {isEditing ? (
+                  <textarea
+                    autoFocus
+                    value={legendEditInput}
+                    onChange={(e) => setLegendEditInput(e.target.value)}
+                    onBlur={handleSave}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSave()
+                      }
+                      if (e.key === 'Escape') setEditingLegend(null)
+                    }}
+                    style={{
+                      fontSize: '12px',
+                      padding: '2px 4px',
+                      border: '2px solid #3A8518',
+                      borderRadius: '3px',
+                      outline: 'none',
+                      backgroundColor: 'white',
+                      minWidth: '80px',
+                      fontWeight: 600,
+                      minHeight: '24px',
+                      resize: 'vertical',
+                      fontFamily: 'inherit',
+                      lineHeight: '1.4'
+                    }}
+                  />
+                ) : (
+                  <span
+                    style={{ cursor: onSaveOptionLabel ? 'pointer' : 'default' }}
+                    onClick={() => {
+                      if (onSaveOptionLabel) {
+                        setEditingLegend(group.key)
+                        setLegendEditInput(labelWithoutAsterisk)
+                      }
+                    }}
+                    onMouseEnter={(e) => { if (onSaveOptionLabel) e.currentTarget.style.color = '#3A8518' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = '' }}
+                  >
+                    {group.label}
+                  </span>
+                )}
+              </span>
+            )
+          })}
+        </div>
+      )
+    }
+  }
+
+  // Calculate estimated legend width to determine layout
+  const estimatedLegendWidth = groups.reduce((total, group) => {
+    // Estimate: 24px for color box + 5px gap + ~7px per character + 16px gap between items
+    return total + 24 + 5 + group.label.length * 7 + 16
+  }, 0)
+  const isLegendTooLong = estimatedLegendWidth > 500 // If legend is wider than 500px, stack vertically
+
   return (
     <div ref={chartContainerRef} className="w-full bg-white" style={{ paddingBottom: 0, position: 'relative' }}>
-      {questionLabel && (
-        <div className="text-center" style={{
-          marginTop: '15px',
-          marginBottom: '10px',
-          marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
-          marginRight: isHorizontal ? '60px' : '48px'
-        }}>
-          {editingQuestionLabel ? (
-            <textarea
-              autoFocus
-              value={questionLabelInput}
-              onChange={(e) => setQuestionLabelInput(e.target.value)}
-              onBlur={() => {
-                if (questionLabelInput.trim() && onSaveQuestionLabel) {
-                  onSaveQuestionLabel(questionLabelInput.trim())
-                }
-                setEditingQuestionLabel(false)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  if (questionLabelInput.trim() && onSaveQuestionLabel) {
-                    onSaveQuestionLabel(questionLabelInput.trim())
-                  }
-                  setEditingQuestionLabel(false)
-                }
-                if (e.key === 'Escape') setEditingQuestionLabel(false)
-              }}
-              className="text-sm font-semibold text-brand-gray"
-              style={{
-                width: '100%',
-                fontSize: '16px',
-                padding: '6px 8px',
-                border: '2px solid #3A8518',
-                borderRadius: '3px',
-                outline: 'none',
-                backgroundColor: 'white',
-                minHeight: '60px',
-                resize: 'vertical',
-                fontFamily: 'Space Grotesk, sans-serif',
-                fontWeight: 600,
-                lineHeight: '1.4',
-                textAlign: 'center'
-              }}
-            />
-          ) : (
-            <h3
-              className="text-sm font-semibold text-brand-gray"
-              style={{
-                cursor: onSaveQuestionLabel ? 'pointer' : 'default',
-                whiteSpace: 'pre-wrap'
-              }}
-              onClick={() => {
-                if (onSaveQuestionLabel) {
-                  setEditingQuestionLabel(true)
-                  setQuestionLabelInput(questionLabel)
-                }
-              }}
-              onMouseEnter={(e) => {
-                if (onSaveQuestionLabel) {
-                  e.currentTarget.style.color = '#3A8518'
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = ''
-              }}
-            >
-              {questionLabel}
-            </h3>
-          )}
+      {/* Header: Legend and Title - stacked if legend is too long */}
+      {isLegendTooLong ? (
+        // Stacked layout: Title on top, Legend below
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            marginTop: '15px',
+            marginBottom: '15px',
+            marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
+            marginRight: isHorizontal ? '60px' : '48px',
+            gap: '12px'
+          }}
+        >
+          {/* Title Row with Badge */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', width: '100%', gap: '16px' }}>
+            <div style={{ flex: '1 1 auto', textAlign: 'center', minWidth: 0 }}>
+              {questionLabel && (
+                editingQuestionLabel ? (
+                  <input
+                    type="text"
+                    autoFocus
+                    value={questionLabelInput}
+                    onChange={(e) => setQuestionLabelInput(e.target.value)}
+                    onBlur={() => {
+                      if (questionLabelInput.trim() && onSaveQuestionLabel) {
+                        onSaveQuestionLabel(questionLabelInput.trim())
+                      }
+                      setEditingQuestionLabel(false)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        if (questionLabelInput.trim() && onSaveQuestionLabel) {
+                          onSaveQuestionLabel(questionLabelInput.trim())
+                        }
+                        setEditingQuestionLabel(false)
+                      }
+                      if (e.key === 'Escape') setEditingQuestionLabel(false)
+                    }}
+                    className="text-sm font-semibold text-brand-gray"
+                    style={{
+                      width: '100%',
+                      fontSize: '14px',
+                      padding: '4px 8px',
+                      border: '2px solid #3A8518',
+                      borderRadius: '4px',
+                      outline: 'none',
+                      backgroundColor: 'white',
+                      fontFamily: 'Space Grotesk, sans-serif',
+                      fontWeight: 600,
+                      textAlign: 'center'
+                    }}
+                  />
+                ) : (
+                  <h3
+                    className="text-sm font-semibold text-brand-gray"
+                    style={{
+                      whiteSpace: 'pre-wrap',
+                      margin: 0,
+                      cursor: onSaveQuestionLabel ? 'pointer' : 'default'
+                    }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation()
+                      if (onSaveQuestionLabel) {
+                        setEditingQuestionLabel(true)
+                        setQuestionLabelInput(questionLabel)
+                      }
+                    }}
+                    onMouseEnter={(e) => {
+                      if (onSaveQuestionLabel) {
+                        e.currentTarget.style.color = '#3A8518'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = ''
+                    }}
+                  >
+                    {questionLabel}
+                  </h3>
+                )
+              )}
+            </div>
+            <div style={{ flex: '0 0 auto' }}>
+              {questionTypeBadge}
+            </div>
+          </div>
+          {/* Legend below title */}
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            {renderLegendContent()}
+          </div>
+        </div>
+      ) : (
+        // Horizontal layout: Legend (left) | Title (center) | Badge (right)
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            marginTop: '15px',
+            marginBottom: '15px',
+            marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
+            marginRight: isHorizontal ? '60px' : '48px',
+            gap: '16px'
+          }}
+        >
+          {/* Left: Legend */}
+          <div style={{ flex: '0 0 auto', minWidth: '80px' }}>
+            {renderLegendContent()}
+          </div>
+
+          {/* Center: Title */}
+          <div
+            style={{
+              flex: '1 1 auto',
+              textAlign: 'center',
+              minWidth: 0,
+              maxWidth: 'calc(100% - 200px)'
+            }}
+          >
+            {questionLabel && (
+              editingQuestionLabel ? (
+                <input
+                  type="text"
+                  autoFocus
+                  value={questionLabelInput}
+                  onChange={(e) => setQuestionLabelInput(e.target.value)}
+                  onBlur={() => {
+                    if (questionLabelInput.trim() && onSaveQuestionLabel) {
+                      onSaveQuestionLabel(questionLabelInput.trim())
+                    }
+                    setEditingQuestionLabel(false)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      if (questionLabelInput.trim() && onSaveQuestionLabel) {
+                        onSaveQuestionLabel(questionLabelInput.trim())
+                      }
+                      setEditingQuestionLabel(false)
+                    }
+                    if (e.key === 'Escape') setEditingQuestionLabel(false)
+                  }}
+                  className="text-sm font-semibold text-brand-gray"
+                  style={{
+                    width: '100%',
+                    fontSize: '14px',
+                    padding: '4px 8px',
+                    border: '2px solid #3A8518',
+                    borderRadius: '4px',
+                    outline: 'none',
+                    backgroundColor: 'white',
+                    fontFamily: 'Space Grotesk, sans-serif',
+                    fontWeight: 600,
+                    textAlign: 'center'
+                  }}
+                />
+              ) : (
+                <h3
+                  className="text-sm font-semibold text-brand-gray"
+                  style={{
+                    whiteSpace: 'pre-wrap',
+                    margin: 0,
+                    cursor: onSaveQuestionLabel ? 'pointer' : 'default'
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation()
+                    if (onSaveQuestionLabel) {
+                      setEditingQuestionLabel(true)
+                      setQuestionLabelInput(questionLabel)
+                    }
+                  }}
+                  onMouseEnter={(e) => {
+                    if (onSaveQuestionLabel) {
+                      e.currentTarget.style.color = '#3A8518'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = ''
+                  }}
+                >
+                  {questionLabel}
+                </h3>
+              )
+            )}
+          </div>
+
+          {/* Right: Question Type Badge */}
+          <div style={{ flex: '0 0 auto', minWidth: '80px', display: 'flex', justifyContent: 'flex-end' }}>
+            {questionTypeBadge}
+          </div>
         </div>
       )}
-      {showLegend && (
+
+      {/* Legacy legend section - now handled in header row, keeping for stacked charts that need below-title legend */}
+      {false && showLegend && (
         stacked ? (
           // Horizontal legend for stacked charts
           <div
@@ -1098,6 +1398,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           </div>
         )
       )}
+      <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
       <ResponsiveContainer width="100%" height={chartHeight}>
         <BarChart
           data={data}
@@ -1209,6 +1510,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           })}
         </BarChart>
       </ResponsiveContainer>
+      </div>
 
       {/* Click-based Tooltip Popup - rendered via portal to ensure it's above all content */}
       {clickedData && tooltipPosition && createPortal(
