@@ -1309,111 +1309,130 @@ export default function App() {
 
             {/* What's New Badge */}
             <div
+              className="new-badge-pulse"
               style={{
-                marginBottom: '16px',
+                marginBottom: '20px',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '8px',
-                padding: '6px 14px',
-                background: 'linear-gradient(135deg, rgba(58, 133, 24, 0.1) 0%, rgba(34, 197, 94, 0.1) 100%)',
-                borderRadius: '20px',
-                border: '1px solid rgba(58, 133, 24, 0.2)'
+                padding: '8px 16px',
+                background: 'linear-gradient(135deg, rgba(58, 133, 24, 0.15) 0%, rgba(34, 197, 94, 0.15) 100%)',
+                borderRadius: '24px',
+                border: '1px solid rgba(58, 133, 24, 0.3)',
+                boxShadow: '0 4px 12px rgba(58, 133, 24, 0.15)'
               }}
             >
-              <span style={{ fontSize: '12px', fontWeight: 600, color: '#3A8518' }}>NEW</span>
-              <span style={{ fontSize: '13px', color: '#4B5563' }}>Fresh features just landed</span>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                color: 'white',
+                background: 'linear-gradient(135deg, #3A8518 0%, #22c55e 100%)',
+                padding: '2px 8px',
+                borderRadius: '10px',
+                letterSpacing: '0.5px'
+              }}>NEW</span>
+              <span style={{ fontSize: '14px', color: '#374151', fontWeight: 500 }}>Fresh features just landed</span>
             </div>
 
             {/* Feature highlights */}
             <div
               style={{
                 display: 'flex',
-                gap: '12px',
+                gap: '16px',
                 flexWrap: 'wrap',
                 justifyContent: 'center',
-                maxWidth: '800px',
+                maxWidth: '860px',
                 margin: '0 auto'
               }}
             >
               {/* Multi-Factor Comparison */}
               <div
+                className="feature-card feature-card-1"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.5)',
-                  backdropFilter: 'blur(10px)',
-                  WebkitBackdropFilter: 'blur(10px)',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(255, 255, 255, 0.6)',
-                  padding: '14px 18px',
+                  background: 'rgba(255, 255, 255, 0.7)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  borderRadius: '16px',
+                  border: '1px solid rgba(58, 133, 24, 0.2)',
+                  padding: '18px 22px',
                   textAlign: 'center',
-                  minWidth: '140px',
-                  flex: '1 1 140px',
-                  maxWidth: '180px'
+                  minWidth: '160px',
+                  flex: '1 1 160px',
+                  maxWidth: '195px',
+                  boxShadow: '0 4px 20px rgba(58, 133, 24, 0.08)',
+                  transition: 'transform 0.3s ease, box-shadow 0.3s ease'
                 }}
               >
-                <div style={{ marginBottom: '8px' }}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <div className="feature-icon" style={{ marginBottom: '10px' }}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <rect x="2" y="13" width="5" height="8" rx="1" fill="#3A8518" />
                     <rect x="9.5" y="9" width="5" height="12" rx="1" fill="#A5CF8E" />
                     <rect x="17" y="5" width="5" height="16" rx="1" fill="#E7CB38" />
                     <path d="M4.5 10L12 4L19.5 7" stroke="#3A8518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </div>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#1F2937', marginBottom: '2px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
                   Multi-Factor Compare
                 </div>
-                <div style={{ fontSize: '10px', color: '#6B7280', lineHeight: 1.3 }}>
+                <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: 1.4 }}>
                   Multiple segments at once
                 </div>
               </div>
 
               {/* Customizable Charts */}
               <div
+                className="feature-card feature-card-2"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.5)',
-                  backdropFilter: 'blur(10px)',
-                  WebkitBackdropFilter: 'blur(10px)',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(255, 255, 255, 0.6)',
-                  padding: '14px 18px',
+                  background: 'rgba(255, 255, 255, 0.7)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  borderRadius: '16px',
+                  border: '1px solid rgba(58, 133, 24, 0.2)',
+                  padding: '18px 22px',
                   textAlign: 'center',
-                  minWidth: '140px',
-                  flex: '1 1 140px',
-                  maxWidth: '180px'
+                  minWidth: '160px',
+                  flex: '1 1 160px',
+                  maxWidth: '195px',
+                  boxShadow: '0 4px 20px rgba(58, 133, 24, 0.08)',
+                  transition: 'transform 0.3s ease, box-shadow 0.3s ease'
                 }}
               >
-                <div style={{ marginBottom: '8px' }}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <div className="feature-icon" style={{ marginBottom: '10px' }}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <rect x="3" y="3" width="7" height="7" rx="1.5" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
                     <rect x="14" y="3" width="7" height="7" rx="1.5" fill="#E7CB38" stroke="#CED6DE" strokeWidth="1.5" />
                     <rect x="3" y="14" width="7" height="7" rx="1.5" fill="#CED6DE" stroke="#717F90" strokeWidth="1.5" />
                     <path d="M17.5 14v7M14 17.5h7" stroke="#3A8518" strokeWidth="2" strokeLinecap="round" />
                   </svg>
                 </div>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#1F2937', marginBottom: '2px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
                   Drag & Drop Layout
                 </div>
-                <div style={{ fontSize: '10px', color: '#6B7280', lineHeight: 1.3 }}>
+                <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: 1.4 }}>
                   Customize charts freely
                 </div>
               </div>
 
               {/* Regression Analysis */}
               <div
+                className="feature-card feature-card-3"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.5)',
-                  backdropFilter: 'blur(10px)',
-                  WebkitBackdropFilter: 'blur(10px)',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(255, 255, 255, 0.6)',
-                  padding: '14px 18px',
+                  background: 'rgba(255, 255, 255, 0.7)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  borderRadius: '16px',
+                  border: '1px solid rgba(58, 133, 24, 0.2)',
+                  padding: '18px 22px',
                   textAlign: 'center',
-                  minWidth: '140px',
-                  flex: '1 1 140px',
-                  maxWidth: '180px'
+                  minWidth: '160px',
+                  flex: '1 1 160px',
+                  maxWidth: '195px',
+                  boxShadow: '0 4px 20px rgba(58, 133, 24, 0.08)',
+                  transition: 'transform 0.3s ease, box-shadow 0.3s ease'
                 }}
               >
-                <div style={{ marginBottom: '8px' }}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <div className="feature-icon" style={{ marginBottom: '10px' }}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <circle cx="6" cy="18" r="2" fill="#CED6DE" stroke="#717F90" strokeWidth="1.5" />
                     <circle cx="10" cy="14" r="2" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
                     <circle cx="14" cy="10" r="2" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
@@ -1421,31 +1440,34 @@ export default function App() {
                     <path d="M5 19L19 5" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" strokeDasharray="4 2" />
                   </svg>
                 </div>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#1F2937', marginBottom: '2px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
                   Regression Analysis
                 </div>
-                <div style={{ fontSize: '10px', color: '#6B7280', lineHeight: 1.3 }}>
-                  Apples-to-apples compare
+                <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: 1.4 }}>
+                  Separate impacts of segments
                 </div>
               </div>
 
               {/* Bulk Product Ordering */}
               <div
+                className="feature-card feature-card-4"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.5)',
-                  backdropFilter: 'blur(10px)',
-                  WebkitBackdropFilter: 'blur(10px)',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(255, 255, 255, 0.6)',
-                  padding: '14px 18px',
+                  background: 'rgba(255, 255, 255, 0.7)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  borderRadius: '16px',
+                  border: '1px solid rgba(58, 133, 24, 0.2)',
+                  padding: '18px 22px',
                   textAlign: 'center',
-                  minWidth: '140px',
-                  flex: '1 1 140px',
-                  maxWidth: '180px'
+                  minWidth: '160px',
+                  flex: '1 1 160px',
+                  maxWidth: '195px',
+                  boxShadow: '0 4px 20px rgba(58, 133, 24, 0.08)',
+                  transition: 'transform 0.3s ease, box-shadow 0.3s ease'
                 }}
               >
-                <div style={{ marginBottom: '8px' }}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <div className="feature-icon" style={{ marginBottom: '10px' }}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <rect x="4" y="4" width="16" height="4" rx="1" fill="#3A8518" />
                     <rect x="4" y="10" width="16" height="4" rx="1" fill="#A5CF8E" />
                     <rect x="4" y="16" width="16" height="4" rx="1" fill="#CED6DE" />
@@ -1453,11 +1475,11 @@ export default function App() {
                     <path d="M21 13L23 15L21 17" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </div>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#1F2937', marginBottom: '2px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
                   Bulk Reordering
                 </div>
-                <div style={{ fontSize: '10px', color: '#6B7280', lineHeight: 1.3 }}>
-                  Reorder from sidebar
+                <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: 1.4 }}>
+                  Reorder all heatmaps at once
                 </div>
               </div>
             </div>
@@ -1493,12 +1515,61 @@ export default function App() {
           </div>
         </div>
 
-        {/* CSS animation for floating orbs */}
+        {/* CSS animation for floating orbs and feature cards */}
         <style>{`
           @keyframes float {
             0%, 100% { transform: translate(0, 0) scale(1); }
             33% { transform: translate(30px, -30px) scale(1.05); }
             66% { transform: translate(-20px, 20px) scale(0.95); }
+          }
+
+          @keyframes fadeInUp {
+            from {
+              opacity: 0;
+              transform: translateY(20px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+
+          @keyframes pulse-glow {
+            0%, 100% {
+              box-shadow: 0 4px 12px rgba(58, 133, 24, 0.15);
+            }
+            50% {
+              box-shadow: 0 4px 20px rgba(58, 133, 24, 0.3);
+            }
+          }
+
+          @keyframes icon-bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+          }
+
+          .new-badge-pulse {
+            animation: pulse-glow 2s ease-in-out infinite;
+          }
+
+          .feature-card {
+            animation: fadeInUp 0.6s ease-out forwards;
+            opacity: 0;
+          }
+
+          .feature-card-1 { animation-delay: 0.1s; }
+          .feature-card-2 { animation-delay: 0.2s; }
+          .feature-card-3 { animation-delay: 0.3s; }
+          .feature-card-4 { animation-delay: 0.4s; }
+
+          .feature-card:hover {
+            transform: translateY(-4px) !important;
+            box-shadow: 0 8px 30px rgba(58, 133, 24, 0.15) !important;
+            border-color: rgba(58, 133, 24, 0.4) !important;
+          }
+
+          .feature-card:hover .feature-icon {
+            animation: icon-bounce 0.5s ease-in-out;
           }
         `}</style>
       </div>
