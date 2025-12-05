@@ -657,8 +657,8 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
           </div>
         </div>
 
-        {/* Explicit spacer between title and heatmap - 80px fixed height */}
-        <div style={{ height: '80px', flexShrink: 0 }} />
+        {/* Explicit spacer between title and heatmap - 70px fixed height */}
+        <div style={{ height: '70px', flexShrink: 0 }} />
 
         {/* Heatmap table - draggable with adjustable row height */}
         <div
