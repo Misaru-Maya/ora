@@ -797,7 +797,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
           alignItems: 'center',
           justifyContent: 'center',
           marginTop: '15px',
-          marginBottom: '30px',
+          marginBottom: '20px',
           gap: '16px'
         }}
       >
@@ -884,6 +884,9 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
           )}
         </div>
       </div>
+
+      {/* Explicit spacer between title and heatmap - 80px fixed height */}
+      <div style={{ height: '80px', flexShrink: 0 }} />
 
       {/* Heatmap table - draggable with adjustable row height */}
       <div
