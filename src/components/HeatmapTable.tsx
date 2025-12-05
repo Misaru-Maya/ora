@@ -186,21 +186,9 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
   const [, setShowAttributeFilter] = useState(false)
 
   // Track if this is the initial mount or if groups/sentiment changed (not just order)
+  // Note: The useEffect that uses these refs is placed after defaultProductSelection is defined
   const prevGroupsRef = React.useRef<string[]>([])
   const prevSentimentRef = React.useRef<'positive' | 'negative'>(sentiment)
-
-  // Only reset selected products when groups or sentiment actually change, not when order changes
-  useEffect(() => {
-    const currentGroupKeys = groups.map(g => g.key).sort().join(',')
-    const prevGroupKeys = prevGroupsRef.current.sort().join(',')
-
-    // Reset only if groups changed (new data) or sentiment changed, not just order
-    if (currentGroupKeys !== prevGroupKeys || sentiment !== prevSentimentRef.current) {
-      setSelectedProducts(defaultProductSelection)
-      prevGroupsRef.current = groups.map(g => g.key)
-      prevSentimentRef.current = sentiment
-    }
-  }, [groups, sentiment, defaultProductSelection])
 
   // State for attribute reordering (product order comes from global productOrder prop)
   const [draggedAttributeIndex, setDraggedAttributeIndex] = useState<number | null>(null)
@@ -480,6 +468,19 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
       return bottom50Products.length > 0 ? bottom50Products : allGroupsOrdered.map(g => g.key)
     }
   }, [sentiment, top50Products, bottom50Products, allGroupsOrdered])
+
+  // Only reset selected products when groups or sentiment actually change, not when order changes
+  useEffect(() => {
+    const currentGroupKeys = groups.map(g => g.key).sort().join(',')
+    const prevGroupKeys = prevGroupsRef.current.sort().join(',')
+
+    // Reset only if groups changed (new data) or sentiment changed, not just order
+    if (currentGroupKeys !== prevGroupKeys || sentiment !== prevSentimentRef.current) {
+      setSelectedProducts(defaultProductSelection)
+      prevGroupsRef.current = groups.map(g => g.key)
+      prevSentimentRef.current = sentiment
+    }
+  }, [groups, sentiment, defaultProductSelection])
 
   // Calculate min/max for color scaling
   const { minValue, maxValue } = useMemo(() => {
