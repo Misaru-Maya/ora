@@ -1483,6 +1483,11 @@ export default function App() {
             position: relative;
             animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
             opacity: 0;
+            z-index: 1;
+          }
+
+          .feature-pill-wrapper:hover {
+            z-index: 1000;
           }
 
           .pill-1 { animation-delay: 0.1s; }
