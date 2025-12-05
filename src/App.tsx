@@ -1307,14 +1307,14 @@ export default function App() {
               ORA
             </h1>
 
-            {/* Feature Pills - playful inline tags */}
+            {/* Feature Pills with expandable cards */}
             <div
               style={{
                 display: 'flex',
                 flexWrap: 'wrap',
                 gap: '10px',
                 justifyContent: 'center',
-                maxWidth: '640px',
+                maxWidth: '720px',
                 margin: '0 auto'
               }}
             >
@@ -1335,101 +1335,79 @@ export default function App() {
                 What's new
               </span>
 
-              {/* Feature pill 1 */}
-              <span className="feature-pill pill-1" style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 16px',
-                background: 'rgba(255, 255, 255, 0.85)',
-                borderRadius: '100px',
-                fontSize: '13px',
-                fontWeight: 500,
-                color: '#374151',
-                border: '1px solid rgba(0, 0, 0, 0.08)',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                cursor: 'default'
-              }}>
-                <span style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #3A8518 0%, #22c55e 100%)'
-                }}></span>
-                Multi-factor comparison
-              </span>
+              {/* Feature pill 1 - Multi-factor comparison */}
+              <div className="feature-pill-wrapper pill-1">
+                <div className="feature-pill">
+                  <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="2" y="13" width="5" height="8" rx="1" fill="#3A8518" />
+                    <rect x="9.5" y="9" width="5" height="12" rx="1" fill="#A5CF8E" />
+                    <rect x="17" y="5" width="5" height="16" rx="1" fill="#E7CB38" />
+                    <path d="M4.5 10L12 4L19.5 7" stroke="#3A8518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <span className="pill-label">Multi-factor comparison</span>
+                </div>
+                <div className="pill-card">
+                  <div className="pill-card-content">
+                    Dig deeper on specific segments — compare multiple audience groups side-by-side in a single view
+                  </div>
+                </div>
+              </div>
 
-              {/* Feature pill 2 */}
-              <span className="feature-pill pill-2" style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 16px',
-                background: 'rgba(255, 255, 255, 0.85)',
-                borderRadius: '100px',
-                fontSize: '13px',
-                fontWeight: 500,
-                color: '#374151',
-                border: '1px solid rgba(0, 0, 0, 0.08)',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                cursor: 'default'
-              }}>
-                <span style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)'
-                }}></span>
-                Drag & drop layout
-              </span>
+              {/* Feature pill 2 - Drag & drop layout */}
+              <div className="feature-pill-wrapper pill-2">
+                <div className="feature-pill">
+                  <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="3" y="3" width="7" height="7" rx="1.5" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
+                    <rect x="14" y="3" width="7" height="7" rx="1.5" fill="#E7CB38" stroke="#CED6DE" strokeWidth="1.5" />
+                    <rect x="3" y="14" width="7" height="7" rx="1.5" fill="#CED6DE" stroke="#717F90" strokeWidth="1.5" />
+                    <path d="M17.5 14v7M14 17.5h7" stroke="#3A8518" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                  <span className="pill-label">Drag & drop layout</span>
+                </div>
+                <div className="pill-card">
+                  <div className="pill-card-content">
+                    Customize your charts freely — rearrange, resize, and organize visualizations exactly how you want
+                  </div>
+                </div>
+              </div>
 
-              {/* Feature pill 3 */}
-              <span className="feature-pill pill-3" style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 16px',
-                background: 'rgba(255, 255, 255, 0.85)',
-                borderRadius: '100px',
-                fontSize: '13px',
-                fontWeight: 500,
-                color: '#374151',
-                border: '1px solid rgba(0, 0, 0, 0.08)',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                cursor: 'default'
-              }}>
-                <span style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)'
-                }}></span>
-                Regression analysis
-              </span>
+              {/* Feature pill 3 - Regression analysis */}
+              <div className="feature-pill-wrapper pill-3">
+                <div className="feature-pill">
+                  <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="6" cy="18" r="2" fill="#CED6DE" stroke="#717F90" strokeWidth="1.5" />
+                    <circle cx="10" cy="14" r="2" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
+                    <circle cx="14" cy="10" r="2" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
+                    <circle cx="18" cy="6" r="2" fill="#3A8518" />
+                    <path d="M5 19L19 5" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" strokeDasharray="4 2" />
+                  </svg>
+                  <span className="pill-label">Regression analysis</span>
+                </div>
+                <div className="pill-card">
+                  <div className="pill-card-content">
+                    Separate the impact of different segments — control for demographics to get apples-to-apples comparisons
+                  </div>
+                </div>
+              </div>
 
-              {/* Feature pill 4 */}
-              <span className="feature-pill pill-4" style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 16px',
-                background: 'rgba(255, 255, 255, 0.85)',
-                borderRadius: '100px',
-                fontSize: '13px',
-                fontWeight: 500,
-                color: '#374151',
-                border: '1px solid rgba(0, 0, 0, 0.08)',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                cursor: 'default'
-              }}>
-                <span style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%)'
-                }}></span>
-                Bulk heatmap reorder
-              </span>
+              {/* Feature pill 4 - Bulk heatmap reorder */}
+              <div className="feature-pill-wrapper pill-4">
+                <div className="feature-pill">
+                  <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="4" y="4" width="16" height="4" rx="1" fill="#3A8518" />
+                    <rect x="4" y="10" width="16" height="4" rx="1" fill="#A5CF8E" />
+                    <rect x="4" y="16" width="16" height="4" rx="1" fill="#CED6DE" />
+                    <path d="M21 7L23 9L21 11" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M21 13L23 15L21 17" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <span className="pill-label">Bulk heatmap reorder</span>
+                </div>
+                <div className="pill-card">
+                  <div className="pill-card-content">
+                    Reorder all heatmaps at once — change product order from the sidebar and watch all charts update together
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1463,7 +1441,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* CSS animation for floating orbs and feature pills */}
+        {/* CSS animation for floating orbs and feature pills with expandable cards */}
         <style>{`
           @keyframes float {
             0%, 100% { transform: translate(0, 0) scale(1); }
@@ -1485,19 +1463,14 @@ export default function App() {
             }
           }
 
-          @keyframes shimmer {
-            0% { background-position: -200% center; }
-            100% { background-position: 200% center; }
-          }
-
-          @keyframes gentle-float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-3px); }
-          }
-
           @keyframes sparkle-wiggle {
             0%, 100% { transform: rotate(-2deg); }
             50% { transform: rotate(2deg); }
+          }
+
+          @keyframes icon-bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
           }
 
           .whats-new-sparkle {
@@ -1505,10 +1478,11 @@ export default function App() {
             opacity: 0;
           }
 
-          .feature-pill {
+          /* Feature pill wrapper - contains pill and expandable card */
+          .feature-pill-wrapper {
+            position: relative;
             animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
             opacity: 0;
-            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
           }
 
           .pill-1 { animation-delay: 0.1s; }
@@ -1516,14 +1490,96 @@ export default function App() {
           .pill-3 { animation-delay: 0.26s; }
           .pill-4 { animation-delay: 0.34s; }
 
-          .feature-pill:hover {
-            transform: translateY(-2px) scale(1.03);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-            border-color: rgba(0, 0, 0, 0.12);
+          /* The pill itself */
+          .feature-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            z-index: 2;
           }
 
-          .feature-pill:hover span:first-child {
-            animation: gentle-float 0.6s ease-in-out infinite;
+          .pill-icon {
+            flex-shrink: 0;
+            transition: transform 0.3s ease;
+          }
+
+          .pill-label {
+            white-space: nowrap;
+          }
+
+          /* The expandable card */
+          .pill-card {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%) translateY(-8px) scale(0.95);
+            opacity: 0;
+            visibility: hidden;
+            background: white;
+            border-radius: 16px;
+            padding: 0;
+            width: 280px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 100;
+            overflow: hidden;
+          }
+
+          .pill-card::before {
+            content: '';
+            position: absolute;
+            top: -6px;
+            left: 50%;
+            transform: translateX(-50%) rotate(45deg);
+            width: 12px;
+            height: 12px;
+            background: white;
+            box-shadow: -2px -2px 4px rgba(0, 0, 0, 0.04);
+            border-radius: 2px;
+          }
+
+          .pill-card-content {
+            padding: 16px 18px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #4B5563;
+            background: linear-gradient(135deg, rgba(58, 133, 24, 0.03) 0%, rgba(255, 255, 255, 0) 100%);
+          }
+
+          /* Hover states */
+          .feature-pill-wrapper:hover .feature-pill {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+            border-color: rgba(58, 133, 24, 0.3);
+            background: white;
+          }
+
+          .feature-pill-wrapper:hover .pill-icon {
+            animation: icon-bounce 0.5s ease-in-out;
+          }
+
+          .feature-pill-wrapper:hover .pill-card {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0) scale(1);
+          }
+
+          /* Keep card visible when hovering over it */
+          .pill-card:hover {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0) scale(1);
           }
         `}</style>
       </div>
