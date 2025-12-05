@@ -1375,7 +1375,7 @@ export default function App() {
                   Multi-Factor Compare
                 </div>
                 <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: 1.4 }}>
-                  Multiple segments at once
+                  Dig deeper on specific segments
                 </div>
               </div>
 
