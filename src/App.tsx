@@ -1349,17 +1349,35 @@ export default function App() {
             <CSVUpload ref={csvUploadRef} variant="landing" />
           </div>
 
+          {/* What's New Badge */}
+          <div
+            style={{
+              marginTop: '48px',
+              marginBottom: '20px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '6px 14px',
+              background: 'linear-gradient(135deg, rgba(58, 133, 24, 0.1) 0%, rgba(34, 197, 94, 0.1) 100%)',
+              borderRadius: '20px',
+              border: '1px solid rgba(58, 133, 24, 0.2)'
+            }}
+          >
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#3A8518' }}>NEW</span>
+            <span style={{ fontSize: '13px', color: '#4B5563' }}>Fresh features just landed</span>
+          </div>
+
           {/* Feature highlights */}
           <div
             style={{
               display: 'flex',
-              gap: '24px',
-              marginTop: '64px',
+              gap: '16px',
               flexWrap: 'wrap',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              maxWidth: '900px'
             }}
           >
-            {/* Smart Charts */}
+            {/* Multi-Factor Comparison */}
             <div
               style={{
                 background: 'rgba(255, 255, 255, 0.5)',
@@ -1367,27 +1385,30 @@ export default function App() {
                 WebkitBackdropFilter: 'blur(10px)',
                 borderRadius: '16px',
                 border: '1px solid rgba(255, 255, 255, 0.6)',
-                padding: '24px 28px',
+                padding: '20px 24px',
                 textAlign: 'center',
-                minWidth: '180px'
+                minWidth: '160px',
+                flex: '1 1 160px',
+                maxWidth: '200px'
               }}
             >
-              <div style={{ marginBottom: '12px' }}>
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="3" y="12" width="4" height="9" rx="1" fill="#3A8518" />
-                  <rect x="10" y="8" width="4" height="13" rx="1" fill="#A5CF8E" />
-                  <rect x="17" y="4" width="4" height="17" rx="1" fill="#E7CB38" />
+              <div style={{ marginBottom: '10px' }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="2" y="13" width="5" height="8" rx="1" fill="#3A8518" />
+                  <rect x="9.5" y="9" width="5" height="12" rx="1" fill="#A5CF8E" />
+                  <rect x="17" y="5" width="5" height="16" rx="1" fill="#E7CB38" />
+                  <path d="M4.5 10L12 4L19.5 7" stroke="#3A8518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
-                Smart Charts
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
+                Multi-Factor Compare
               </div>
-              <div style={{ fontSize: '12px', color: '#6B7280' }}>
-                Auto-generated visualizations
+              <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: 1.4 }}>
+                Compare multiple segments at once
               </div>
             </div>
 
-            {/* Statistical Analysis */}
+            {/* Customizable Charts */}
             <div
               style={{
                 background: 'rgba(255, 255, 255, 0.5)',
@@ -1395,30 +1416,30 @@ export default function App() {
                 WebkitBackdropFilter: 'blur(10px)',
                 borderRadius: '16px',
                 border: '1px solid rgba(255, 255, 255, 0.6)',
-                padding: '24px 28px',
+                padding: '20px 24px',
                 textAlign: 'center',
-                minWidth: '180px'
+                minWidth: '160px',
+                flex: '1 1 160px',
+                maxWidth: '200px'
               }}
             >
-              <div style={{ marginBottom: '12px' }}>
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="12" cy="12" r="9" stroke="#DC2626" strokeWidth="2" fill="white" />
-                  <circle cx="12" cy="12" r="6" stroke="#DC2626" strokeWidth="2" fill="white" />
-                  <circle cx="12" cy="12" r="3" fill="#DC2626" />
-                  <path d="M12 3V1" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" />
-                  <path d="M20 8L22 6" stroke="#22C55E" strokeWidth="2" strokeLinecap="round" />
-                  <circle cx="22" cy="5" r="2" fill="#22C55E" />
+              <div style={{ marginBottom: '10px' }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="3" y="3" width="7" height="7" rx="1.5" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
+                  <rect x="14" y="3" width="7" height="7" rx="1.5" fill="#E7CB38" stroke="#CED6DE" strokeWidth="1.5" />
+                  <rect x="3" y="14" width="7" height="7" rx="1.5" fill="#CED6DE" stroke="#717F90" strokeWidth="1.5" />
+                  <path d="M17.5 14v7M14 17.5h7" stroke="#3A8518" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
-                Statistical Analysis
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
+                Drag & Drop Layout
               </div>
-              <div style={{ fontSize: '12px', color: '#6B7280' }}>
-                Chi-square significance testing
+              <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: 1.4 }}>
+                Customize chart layout freely
               </div>
             </div>
 
-            {/* Segment Comparison */}
+            {/* Regression Analysis */}
             <div
               style={{
                 background: 'rgba(255, 255, 255, 0.5)',
@@ -1426,22 +1447,59 @@ export default function App() {
                 WebkitBackdropFilter: 'blur(10px)',
                 borderRadius: '16px',
                 border: '1px solid rgba(255, 255, 255, 0.6)',
-                padding: '24px 28px',
+                padding: '20px 24px',
                 textAlign: 'center',
-                minWidth: '180px'
+                minWidth: '160px',
+                flex: '1 1 160px',
+                maxWidth: '200px'
               }}
             >
-              <div style={{ marginBottom: '12px' }}>
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="M21 21l-4.35-4.35" />
+              <div style={{ marginBottom: '10px' }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="6" cy="18" r="2" fill="#CED6DE" stroke="#717F90" strokeWidth="1.5" />
+                  <circle cx="10" cy="14" r="2" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
+                  <circle cx="14" cy="10" r="2" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
+                  <circle cx="18" cy="6" r="2" fill="#3A8518" />
+                  <path d="M5 19L19 5" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" strokeDasharray="4 2" />
                 </svg>
               </div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
-                Segment Comparison
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
+                Regression Analysis
               </div>
-              <div style={{ fontSize: '12px', color: '#6B7280' }}>
-                Compare groups side-by-side
+              <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: 1.4 }}>
+                Apples-to-apples comparison
+              </div>
+            </div>
+
+            {/* Bulk Product Ordering */}
+            <div
+              style={{
+                background: 'rgba(255, 255, 255, 0.5)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                borderRadius: '16px',
+                border: '1px solid rgba(255, 255, 255, 0.6)',
+                padding: '20px 24px',
+                textAlign: 'center',
+                minWidth: '160px',
+                flex: '1 1 160px',
+                maxWidth: '200px'
+              }}
+            >
+              <div style={{ marginBottom: '10px' }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="4" y="4" width="16" height="4" rx="1" fill="#3A8518" />
+                  <rect x="4" y="10" width="16" height="4" rx="1" fill="#A5CF8E" />
+                  <rect x="4" y="16" width="16" height="4" rx="1" fill="#CED6DE" />
+                  <path d="M21 7L23 9L21 11" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M21 13L23 15L21 17" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
+                Bulk Reordering
+              </div>
+              <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: 1.4 }}>
+                Reorder products from sidebar
               </div>
             </div>
           </div>
