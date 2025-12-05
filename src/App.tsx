@@ -1286,8 +1286,8 @@ export default function App() {
 
         {/* Main content */}
         <div
-          className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6"
-          style={{ paddingTop: '60px', paddingBottom: '60px' }}
+          className="relative z-10 flex min-h-screen flex-col items-center px-6"
+          style={{ paddingTop: '12vh', paddingBottom: '60px' }}
         >
           {/* Hero Section */}
           <div className="text-center" style={{ marginBottom: '24px' }}>
@@ -1348,7 +1348,8 @@ export default function App() {
                 </div>
                 <div className="pill-card">
                   <div className="pill-card-content">
-                    Dig deeper on specific segments — compare multiple audience groups side-by-side in a single view
+                    <div className="pill-card-tagline">Compare segments side-by-side ✨</div>
+                    <div className="pill-card-location">Find it in the sidebar filters</div>
                   </div>
                 </div>
               </div>
@@ -1366,7 +1367,8 @@ export default function App() {
                 </div>
                 <div className="pill-card">
                   <div className="pill-card-content">
-                    Customize your charts freely — rearrange, resize, and organize visualizations exactly how you want
+                    <div className="pill-card-tagline">Your charts, your way 🎨</div>
+                    <div className="pill-card-location">Just grab any chart and move it</div>
                   </div>
                 </div>
               </div>
@@ -1385,7 +1387,8 @@ export default function App() {
                 </div>
                 <div className="pill-card">
                   <div className="pill-card-content">
-                    Separate the impact of different segments — control for demographics to get apples-to-apples comparisons
+                    <div className="pill-card-tagline">Apples-to-apples insights 🍎</div>
+                    <div className="pill-card-location">Look for the 📊 button in the header</div>
                   </div>
                 </div>
               </div>
@@ -1404,7 +1407,8 @@ export default function App() {
                 </div>
                 <div className="pill-card">
                   <div className="pill-card-content">
-                    Reorder all heatmaps at once — change product order from the sidebar and watch all charts update together
+                    <div className="pill-card-tagline">One drag updates all 🔄</div>
+                    <div className="pill-card-location">Reorder products in the sidebar</div>
                   </div>
                 </div>
               </div>
@@ -1438,6 +1442,27 @@ export default function App() {
             }}
           >
             <CSVUpload ref={csvUploadRef} variant="landing" />
+          </div>
+
+          {/* Last updated and feedback CTA */}
+          <div style={{
+            marginTop: '24px',
+            textAlign: 'center',
+            fontFamily: 'Space Grotesk, sans-serif'
+          }}>
+            <p style={{
+              fontSize: '13px',
+              color: '#6B7280',
+              marginBottom: '8px'
+            }}>
+              Last updated on December 5, 2024
+            </p>
+            <p style={{
+              fontSize: '13px',
+              color: '#4B5563'
+            }}>
+              💡 Feature requests or bugs? Reach out to <span style={{ fontWeight: 600, color: '#3A8518' }}>Misaki</span> at <span style={{ fontWeight: 600, color: '#3A8518' }}>#ops-chat</span>
+            </p>
           </div>
         </div>
 
@@ -1555,11 +1580,20 @@ export default function App() {
           }
 
           .pill-card-content {
-            padding: 16px 18px;
-            font-size: 13px;
-            line-height: 1.6;
-            color: #4B5563;
+            padding: 14px 16px;
             background: linear-gradient(135deg, rgba(58, 133, 24, 0.03) 0%, rgba(255, 255, 255, 0) 100%);
+          }
+
+          .pill-card-tagline {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1F2937;
+            margin-bottom: 4px;
+          }
+
+          .pill-card-location {
+            font-size: 12px;
+            color: #6B7280;
           }
 
           /* Hover states */
