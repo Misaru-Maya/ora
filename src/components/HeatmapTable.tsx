@@ -176,49 +176,11 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
     return scores
   }, [dataset, productColumn, groups])
 
-  // Calculate top and bottom 50% based on sidebar product order
-  // If productOrder exists, use it; otherwise use default group order
-  // IMPORTANT: Top and bottom 50% must NOT overlap
-  const { top50Products, bottom50Products } = useMemo(() => {
-    // Use productOrder if available, converting labels to keys
-    let orderedKeys: string[]
-    if (productOrder.length > 0) {
-      // Convert product labels from sidebar order to keys
-      orderedKeys = productOrder
-        .map(label => groups.find(g => g.label === label)?.key)
-        .filter((key): key is string => key !== undefined)
-      // Add any groups not in productOrder at the end
-      const keysInOrder = new Set(orderedKeys)
-      const remaining = groups.filter(g => !keysInOrder.has(g.key)).map(g => g.key)
-      orderedKeys = [...orderedKeys, ...remaining]
-    } else {
-      // Use default group order
-      orderedKeys = groups.map(g => g.key)
-    }
+  // Note: top50Products, bottom50Products, and defaultProductSelection are now derived
+  // from allGroupsOrdered (defined later) to ensure they always match the displayed dropdown order.
 
-    // Split into non-overlapping halves
-    // For odd counts, top 50% gets the extra item
-    const midpoint = Math.ceil(orderedKeys.length / 2)
-
-    return {
-      top50Products: orderedKeys.slice(0, midpoint),
-      bottom50Products: orderedKeys.slice(midpoint) // Start from midpoint, no overlap
-    }
-  }, [groups, productOrder])
-
-  // Default: show top 50% for positive/advocates questions, bottom 50% for negative/detractors questions
-  const defaultProductSelection = useMemo(() => {
-    // For positive questions (advocates): show top 50%
-    // For negative questions (detractors): show bottom 50%
-    if (sentiment === 'positive') {
-      return top50Products.length > 0 ? top50Products : groups.map(g => g.key)
-    } else {
-      return bottom50Products.length > 0 ? bottom50Products : groups.map(g => g.key)
-    }
-  }, [groups, sentiment, top50Products, bottom50Products])
-
-  // State for filtering
-  const [selectedProducts, setSelectedProducts] = useState<string[]>(defaultProductSelection)
+  // State for filtering - initialized empty, will be set by useEffect once defaultProductSelection is available
+  const [selectedProducts, setSelectedProducts] = useState<string[]>(() => groups.map(g => g.key))
   const [selectedAttributes] = useState<string[]>(data.map(d => d.option))
   const [showProductFilter, setShowProductFilter] = useState(false)
   const [, setShowAttributeFilter] = useState(false)
@@ -496,6 +458,28 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
     }
     return allGroupsSorted
   }, [productOrder, allGroupsSorted])
+
+  // Calculate top and bottom 50% based on the DISPLAYED order in allGroupsOrdered
+  // This ensures Top 50% / Bottom 50% buttons always match the dropdown list order
+  const { top50Products, bottom50Products } = useMemo(() => {
+    const orderedKeys = allGroupsOrdered.map(g => g.key)
+    const midpoint = Math.ceil(orderedKeys.length / 2)
+    return {
+      top50Products: orderedKeys.slice(0, midpoint),
+      bottom50Products: orderedKeys.slice(midpoint)
+    }
+  }, [allGroupsOrdered])
+
+  // Default product selection based on sentiment type
+  const defaultProductSelection = useMemo(() => {
+    // For positive questions (advocates): show top 50%
+    // For negative questions (detractors): show bottom 50%
+    if (sentiment === 'positive') {
+      return top50Products.length > 0 ? top50Products : allGroupsOrdered.map(g => g.key)
+    } else {
+      return bottom50Products.length > 0 ? bottom50Products : allGroupsOrdered.map(g => g.key)
+    }
+  }, [sentiment, top50Products, bottom50Products, allGroupsOrdered])
 
   // Calculate min/max for color scaling
   const { minValue, maxValue } = useMemo(() => {

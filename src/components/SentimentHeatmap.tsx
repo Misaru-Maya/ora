@@ -153,31 +153,8 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
     })
   }, [productSentiments])
 
-  // Calculate top and bottom 50% based on sidebar product order
-  // If productOrder exists, use it; otherwise use default sorted order
-  // IMPORTANT: Top and bottom 50% must NOT overlap
-  const { top50Products, bottom50Products } = useMemo(() => {
-    let orderedNames: string[]
-    if (productOrder.length > 0) {
-      // Use sidebar order, filter to only products that exist in our data
-      const existingNames = new Set(sortedProducts.map(p => p.productName))
-      orderedNames = productOrder.filter(name => existingNames.has(name))
-      // Add any products not in productOrder at the end
-      const namesInOrder = new Set(orderedNames)
-      const remaining = sortedProducts.filter(p => !namesInOrder.has(p.productName)).map(p => p.productName)
-      orderedNames = [...orderedNames, ...remaining]
-    } else {
-      orderedNames = sortedProducts.map(p => p.productName)
-    }
-
-    // Split into non-overlapping halves
-    // For odd counts, top 50% gets the extra item
-    const midpoint = Math.ceil(orderedNames.length / 2)
-    return {
-      top50Products: orderedNames.slice(0, midpoint),
-      bottom50Products: orderedNames.slice(midpoint) // Start from midpoint, no overlap
-    }
-  }, [sortedProducts, productOrder])
+  // Note: top50Products and bottom50Products are now derived from orderedProducts
+  // (defined later) to ensure they always match the displayed dropdown order.
 
   // Initialize selected products - show all by default
   useEffect(() => {
@@ -342,6 +319,17 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
     }
     return sortedProducts
   }, [productOrder, sortedProducts])
+
+  // Calculate top and bottom 50% based on the DISPLAYED order in orderedProducts
+  // This ensures Top 50% / Bottom 50% buttons always match the dropdown list order
+  const { top50Products, bottom50Products } = useMemo(() => {
+    const orderedNames = orderedProducts.map(p => p.productName)
+    const midpoint = Math.ceil(orderedNames.length / 2)
+    return {
+      top50Products: orderedNames.slice(0, midpoint),
+      bottom50Products: orderedNames.slice(midpoint)
+    }
+  }, [orderedProducts])
 
   // Filter selected products
   const filteredProducts = useMemo(() => {
