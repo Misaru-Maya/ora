@@ -3688,7 +3688,7 @@ export default function App() {
                     onSaveOptionLabel={handleSaveOptionLabel}
                     questionLabels={selections.questionLabels || EMPTY_OBJECT}
                     onSaveQuestionLabel={handleSaveQuestionLabel}
-                    productOrder={selections.productOrder || EMPTY_ARRAY}
+                    productOrder={selections.productOrder?.length ? selections.productOrder : orderedProductValues}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-sm text-brand-gray/60">
