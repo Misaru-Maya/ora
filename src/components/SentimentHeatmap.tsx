@@ -561,7 +561,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
   return (
     <>
       {filterPortalTarget && sortedProducts.length >= 10 && createPortal(filterButtons, filterPortalTarget)}
-      <div className="w-full" style={{ paddingLeft: '2px', paddingBottom: '10px', width: '95%', margin: '0 auto' }}>
+      <div className="w-full" style={{ paddingLeft: '2px', paddingBottom: '30px', width: '95%', margin: '0 auto' }}>
         {/* Header Row - Title is draggable separately */}
         <div
           style={{
@@ -569,7 +569,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
             alignItems: 'center',
             justifyContent: 'center',
             marginTop: '15px',
-            marginBottom: '20px',
+            marginBottom: '15px',
             gap: '16px'
           }}
         >
@@ -607,6 +607,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
                     if (e.key === 'Escape') setEditingQuestionLabel(false)
                   }}
                   onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
                   className="text-sm font-semibold text-brand-gray"
                   style={{
                     width: '100%',
@@ -621,7 +622,9 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
                     lineHeight: '1.4',
                     textAlign: 'center',
                     resize: 'vertical',
-                    minHeight: '40px'
+                    minHeight: '40px',
+                    cursor: 'text',
+                    userSelect: 'text'
                   }}
                   rows={Math.max(2, questionLabelInput.split('\n').length)}
                 />
@@ -657,8 +660,8 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
           </div>
         </div>
 
-        {/* Explicit spacer between title and heatmap - 60px fixed height */}
-        <div style={{ height: '60px', flexShrink: 0 }} />
+        {/* Explicit spacer between title and heatmap - 50px fixed height */}
+        <div style={{ height: '50px', flexShrink: 0 }} />
 
         {/* Heatmap table - draggable with adjustable row height */}
         <div

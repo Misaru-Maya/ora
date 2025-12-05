@@ -358,6 +358,8 @@ const EditableYAxisTick: React.FC<any & {
             }
             if (e.key === 'Escape') setEditingOption(null)
           }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
           style={{
             width: '100%',
             fontSize: '14px',
@@ -370,7 +372,9 @@ const EditableYAxisTick: React.FC<any & {
             minHeight: '36px',
             resize: 'vertical',
             fontFamily: 'inherit',
-            lineHeight: '1.4'
+            lineHeight: '1.4',
+            cursor: 'text',
+            userSelect: 'text'
           }}
         />
       </foreignObject>
@@ -473,6 +477,8 @@ const EditableXAxisTick: React.FC<any & {
             }
             if (e.key === 'Escape') setEditingOption(null)
           }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
           style={{
             width: '100%',
             fontSize: '14px',
@@ -486,7 +492,9 @@ const EditableXAxisTick: React.FC<any & {
             minHeight: '36px',
             resize: 'vertical',
             fontFamily: 'inherit',
-            lineHeight: '1.4'
+            lineHeight: '1.4',
+            cursor: 'text',
+            userSelect: 'text'
           }}
         />
       </foreignObject>
@@ -1087,6 +1095,8 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                       }
                       if (e.key === 'Escape') setEditingLegend(null)
                     }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
                     style={{
                       fontSize: '12px',
                       padding: '2px 4px',
@@ -1099,7 +1109,9 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                       minHeight: '24px',
                       resize: 'vertical',
                       fontFamily: 'inherit',
-                      lineHeight: '1.4'
+                      lineHeight: '1.4',
+                      cursor: 'text',
+                      userSelect: 'text'
                     }}
                   />
                 ) : (
@@ -1165,6 +1177,8 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                       }
                       if (e.key === 'Escape') setEditingLegend(null)
                     }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
                     style={{
                       fontSize: '12px',
                       padding: '2px 4px',
@@ -1177,7 +1191,9 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                       minHeight: '24px',
                       resize: 'vertical',
                       fontFamily: 'inherit',
-                      lineHeight: '1.4'
+                      lineHeight: '1.4',
+                      cursor: 'text',
+                      userSelect: 'text'
                     }}
                   />
                 ) : (
@@ -1262,6 +1278,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                       if (e.key === 'Escape') setEditingQuestionLabel(false)
                     }}
                     onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
                     className="text-sm font-semibold text-brand-gray"
                     style={{
                       width: '100%',
@@ -1276,7 +1293,9 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                       textAlign: 'center',
                       resize: 'vertical',
                       minHeight: '40px',
-                      lineHeight: '1.4'
+                      lineHeight: '1.4',
+                      cursor: 'text',
+                      userSelect: 'text'
                     }}
                     rows={Math.max(2, questionLabelInput.split('\n').length)}
                   />
@@ -1423,6 +1442,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                     if (e.key === 'Escape') setEditingQuestionLabel(false)
                   }}
                   onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
                   className="text-sm font-semibold text-brand-gray"
                   style={{
                     width: '100%',
@@ -1437,7 +1457,9 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                     textAlign: 'center',
                     resize: 'vertical',
                     minHeight: '40px',
-                    lineHeight: '1.4'
+                    lineHeight: '1.4',
+                    cursor: 'text',
+                    userSelect: 'text'
                   }}
                   rows={Math.max(2, questionLabelInput.split('\n').length)}
                 />

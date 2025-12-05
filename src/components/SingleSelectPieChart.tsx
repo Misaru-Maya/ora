@@ -232,6 +232,8 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
                   }
                   if (e.key === 'Escape') setEditingOption(null)
                 }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
                 style={{
                   fontSize: '14px',
                   padding: '6px 8px',
@@ -243,7 +245,9 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
                   minHeight: '36px',
                   resize: 'vertical',
                   fontFamily: 'inherit',
-                  lineHeight: '1.4'
+                  lineHeight: '1.4',
+                  cursor: 'text',
+                  userSelect: 'text'
                 }}
               />
             ) : (
@@ -334,6 +338,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
                     if (e.key === 'Escape') setEditingQuestionLabel(false)
                   }}
                   onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
                   className="text-sm font-semibold text-brand-gray"
                   style={{
                     width: '100%',
@@ -348,7 +353,9 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
                     textAlign: 'center',
                     resize: 'vertical',
                     minHeight: '40px',
-                    lineHeight: '1.4'
+                    lineHeight: '1.4',
+                    cursor: 'text',
+                    userSelect: 'text'
                   }}
                   rows={Math.max(2, questionLabelInput.split('\n').length)}
                 />
