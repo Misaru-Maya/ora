@@ -1307,181 +1307,129 @@ export default function App() {
               ORA
             </h1>
 
-            {/* What's New Badge */}
-            <div
-              className="new-badge-pulse"
-              style={{
-                marginBottom: '20px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 16px',
-                background: 'linear-gradient(135deg, rgba(58, 133, 24, 0.15) 0%, rgba(34, 197, 94, 0.15) 100%)',
-                borderRadius: '24px',
-                border: '1px solid rgba(58, 133, 24, 0.3)',
-                boxShadow: '0 4px 12px rgba(58, 133, 24, 0.15)'
-              }}
-            >
-              <span style={{
-                fontSize: '11px',
-                fontWeight: 700,
-                color: 'white',
-                background: 'linear-gradient(135deg, #3A8518 0%, #22c55e 100%)',
-                padding: '2px 8px',
-                borderRadius: '10px',
-                letterSpacing: '0.5px'
-              }}>NEW</span>
-              <span style={{ fontSize: '14px', color: '#374151', fontWeight: 500 }}>Fresh features just landed</span>
-            </div>
-
-            {/* Feature highlights */}
+            {/* Feature Pills - playful inline tags */}
             <div
               style={{
                 display: 'flex',
-                gap: '16px',
                 flexWrap: 'wrap',
+                gap: '10px',
                 justifyContent: 'center',
-                maxWidth: '860px',
+                maxWidth: '640px',
                 margin: '0 auto'
               }}
             >
-              {/* Multi-Factor Comparison */}
-              <div
-                className="feature-card feature-card-1"
-                style={{
-                  background: 'rgba(255, 255, 255, 0.7)',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  borderRadius: '16px',
-                  border: '1px solid rgba(58, 133, 24, 0.2)',
-                  padding: '18px 22px',
-                  textAlign: 'center',
-                  minWidth: '160px',
-                  flex: '1 1 160px',
-                  maxWidth: '195px',
-                  boxShadow: '0 4px 20px rgba(58, 133, 24, 0.08)',
-                  transition: 'transform 0.3s ease, box-shadow 0.3s ease'
-                }}
-              >
-                <div className="feature-icon" style={{ marginBottom: '10px' }}>
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="2" y="13" width="5" height="8" rx="1" fill="#3A8518" />
-                    <rect x="9.5" y="9" width="5" height="12" rx="1" fill="#A5CF8E" />
-                    <rect x="17" y="5" width="5" height="16" rx="1" fill="#E7CB38" />
-                    <path d="M4.5 10L12 4L19.5 7" stroke="#3A8518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
-                  Multi-Factor Compare
-                </div>
-                <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: 1.4 }}>
-                  Dig deeper on specific segments
-                </div>
-              </div>
+              {/* Sparkle indicator */}
+              <span className="whats-new-sparkle" style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                borderRadius: '100px',
+                fontSize: '13px',
+                fontWeight: 600,
+                color: '#92400e',
+                border: '1px solid rgba(251, 191, 36, 0.4)'
+              }}>
+                <span style={{ fontSize: '14px' }}>✨</span>
+                What's new
+              </span>
 
-              {/* Customizable Charts */}
-              <div
-                className="feature-card feature-card-2"
-                style={{
-                  background: 'rgba(255, 255, 255, 0.7)',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  borderRadius: '16px',
-                  border: '1px solid rgba(58, 133, 24, 0.2)',
-                  padding: '18px 22px',
-                  textAlign: 'center',
-                  minWidth: '160px',
-                  flex: '1 1 160px',
-                  maxWidth: '195px',
-                  boxShadow: '0 4px 20px rgba(58, 133, 24, 0.08)',
-                  transition: 'transform 0.3s ease, box-shadow 0.3s ease'
-                }}
-              >
-                <div className="feature-icon" style={{ marginBottom: '10px' }}>
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="3" y="3" width="7" height="7" rx="1.5" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
-                    <rect x="14" y="3" width="7" height="7" rx="1.5" fill="#E7CB38" stroke="#CED6DE" strokeWidth="1.5" />
-                    <rect x="3" y="14" width="7" height="7" rx="1.5" fill="#CED6DE" stroke="#717F90" strokeWidth="1.5" />
-                    <path d="M17.5 14v7M14 17.5h7" stroke="#3A8518" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                </div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
-                  Drag & Drop Layout
-                </div>
-                <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: 1.4 }}>
-                  Customize charts freely
-                </div>
-              </div>
+              {/* Feature pill 1 */}
+              <span className="feature-pill pill-1" style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                background: 'rgba(255, 255, 255, 0.85)',
+                borderRadius: '100px',
+                fontSize: '13px',
+                fontWeight: 500,
+                color: '#374151',
+                border: '1px solid rgba(0, 0, 0, 0.08)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                cursor: 'default'
+              }}>
+                <span style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #3A8518 0%, #22c55e 100%)'
+                }}></span>
+                Multi-factor comparison
+              </span>
 
-              {/* Regression Analysis */}
-              <div
-                className="feature-card feature-card-3"
-                style={{
-                  background: 'rgba(255, 255, 255, 0.7)',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  borderRadius: '16px',
-                  border: '1px solid rgba(58, 133, 24, 0.2)',
-                  padding: '18px 22px',
-                  textAlign: 'center',
-                  minWidth: '160px',
-                  flex: '1 1 160px',
-                  maxWidth: '195px',
-                  boxShadow: '0 4px 20px rgba(58, 133, 24, 0.08)',
-                  transition: 'transform 0.3s ease, box-shadow 0.3s ease'
-                }}
-              >
-                <div className="feature-icon" style={{ marginBottom: '10px' }}>
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="6" cy="18" r="2" fill="#CED6DE" stroke="#717F90" strokeWidth="1.5" />
-                    <circle cx="10" cy="14" r="2" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
-                    <circle cx="14" cy="10" r="2" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
-                    <circle cx="18" cy="6" r="2" fill="#3A8518" />
-                    <path d="M5 19L19 5" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" strokeDasharray="4 2" />
-                  </svg>
-                </div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
-                  Regression Analysis
-                </div>
-                <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: 1.4 }}>
-                  Separate impacts of segments
-                </div>
-              </div>
+              {/* Feature pill 2 */}
+              <span className="feature-pill pill-2" style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                background: 'rgba(255, 255, 255, 0.85)',
+                borderRadius: '100px',
+                fontSize: '13px',
+                fontWeight: 500,
+                color: '#374151',
+                border: '1px solid rgba(0, 0, 0, 0.08)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                cursor: 'default'
+              }}>
+                <span style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)'
+                }}></span>
+                Drag & drop layout
+              </span>
 
-              {/* Bulk Product Ordering */}
-              <div
-                className="feature-card feature-card-4"
-                style={{
-                  background: 'rgba(255, 255, 255, 0.7)',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  borderRadius: '16px',
-                  border: '1px solid rgba(58, 133, 24, 0.2)',
-                  padding: '18px 22px',
-                  textAlign: 'center',
-                  minWidth: '160px',
-                  flex: '1 1 160px',
-                  maxWidth: '195px',
-                  boxShadow: '0 4px 20px rgba(58, 133, 24, 0.08)',
-                  transition: 'transform 0.3s ease, box-shadow 0.3s ease'
-                }}
-              >
-                <div className="feature-icon" style={{ marginBottom: '10px' }}>
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="4" y="4" width="16" height="4" rx="1" fill="#3A8518" />
-                    <rect x="4" y="10" width="16" height="4" rx="1" fill="#A5CF8E" />
-                    <rect x="4" y="16" width="16" height="4" rx="1" fill="#CED6DE" />
-                    <path d="M21 7L23 9L21 11" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M21 13L23 15L21 17" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', marginBottom: '4px' }}>
-                  Bulk Reordering
-                </div>
-                <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: 1.4 }}>
-                  Reorder all heatmaps at once
-                </div>
-              </div>
+              {/* Feature pill 3 */}
+              <span className="feature-pill pill-3" style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                background: 'rgba(255, 255, 255, 0.85)',
+                borderRadius: '100px',
+                fontSize: '13px',
+                fontWeight: 500,
+                color: '#374151',
+                border: '1px solid rgba(0, 0, 0, 0.08)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                cursor: 'default'
+              }}>
+                <span style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)'
+                }}></span>
+                Regression analysis
+              </span>
+
+              {/* Feature pill 4 */}
+              <span className="feature-pill pill-4" style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                background: 'rgba(255, 255, 255, 0.85)',
+                borderRadius: '100px',
+                fontSize: '13px',
+                fontWeight: 500,
+                color: '#374151',
+                border: '1px solid rgba(0, 0, 0, 0.08)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                cursor: 'default'
+              }}>
+                <span style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%)'
+                }}></span>
+                Bulk heatmap reorder
+              </span>
             </div>
           </div>
 
@@ -1515,7 +1463,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* CSS animation for floating orbs and feature cards */}
+        {/* CSS animation for floating orbs and feature pills */}
         <style>{`
           @keyframes float {
             0%, 100% { transform: translate(0, 0) scale(1); }
@@ -1523,53 +1471,59 @@ export default function App() {
             66% { transform: translate(-20px, 20px) scale(0.95); }
           }
 
-          @keyframes fadeInUp {
-            from {
+          @keyframes popIn {
+            0% {
               opacity: 0;
-              transform: translateY(20px);
+              transform: scale(0.8) translateY(10px);
             }
-            to {
+            60% {
+              transform: scale(1.05) translateY(-2px);
+            }
+            100% {
               opacity: 1;
-              transform: translateY(0);
+              transform: scale(1) translateY(0);
             }
           }
 
-          @keyframes pulse-glow {
-            0%, 100% {
-              box-shadow: 0 4px 12px rgba(58, 133, 24, 0.15);
-            }
-            50% {
-              box-shadow: 0 4px 20px rgba(58, 133, 24, 0.3);
-            }
+          @keyframes shimmer {
+            0% { background-position: -200% center; }
+            100% { background-position: 200% center; }
           }
 
-          @keyframes icon-bounce {
+          @keyframes gentle-float {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-3px); }
           }
 
-          .new-badge-pulse {
-            animation: pulse-glow 2s ease-in-out infinite;
+          @keyframes sparkle-wiggle {
+            0%, 100% { transform: rotate(-2deg); }
+            50% { transform: rotate(2deg); }
           }
 
-          .feature-card {
-            animation: fadeInUp 0.6s ease-out forwards;
+          .whats-new-sparkle {
+            animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards, sparkle-wiggle 3s ease-in-out infinite 0.5s;
             opacity: 0;
           }
 
-          .feature-card-1 { animation-delay: 0.1s; }
-          .feature-card-2 { animation-delay: 0.2s; }
-          .feature-card-3 { animation-delay: 0.3s; }
-          .feature-card-4 { animation-delay: 0.4s; }
-
-          .feature-card:hover {
-            transform: translateY(-4px) !important;
-            box-shadow: 0 8px 30px rgba(58, 133, 24, 0.15) !important;
-            border-color: rgba(58, 133, 24, 0.4) !important;
+          .feature-pill {
+            animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            opacity: 0;
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
           }
 
-          .feature-card:hover .feature-icon {
-            animation: icon-bounce 0.5s ease-in-out;
+          .pill-1 { animation-delay: 0.1s; }
+          .pill-2 { animation-delay: 0.18s; }
+          .pill-3 { animation-delay: 0.26s; }
+          .pill-4 { animation-delay: 0.34s; }
+
+          .feature-pill:hover {
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            border-color: rgba(0, 0, 0, 0.12);
+          }
+
+          .feature-pill:hover span:first-child {
+            animation: gentle-float 0.6s ease-in-out infinite;
           }
         `}</style>
       </div>
