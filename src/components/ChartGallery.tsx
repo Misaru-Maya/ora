@@ -1631,6 +1631,71 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
           )
         }
 
+        // For product follow-up questions, we need to recalculate the data
+        // by averaging per-product percentages instead of using the aggregated "Overall"
+        if (isProductFollowUpQuestion && productColumn) {
+          devLog('📊 Product follow-up bar chart: recalculating with averaged per-product data')
+
+          // Get all unique products from the dataset
+          const allProducts = Array.from(
+            new Set(dataset.rows.map(row => normalizeProductValue(row[productColumn])).filter(v => v && v !== 'Unspecified'))
+          ).sort()
+
+          if (allProducts.length > 0) {
+            // Build series with products as segments
+            const productSeries = buildSeries({
+              dataset,
+              question,
+              segmentColumn: productColumn,
+              groups: allProducts,
+              sortOrder
+            })
+
+            // Average the percentages across all products for each option
+            const averagedData = productSeries.data.map(dataPoint => {
+              // Get all product values and calculate the average
+              const productValues = productSeries.groups.map(g => Number(dataPoint[g.key] || 0))
+              const avgValue = productValues.length > 0
+                ? productValues.reduce((sum, val) => sum + val, 0) / productValues.length
+                : 0
+
+              // Create new data point with averaged "Overall" value
+              const newDataPoint: any = {
+                ...dataPoint,
+                overall: avgValue, // Store the averaged percentage
+                optionDisplay: optionLabels[dataPoint.option] || dataPoint.optionDisplay,
+                groupSummaries: [{
+                  label: 'Overall',
+                  count: 0, // Not meaningful for averages
+                  denominator: 0,
+                  percent: avgValue
+                }]
+              }
+
+              return newDataPoint
+            }).filter(d => !isExcludedValue(d.optionDisplay))
+
+            const averagedGroups = [{ key: 'overall', label: 'Overall' }]
+
+            return (
+              <ComparisonChart
+                data={averagedData}
+                groups={averagedGroups}
+                orientation={chartOrientation}
+                questionLabel={displayLabel}
+                colors={chartColors}
+                optionLabels={optionLabels}
+                onSaveOptionLabel={onSaveOptionLabel}
+                onSaveQuestionLabel={onSaveQuestionLabel}
+                questionTypeBadge={questionTypeBadge}
+                heightOffset={chartHeightOffset}
+                hideSegment={hideSegment}
+                sentimentType={sentimentType}
+              />
+            )
+          }
+        }
+
         return (
           <ComparisonChart
             data={transposedData}
