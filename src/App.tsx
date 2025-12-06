@@ -935,6 +935,8 @@ export default function App() {
         filters: []
       }
       currentSets = [newSet]
+      // Keep the card open when creating a new set from default
+      setAddingFiltersToSetId(setId)
     }
 
     const newSets = currentSets.map(s => {
@@ -1856,7 +1858,16 @@ export default function App() {
                   {/* Respondent Count Header */}
                   <div>
                     <span className="text-sm" style={{ color: '#374151' }}>
-                      <span className="font-semibold">{filteredRespondentCount.toLocaleString()}</span>
+                      <span className="font-bold" style={{ color: selections.multiFilterCompareMode && selections.comparisonSets && selections.comparisonSets.length > 0 ? '#3A8518' : 'inherit' }}>
+                        {(() => {
+                          // In multi-filter comparison mode, show sum of all comparison set respondents
+                          if (selections.multiFilterCompareMode && selections.comparisonSets && selections.comparisonSets.length > 0) {
+                            const sum = Object.values(comparisonSetRespondentCounts).reduce((acc, count) => acc + count, 0)
+                            return sum.toLocaleString()
+                          }
+                          return filteredRespondentCount.toLocaleString()
+                        })()}
+                      </span>
                       <span style={{ color: '#6B7280' }}> of {summary.uniqueRespondents.toLocaleString()} respondents</span>
                     </span>
                   </div>
@@ -2106,11 +2117,6 @@ export default function App() {
                 </div>
                 {expandedSections.has('multiFilterComparison') && (
                   <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '0 0 12px 12px' }}>
-                    {/* Description */}
-                    <p style={{ fontSize: '12px', color: '#6B7280', marginBottom: '14px', lineHeight: '1.5' }}>
-                      Compare combined filters side-by-side. Click a set to edit filters, click outside to save.
-                    </p>
-
                     {/* Comparison Sets List - Always show at least one set */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {(() => {
