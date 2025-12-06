@@ -695,9 +695,9 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     const isNowFilterMode = !comparisonMode
 
     if (wasCompareMode && isNowFilterMode) {
-      // Priority: heatmap when available > stacked > pie
-      if (canUseHeatmap) {
-        // Heatmap available: always use heatmap as default in Filter mode
+      // Priority: heatmap (only for sentiment/product follow-up) > stacked > pie
+      if (canUseHeatmap && (isSentimentQuestion || isProductFollowUpQuestion)) {
+        // Heatmap for sentiment or product follow-up questions in Filter mode
         setChartVariant('heatmap')
       } else if (canUseStacked) {
         // Stacked available: use horizontal stacked
@@ -711,7 +711,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     }
 
     prevComparisonModeRef.current = comparisonMode
-  }, [comparisonMode, canUseHeatmap, canUsePie, canUseStacked])
+  }, [comparisonMode, canUseHeatmap, canUsePie, canUseStacked, isSentimentQuestion, isProductFollowUpQuestion])
 
   // Close dropdowns when clicking outside
   useEffect(() => {
