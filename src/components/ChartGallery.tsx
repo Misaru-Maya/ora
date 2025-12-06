@@ -1595,11 +1595,11 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         onMouseDown={handleChartResizeStart('right')}
         style={{
           position: 'absolute',
-          // For pie charts, position based on pixel width; for bar charts, use percentage
-          // Add extra offset (30px) to ensure handle is outside the container shadow
+          // For pie charts, position based on pixel width; for bar/heatmap, use 95% content width
+          // Add 40px offset to ensure handle is outside the container shadow (consistent across all chart types)
           left: chartVariant === 'pie'
             ? `${effectivePieWidth + 40}px`
-            : `calc(${chartWidthPercent}% + 30px)`,
+            : `calc(95% + 40px)`,
           top: '50%',
           transform: 'translateY(-50%)',
           height: '80px',
