@@ -18,7 +18,7 @@ interface HeatmapTableProps {
   questionId?: string
   dataset: ParsedCSV
   productColumn: string
-  hideAsterisks?: boolean
+  showAsterisks?: boolean
   optionLabels?: Record<string, string>
   onSaveOptionLabel?: (option: string, newLabel: string) => void
   onSaveQuestionLabel?: (newLabel: string) => void
@@ -26,7 +26,7 @@ interface HeatmapTableProps {
   transposed?: boolean
   questionTypeBadge?: React.ReactNode
   heightOffset?: number
-  hideSegment?: boolean
+  showSegment?: boolean
   sentimentType?: 'advocates' | 'detractors' | null  // For product follow-up questions
 }
 
@@ -57,7 +57,7 @@ const getColor = (value: number, sentiment: 'positive' | 'negative', minVal: num
   return { bg: bgColor, text: textColor }
 }
 
-export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, hideAsterisks = false, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [], transposed = false, questionTypeBadge, heightOffset = 0, hideSegment = false, sentimentType = null }) => {
+export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, showAsterisks = true, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [], transposed = false, questionTypeBadge, heightOffset = 0, showSegment = true, sentimentType = null }) => {
   const [editingOption, setEditingOption] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
@@ -362,7 +362,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
   // Filter data and strip asterisks if needed
   const _filteredGroups = groups.filter(g => selectedProducts.includes(g.key))
   const baseFilteredData = data.filter(d => selectedAttributes.includes(d.option)).map(d => {
-    if (hideAsterisks && d.optionDisplay.endsWith('*')) {
+    if (!showAsterisks && d.optionDisplay.endsWith('*')) {
       return { ...d, optionDisplay: d.optionDisplay.slice(0, -1) }
     }
     return d
@@ -932,7 +932,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                 />
                 {/* Advocates/Detractors indicator card + Question Type badge - right aligned with 10px margin from column edge */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end', paddingBottom: '4px', paddingRight: '10px' }}>
-                  {!hideSegment && sentimentType === 'advocates' && (
+                  {showSegment && sentimentType === 'advocates' && (
                     <div
                       style={{
                         display: 'inline-flex',
@@ -955,7 +955,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                       <span style={{ color: '#3A8518' }}>Advocates</span>
                     </div>
                   )}
-                  {!hideSegment && sentimentType === 'detractors' && (
+                  {showSegment && sentimentType === 'detractors' && (
                     <div
                       style={{
                         display: 'inline-flex',

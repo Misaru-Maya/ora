@@ -30,7 +30,7 @@ interface SingleSelectPieChartProps {
   onSaveQuestionLabel?: (newLabel: string) => void
   questionTypeBadge?: React.ReactNode
   heightOffset?: number
-  hideSegment?: boolean
+  showSegment?: boolean
   sentimentType?: 'advocates' | 'detractors' | null  // For product follow-up questions
 }
 
@@ -45,7 +45,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
   onSaveQuestionLabel,
   questionTypeBadge,
   heightOffset = 0,
-  hideSegment = false,
+  showSegment = true,
   sentimentType = null
 }) => {
   const [editingOption, setEditingOption] = useState<string | null>(null)
@@ -503,7 +503,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {/* Segment Label above legend - show Advocates/Detractors for product questions, otherwise show segment label */}
-            {!hideSegment && (
+            {showSegment && (
               sentimentType ? (
                 // Product follow-up question: show Advocates or Detractors badge with rectangular style
                 <div

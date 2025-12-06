@@ -572,7 +572,7 @@ interface ComparisonChartProps {
   onSaveQuestionLabel?: (newLabel: string) => void
   questionTypeBadge?: React.ReactNode
   heightOffset?: number
-  hideSegment?: boolean
+  showSegment?: boolean
   sentimentType?: 'advocates' | 'detractors' | null
 }
 
@@ -727,7 +727,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   onSaveQuestionLabel,
   questionTypeBadge,
   heightOffset = 0,
-  hideSegment = false,
+  showSegment = true,
   sentimentType = null
 }) => {
   const isHorizontal = orientation === 'horizontal'
@@ -1330,7 +1330,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
             </div>
             {/* Right: Segment + Badge - positioned absolutely to not affect title centering */}
             <div style={{ position: 'absolute', right: 0, top: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {!hideSegment && sentimentType === 'advocates' && (
+              {showSegment && sentimentType === 'advocates' && (
                 <div
                   style={{
                     display: 'inline-flex',
@@ -1353,7 +1353,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                   <span style={{ color: '#3A8518' }}>Advocates</span>
                 </div>
               )}
-              {!hideSegment && sentimentType === 'detractors' && (
+              {showSegment && sentimentType === 'detractors' && (
                 <div
                   style={{
                     display: 'inline-flex',
@@ -1495,7 +1495,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
 
           {/* Right: Segment Card + Question Type Badge */}
           <div style={{ flex: '0 0 auto', minWidth: '80px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
-            {!hideSegment && sentimentType === 'advocates' && (
+            {showSegment && sentimentType === 'advocates' && (
               <div
                 style={{
                   display: 'inline-flex',
@@ -1518,7 +1518,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                 <span style={{ color: '#3A8518' }}>Advocates</span>
               </div>
             )}
-            {!hideSegment && sentimentType === 'detractors' && (
+            {showSegment && sentimentType === 'detractors' && (
               <div
                 style={{
                   display: 'inline-flex',

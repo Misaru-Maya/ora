@@ -24,7 +24,10 @@ const initialSelections: Selections = {
   productGroups: [],
   productOrder: [],
   statSigFilter: 'all',
-  hideAsterisks: true, // Default to true in filter mode
+  showAsterisks: false, // Default to false - asterisks off in filter mode, on in comparison mode
+  showContainer: true, // Default to true - show container
+  showSegment: true, // Default to true - show segment
+  showQuestionType: true, // Default to true - show question type
   chartColors: ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'],
   optionLabels: {},
   questionLabels: {},

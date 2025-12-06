@@ -39,7 +39,7 @@ interface ChartCardProps {
   dataset: ParsedCSV
   segmentColumn?: string
   sortOrder: SortOrder
-  hideAsterisks?: boolean
+  showAsterisks?: boolean
   comparisonMode?: boolean
   multiFilterCompareMode?: boolean
   chartColors: string[]
@@ -47,8 +47,9 @@ interface ChartCardProps {
   onSaveOptionLabel: (option: string, newLabel: string) => void
   onSaveQuestionLabel?: (newLabel: string) => void
   productOrder?: string[]
-  hideSegment?: boolean
-  hideQuestionType?: boolean
+  showContainer?: boolean
+  showSegment?: boolean
+  showQuestionType?: boolean
 }
 
 const SORT_OPTIONS: CardSortOption[] = ['default', 'descending', 'ascending', 'alphabetical']
@@ -79,7 +80,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   dataset,
   segmentColumn: _segmentColumn,
   sortOrder,
-  hideAsterisks = false,
+  showAsterisks = true,
   comparisonMode = true,
   multiFilterCompareMode = false,
   chartColors,
@@ -87,8 +88,9 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   onSaveOptionLabel,
   onSaveQuestionLabel,
   productOrder = [],
-  hideSegment = false,
-  hideQuestionType = false
+  showContainer = true,
+  showSegment = true,
+  showQuestionType = true
 }) => {
   const [cardSort, setCardSort] = useState<CardSortOption>(question.isLikert ? 'alphabetical' : 'default')
   const [showFilter, setShowFilter] = useState(false)
@@ -151,7 +153,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     }
   }
 
-  // Copy to clipboard handler - copies chart with rounded corners and shadow
+  // Copy to clipboard handler - copies chart with rounded corners and shadow (unless showContainer is false)
   const handleCopyToClipboard = async () => {
     if (!exportContentRef.current || isCopying) return
 
@@ -164,84 +166,91 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       // Step 1: Capture the content at 3x scale for very high resolution
       const captureScale = 3 // Higher = sharper image (2 = standard, 3 = high, 4 = very high)
       const contentCanvas = await html2canvas(exportContentRef.current, {
-        backgroundColor: '#ffffff',
+        backgroundColor: showContainer ? '#ffffff' : null,
         scale: captureScale,
         logging: false,
         useCORS: true,
       })
 
-      // Step 2: Create final canvas with room for shadow
-      // Match ORA's CSS shadow: 0 4px 20px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)
-      const borderRadius = 20 * captureScale // 20px scaled
-      const padding = 15 * captureScale // Extra space for shadow spread
-      const outputScale = 2 // Final output size (200% of 2x = 4x original)
+      let finalCanvas: HTMLCanvasElement
 
-      const finalWidth = (contentCanvas.width + padding * 2) * outputScale
-      const finalHeight = (contentCanvas.height + padding * 2) * outputScale
+      if (!showContainer) {
+        // When container is hidden, just copy the content directly without container styling
+        finalCanvas = contentCanvas
+      } else {
+        // Step 2: Create final canvas with room for shadow
+        // Match ORA's CSS shadow: 0 4px 20px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)
+        const borderRadius = 20 * captureScale // 20px scaled
+        const padding = 15 * captureScale // Extra space for shadow spread
+        const outputScale = 2 // Final output size (200% of 2x = 4x original)
 
-      const finalCanvas = document.createElement('canvas')
-      finalCanvas.width = finalWidth
-      finalCanvas.height = finalHeight
-      const ctx = finalCanvas.getContext('2d')
+        const finalWidth = (contentCanvas.width + padding * 2) * outputScale
+        const finalHeight = (contentCanvas.height + padding * 2) * outputScale
 
-      if (ctx) {
-        ctx.scale(outputScale, outputScale)
+        finalCanvas = document.createElement('canvas')
+        finalCanvas.width = finalWidth
+        finalCanvas.height = finalHeight
+        const ctx = finalCanvas.getContext('2d')
 
-        // Draw rounded rectangle path
-        const x = padding
-        const y = padding
-        const w = contentCanvas.width
-        const h = contentCanvas.height
-        const r = borderRadius
+        if (ctx) {
+          ctx.scale(outputScale, outputScale)
 
-        const drawRoundedRect = () => {
-          ctx.beginPath()
-          ctx.moveTo(x + r, y)
-          ctx.lineTo(x + w - r, y)
-          ctx.quadraticCurveTo(x + w, y, x + w, y + r)
-          ctx.lineTo(x + w, y + h - r)
-          ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
-          ctx.lineTo(x + r, y + h)
-          ctx.quadraticCurveTo(x, y + h, x, y + h - r)
-          ctx.lineTo(x, y + r)
-          ctx.quadraticCurveTo(x, y, x + r, y)
-          ctx.closePath()
+          // Draw rounded rectangle path
+          const x = padding
+          const y = padding
+          const w = contentCanvas.width
+          const h = contentCanvas.height
+          const r = borderRadius
+
+          const drawRoundedRect = () => {
+            ctx.beginPath()
+            ctx.moveTo(x + r, y)
+            ctx.lineTo(x + w - r, y)
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+            ctx.lineTo(x + w, y + h - r)
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+            ctx.lineTo(x + r, y + h)
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+            ctx.lineTo(x, y + r)
+            ctx.quadraticCurveTo(x, y, x + r, y)
+            ctx.closePath()
+          }
+
+          // Step 3: Draw shadows matching app CSS exactly:
+          // boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)'
+
+          // First shadow layer: 0 4px 20px rgba(0, 0, 0, 0.08)
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.08)'
+          ctx.shadowBlur = 20 * captureScale // 20px scaled
+          ctx.shadowOffsetX = 0
+          ctx.shadowOffsetY = 4 * captureScale // 4px scaled
+          drawRoundedRect()
+          ctx.fillStyle = '#ffffff'
+          ctx.fill()
+
+          // Second shadow layer: 0 2px 8px rgba(0, 0, 0, 0.04)
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.04)'
+          ctx.shadowBlur = 8 * captureScale // 8px scaled
+          ctx.shadowOffsetX = 0
+          ctx.shadowOffsetY = 2 * captureScale // 2px scaled
+          drawRoundedRect()
+          ctx.fill()
+
+          // Step 5: Reset shadow and clip to rounded rectangle
+          ctx.shadowColor = 'transparent'
+          ctx.shadowBlur = 0
+          ctx.shadowOffsetX = 0
+          ctx.shadowOffsetY = 0
+
+          // Clip to rounded rectangle and draw content
+          ctx.save()
+          drawRoundedRect()
+          ctx.clip()
+
+          // Draw the captured content
+          ctx.drawImage(contentCanvas, padding, padding)
+          ctx.restore()
         }
-
-        // Step 3: Draw shadows matching app CSS exactly:
-        // boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)'
-
-        // First shadow layer: 0 4px 20px rgba(0, 0, 0, 0.08)
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.08)'
-        ctx.shadowBlur = 20 * captureScale // 20px scaled
-        ctx.shadowOffsetX = 0
-        ctx.shadowOffsetY = 4 * captureScale // 4px scaled
-        drawRoundedRect()
-        ctx.fillStyle = '#ffffff'
-        ctx.fill()
-
-        // Second shadow layer: 0 2px 8px rgba(0, 0, 0, 0.04)
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.04)'
-        ctx.shadowBlur = 8 * captureScale // 8px scaled
-        ctx.shadowOffsetX = 0
-        ctx.shadowOffsetY = 2 * captureScale // 2px scaled
-        drawRoundedRect()
-        ctx.fill()
-
-        // Step 5: Reset shadow and clip to rounded rectangle
-        ctx.shadowColor = 'transparent'
-        ctx.shadowBlur = 0
-        ctx.shadowOffsetX = 0
-        ctx.shadowOffsetY = 0
-
-        // Clip to rounded rectangle and draw content
-        ctx.save()
-        drawRoundedRect()
-        ctx.clip()
-
-        // Draw the captured content
-        ctx.drawImage(contentCanvas, padding, padding)
-        ctx.restore()
       }
 
       // Step 5: Copy to clipboard
@@ -891,13 +900,13 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
     return finalSorted.map(item => {
       const data = { ...item.data }
-      // Strip asterisk from optionDisplay if hideAsterisks is enabled
-      if (hideAsterisks && data.optionDisplay.endsWith('*')) {
+      // Strip asterisk from optionDisplay if showAsterisks is disabled
+      if (!showAsterisks && data.optionDisplay.endsWith('*')) {
         data.optionDisplay = data.optionDisplay.slice(0, -1)
       }
       return data
     })
-  }, [series, selectedOptions, cardSort, statSigFilteredData, chartVariant, canUsePie, canUseStacked, hideAsterisks, customOptionOrder])
+  }, [series, selectedOptions, cardSort, statSigFilteredData, chartVariant, canUsePie, canUseStacked, showAsterisks, customOptionOrder])
 
   // Sorted options for filter dropdown - respects current cardSort (but doesn't filter by selection)
   const sortedOptionsForFilter = useMemo(() => {
@@ -994,8 +1003,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
     const processed = sorted.map(item => {
       const data = { ...item.data }
-      // Strip asterisk from optionDisplay if hideAsterisks is enabled
-      if (hideAsterisks && data.optionDisplay.endsWith('*')) {
+      // Strip asterisk from optionDisplay if showAsterisks is disabled
+      if (!showAsterisks && data.optionDisplay.endsWith('*')) {
         data.optionDisplay = data.optionDisplay.slice(0, -1)
       }
       return data
@@ -1016,7 +1025,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     const excludedItems = finalOrder.filter(d => isExcludedValue(d.optionDisplay))
     const nonExcludedItems = finalOrder.filter(d => !isExcludedValue(d.optionDisplay))
     return [...nonExcludedItems, ...excludedItems]
-  }, [series, cardSort, statSigFilteredData, chartVariant, canUsePie, hideAsterisks, customOptionOrder])
+  }, [series, cardSort, statSigFilteredData, chartVariant, canUsePie, showAsterisks, customOptionOrder])
 
   // Transpose data when axes are swapped
   const { transposedData, transposedGroups } = useMemo(() => {
@@ -1517,7 +1526,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
       {/* Create question type badge element to pass to chart components */}
       {(() => {
-        const questionTypeBadge = hideQuestionType ? null : (
+        const questionTypeBadge = showQuestionType ? (
           <div
             ref={badgeRef}
             onMouseDown={handleBadgeMouseDown}
@@ -1559,7 +1568,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
             />
             {getQuestionTypeLabel(question)}
           </div>
-        )
+        ) : null
 
         return (
       <div ref={chartContainerRef} style={{
@@ -1623,10 +1632,10 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         <div
           ref={exportContentRef}
           style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '20px',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)',
-            padding: chartVariant === 'pie' ? '24px 40px 20px 24px' : chartVariant === 'heatmap' ? '12px 5px 0px 0px' : '32px 5px 0px 0px', // Pie: 24px left padding
+            backgroundColor: showContainer ? '#ffffff' : 'transparent',
+            borderRadius: showContainer ? '20px' : '0',
+            boxShadow: showContainer ? '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)' : 'none',
+            padding: showContainer ? (chartVariant === 'pie' ? '24px 40px 20px 24px' : chartVariant === 'heatmap' ? '12px 5px 0px 0px' : '32px 5px 0px 0px') : '0', // Pie: 24px left padding
             margin: chartVariant === 'pie' ? '8px 0' : '8px auto 0px auto', // Bar charts: 0px bottom margin
             // For pie charts: use explicit width if set by user, otherwise fit-content (no max-width to prevent legend wrapping)
             width: chartVariant === 'pie'
@@ -1667,7 +1676,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               questionLabel={displayLabel}
               onSaveQuestionLabel={onSaveQuestionLabel}
               questionTypeBadge={questionTypeBadge}
-              hideSegment={hideSegment}
+              showSegment={showSegment}
             />
           )
         }
@@ -1686,7 +1695,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               onSaveQuestionLabel={onSaveQuestionLabel}
               questionTypeBadge={questionTypeBadge}
               heightOffset={chartHeightOffset}
-              hideSegment={hideSegment}
+              showSegment={showSegment}
               sentimentType={sentimentType}
             />
           )
@@ -1790,13 +1799,13 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                   productColumn={productColumn}
                   questionLabel={displayLabel}
                   questionId={question.qid}
-                  hideAsterisks={hideAsterisks}
+                  showAsterisks={showAsterisks}
                   onSaveQuestionLabel={onSaveQuestionLabel}
                   productOrder={productOrder}
                   transposed={heatmapTransposed}
                   questionTypeBadge={questionTypeBadge}
                   heightOffset={chartHeightOffset}
-                  hideSegment={hideSegment}
+                  showSegment={showSegment}
                 />
               </div>
             )
@@ -1840,7 +1849,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               questionId={question.qid}
               dataset={dataset}
               productColumn={productColumn}
-              hideAsterisks={hideAsterisks}
+              showAsterisks={showAsterisks}
               optionLabels={optionLabels}
               onSaveOptionLabel={onSaveOptionLabel}
               onSaveQuestionLabel={onSaveQuestionLabel}
@@ -1848,7 +1857,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               transposed={heatmapTransposed}
               questionTypeBadge={questionTypeBadge}
               heightOffset={chartHeightOffset}
-              hideSegment={hideSegment}
+              showSegment={showSegment}
               sentimentType={sentimentType}
             />
           )
@@ -1912,7 +1921,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                 onSaveQuestionLabel={onSaveQuestionLabel}
                 questionTypeBadge={questionTypeBadge}
                 heightOffset={chartHeightOffset}
-                hideSegment={hideSegment}
+                showSegment={showSegment}
                 sentimentType={sentimentType}
               />
             )
@@ -1931,7 +1940,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
             onSaveQuestionLabel={onSaveQuestionLabel}
             questionTypeBadge={questionTypeBadge}
             heightOffset={chartHeightOffset}
-            hideSegment={hideSegment}
+            showSegment={showSegment}
             sentimentType={sentimentType}
           />
         )
@@ -1997,15 +2006,16 @@ interface ChartGalleryProps {
   sortOrder: SortOrder
   selectedQuestionId?: string
   filterSignificantOnly?: boolean
-  hideAsterisks?: boolean
+  showAsterisks?: boolean
   chartColors?: string[]
   optionLabels?: Record<string, Record<string, string>>
   onSaveOptionLabel?: (qid: string, option: string, newLabel: string) => void
   questionLabels?: Record<string, string>
   onSaveQuestionLabel?: (qid: string, newLabel: string) => void
   productOrder?: string[]
-  hideSegment?: boolean
-  hideQuestionType?: boolean
+  showContainer?: boolean
+  showSegment?: boolean
+  showQuestionType?: boolean
 }
 
 export const ChartGallery: React.FC<ChartGalleryProps> = ({
@@ -2022,15 +2032,16 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
   sortOrder,
   selectedQuestionId: _selectedQuestionId,
   filterSignificantOnly = false,
-  hideAsterisks = false,
+  showAsterisks = true,
   chartColors = ['#3A8518', '#CED6DE', '#E7CB38', '#A5CF8E', '#717F90', '#F1E088', '#DAEBD1', '#FAF5D7'],
   optionLabels = {},
   onSaveOptionLabel,
   questionLabels = {},
   onSaveQuestionLabel,
   productOrder = [],
-  hideSegment = false,
-  hideQuestionType = false
+  showContainer = true,
+  showSegment = true,
+  showQuestionType = true
 }) => {
   const renderableEntries = useMemo(() => {
     // Check if we have valid comparison sets for multi-filter mode
@@ -2134,7 +2145,7 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
                 dataset={dataset}
                 segmentColumn={segmentColumn}
                 sortOrder={sortOrder}
-                hideAsterisks={hideAsterisks}
+                showAsterisks={showAsterisks}
                 comparisonMode={comparisonMode}
                 multiFilterCompareMode={multiFilterCompareMode}
                 chartColors={chartColors}
@@ -2142,8 +2153,9 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
                 onSaveOptionLabel={(option, newLabel) => onSaveOptionLabel?.(question.qid, option, newLabel)}
                 onSaveQuestionLabel={(newLabel) => onSaveQuestionLabel?.(question.qid, newLabel)}
                 productOrder={productOrder}
-                hideSegment={hideSegment}
-                hideQuestionType={hideQuestionType}
+                showContainer={showContainer}
+                showSegment={showSegment}
+                showQuestionType={showQuestionType}
               />
             </div>
           )

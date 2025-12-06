@@ -1975,7 +1975,7 @@ export default function App() {
                                     const newComparisonMode = !selections.comparisonMode
                                     setSelections({
                                       comparisonMode: newComparisonMode,
-                                      hideAsterisks: !newComparisonMode,
+                                      showAsterisks: newComparisonMode,
                                       // Clear multi-filter comparison when switching to Filter mode
                                       ...(newComparisonMode ? {} : { multiFilterCompareMode: false, comparisonSets: [] })
                                     })
@@ -3111,11 +3111,7 @@ export default function App() {
                               const isDisabled = (selections.segments && selections.segments.length < 2) || (!selections.segments && selections.groups.length < 2)
                               if (!isDisabled) {
                                 const newStatSigFilter = statSigFilter === 'all' ? 'statSigOnly' : 'all'
-                                if (newStatSigFilter === 'all') {
-                                  setSelections({ statSigFilter: newStatSigFilter, hideAsterisks: false })
-                                } else {
-                                  setSelections({ statSigFilter: newStatSigFilter })
-                                }
+                                setSelections({ statSigFilter: newStatSigFilter })
                               }
                             }}
                             disabled={(selections.segments && selections.segments.length < 2) || (!selections.segments && selections.groups.length < 2)}
@@ -3165,10 +3161,10 @@ export default function App() {
                         <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px', flexShrink: 0 }}>
                           <input
                             type="checkbox"
-                            checked={selections.hideAsterisks || false}
+                            checked={selections.showAsterisks ?? true}
                             onChange={(e) => {
                               e.stopPropagation()
-                              setSelections({ hideAsterisks: e.target.checked })
+                              setSelections({ showAsterisks: e.target.checked })
                             }}
                             style={{ opacity: 0, width: 0, height: 0 }}
                           />
@@ -3181,7 +3177,7 @@ export default function App() {
                               left: 0,
                               right: 0,
                               bottom: 0,
-                              backgroundColor: selections.hideAsterisks ? '#3A8518' : '#D1D5DB',
+                              backgroundColor: selections.showAsterisks ? '#3A8518' : '#D1D5DB',
                               transition: '0.3s',
                               borderRadius: '11px'
                             }}
@@ -3192,7 +3188,7 @@ export default function App() {
                                 content: '""',
                                 height: '18px',
                                 width: '18px',
-                                left: selections.hideAsterisks ? '20px' : '2px',
+                                left: selections.showAsterisks ? '20px' : '2px',
                                 top: '2px',
                                 backgroundColor: 'white',
                                 transition: '0.3s',
@@ -3204,12 +3200,12 @@ export default function App() {
                         </label>
                         <span
                           style={{
-                            color: selections.hideAsterisks ? '#374151' : '#6B7280',
+                            color: selections.showAsterisks ? '#374151' : '#6B7280',
                             fontSize: '13px',
                             fontWeight: 500
                           }}
                         >
-                          Hide Asterisks
+                          Stat Sig Asterisks
                         </span>
                       </div>
                     </div>
@@ -3220,10 +3216,10 @@ export default function App() {
                         <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px', flexShrink: 0 }}>
                           <input
                             type="checkbox"
-                            checked={selections.hideAsterisks || false}
+                            checked={selections.showAsterisks ?? true}
                             onChange={(e) => {
                               e.stopPropagation()
-                              setSelections({ hideAsterisks: e.target.checked })
+                              setSelections({ showAsterisks: e.target.checked })
                             }}
                             style={{ opacity: 0, width: 0, height: 0 }}
                           />
@@ -3236,7 +3232,7 @@ export default function App() {
                               left: 0,
                               right: 0,
                               bottom: 0,
-                              backgroundColor: selections.hideAsterisks ? '#3A8518' : '#D1D5DB',
+                              backgroundColor: selections.showAsterisks ? '#3A8518' : '#D1D5DB',
                               transition: '0.3s',
                               borderRadius: '11px'
                             }}
@@ -3247,7 +3243,7 @@ export default function App() {
                                 content: '""',
                                 height: '18px',
                                 width: '18px',
-                                left: selections.hideAsterisks ? '20px' : '2px',
+                                left: selections.showAsterisks ? '20px' : '2px',
                                 top: '2px',
                                 backgroundColor: 'white',
                                 transition: '0.3s',
@@ -3259,12 +3255,12 @@ export default function App() {
                         </label>
                         <span
                           style={{
-                            color: selections.hideAsterisks ? '#374151' : '#6B7280',
+                            color: selections.showAsterisks ? '#374151' : '#6B7280',
                             fontSize: '13px',
                             fontWeight: 500
                           }}
                         >
-                          Hide Asterisks
+                          Stat Sig Asterisks
                         </span>
                       </div>
                     </div>
@@ -3483,16 +3479,16 @@ export default function App() {
                   </div>
                   {expandedSections.has('display') && (
                   <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '0 0 12px 12px' }}>
-                    {/* Hide Segment Toggle */}
+                    {/* Container Toggle */}
                     <div style={{ marginBottom: '12px' }}>
                       <div className="flex items-center" style={{ gap: '10px' }}>
                         <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px', flexShrink: 0 }}>
                           <input
                             type="checkbox"
-                            checked={selections.hideSegment || false}
+                            checked={selections.showContainer ?? true}
                             onChange={(e) => {
                               e.stopPropagation()
-                              setSelections({ hideSegment: e.target.checked })
+                              setSelections({ showContainer: e.target.checked })
                             }}
                             style={{ opacity: 0, width: 0, height: 0 }}
                           />
@@ -3505,7 +3501,7 @@ export default function App() {
                               left: 0,
                               right: 0,
                               bottom: 0,
-                              backgroundColor: selections.hideSegment ? '#3A8518' : '#D1D5DB',
+                              backgroundColor: selections.showContainer ? '#3A8518' : '#D1D5DB',
                               transition: '0.3s',
                               borderRadius: '11px'
                             }}
@@ -3516,7 +3512,7 @@ export default function App() {
                                 content: '""',
                                 height: '18px',
                                 width: '18px',
-                                left: selections.hideSegment ? '20px' : '2px',
+                                left: selections.showContainer ? '20px' : '2px',
                                 top: '2px',
                                 backgroundColor: 'white',
                                 transition: '0.3s',
@@ -3528,25 +3524,79 @@ export default function App() {
                         </label>
                         <span
                           style={{
-                            color: selections.hideSegment ? '#374151' : '#6B7280',
+                            color: selections.showContainer ? '#374151' : '#6B7280',
                             fontSize: '13px',
                             fontWeight: 500
                           }}
                         >
-                          Hide Segment
+                          Container
                         </span>
                       </div>
                     </div>
-                    {/* Hide Question Type Toggle */}
+                    {/* Segment Toggle */}
+                    <div style={{ marginBottom: '12px' }}>
+                      <div className="flex items-center" style={{ gap: '10px' }}>
+                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px', flexShrink: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={selections.showSegment ?? true}
+                            onChange={(e) => {
+                              e.stopPropagation()
+                              setSelections({ showSegment: e.target.checked })
+                            }}
+                            style={{ opacity: 0, width: 0, height: 0 }}
+                          />
+                          <span
+                            className="slider round"
+                            style={{
+                              position: 'absolute',
+                              cursor: 'pointer',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              backgroundColor: selections.showSegment ? '#3A8518' : '#D1D5DB',
+                              transition: '0.3s',
+                              borderRadius: '11px'
+                            }}
+                          >
+                            <span
+                              style={{
+                                position: 'absolute',
+                                content: '""',
+                                height: '18px',
+                                width: '18px',
+                                left: selections.showSegment ? '20px' : '2px',
+                                top: '2px',
+                                backgroundColor: 'white',
+                                transition: '0.3s',
+                                borderRadius: '50%',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                              }}
+                            />
+                          </span>
+                        </label>
+                        <span
+                          style={{
+                            color: selections.showSegment ? '#374151' : '#6B7280',
+                            fontSize: '13px',
+                            fontWeight: 500
+                          }}
+                        >
+                          Segment
+                        </span>
+                      </div>
+                    </div>
+                    {/* Question Type Toggle */}
                     <div style={{ marginBottom: '16px' }}>
                       <div className="flex items-center" style={{ gap: '10px' }}>
                         <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px', flexShrink: 0 }}>
                           <input
                             type="checkbox"
-                            checked={selections.hideQuestionType || false}
+                            checked={selections.showQuestionType ?? true}
                             onChange={(e) => {
                               e.stopPropagation()
-                              setSelections({ hideQuestionType: e.target.checked })
+                              setSelections({ showQuestionType: e.target.checked })
                             }}
                             style={{ opacity: 0, width: 0, height: 0 }}
                           />
@@ -3559,7 +3609,7 @@ export default function App() {
                               left: 0,
                               right: 0,
                               bottom: 0,
-                              backgroundColor: selections.hideQuestionType ? '#3A8518' : '#D1D5DB',
+                              backgroundColor: selections.showQuestionType ? '#3A8518' : '#D1D5DB',
                               transition: '0.3s',
                               borderRadius: '11px'
                             }}
@@ -3570,7 +3620,7 @@ export default function App() {
                                 content: '""',
                                 height: '18px',
                                 width: '18px',
-                                left: selections.hideQuestionType ? '20px' : '2px',
+                                left: selections.showQuestionType ? '20px' : '2px',
                                 top: '2px',
                                 backgroundColor: 'white',
                                 transition: '0.3s',
@@ -3582,12 +3632,12 @@ export default function App() {
                         </label>
                         <span
                           style={{
-                            color: selections.hideQuestionType ? '#374151' : '#6B7280',
+                            color: selections.showQuestionType ? '#374151' : '#6B7280',
                             fontSize: '13px',
                             fontWeight: 500
                           }}
                         >
-                          Hide Question Type
+                          Question Type
                         </span>
                       </div>
                     </div>
@@ -3846,9 +3896,10 @@ export default function App() {
                     sortOrder={selections.sortOrder}
                     selectedQuestionId={selections.question}
                     filterSignificantOnly={statSigFilter === 'statSigOnly'}
-                    hideAsterisks={selections.hideAsterisks || false}
-                    hideSegment={selections.hideSegment || false}
-                    hideQuestionType={selections.hideQuestionType || false}
+                    showAsterisks={selections.showAsterisks ?? true}
+                    showContainer={selections.showContainer ?? true}
+                    showSegment={selections.showSegment ?? true}
+                    showQuestionType={selections.showQuestionType ?? true}
                     chartColors={selections.chartColors || DEFAULT_CHART_COLORS}
                     optionLabels={selections.optionLabels || EMPTY_NESTED_OBJECT}
                     onSaveOptionLabel={handleSaveOptionLabel}

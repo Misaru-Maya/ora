@@ -8,13 +8,13 @@ interface SentimentHeatmapProps {
   productColumn: string
   questionLabel?: string
   questionId?: string
-  hideAsterisks?: boolean
+  showAsterisks?: boolean
   onSaveQuestionLabel?: (newLabel: string) => void
   productOrder?: string[]
   transposed?: boolean
   questionTypeBadge?: React.ReactNode
   heightOffset?: number
-  hideSegment?: boolean
+  showSegment?: boolean
 }
 
 interface ProductSentiment {
@@ -53,13 +53,13 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
   productColumn,
   questionLabel,
   questionId,
-  hideAsterisks: _hideAsterisks = false,
+  showAsterisks: _showAsterisks = true,
   onSaveQuestionLabel,
   productOrder = [],
   transposed = false,
   questionTypeBadge,
   heightOffset = 0,
-  hideSegment = false
+  showSegment = true
 }) => {
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
   const [questionLabelInput, setQuestionLabelInput] = useState('')
@@ -714,7 +714,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
                     fontWeight: 600,
                     verticalAlign: 'middle'
                   }}>
-                    {hideSegment ? (
+                    {!showSegment ? (
                       <span style={{ color: '#3A8518' }}>Advocates</span>
                     ) : (
                       <div
@@ -748,7 +748,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
                     fontWeight: 600,
                     verticalAlign: 'middle'
                   }}>
-                    {hideSegment ? (
+                    {!showSegment ? (
                       <span style={{ color: '#D4BA33' }}>Detractors</span>
                     ) : (
                       <div
@@ -949,7 +949,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
                         }
                       }}
                     />
-                    {hideSegment ? (
+                    {!showSegment ? (
                       <span style={{ color: '#3A8518', fontSize: '12px', fontWeight: 600 }}>Advocates</span>
                     ) : (
                       <div
@@ -1034,7 +1034,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
                         }
                       }}
                     />
-                    {hideSegment ? (
+                    {!showSegment ? (
                       <span style={{ color: '#D4BA33', fontSize: '12px', fontWeight: 600 }}>Detractors</span>
                     ) : (
                       <div

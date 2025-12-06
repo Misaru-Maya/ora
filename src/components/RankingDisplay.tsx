@@ -7,7 +7,7 @@ interface RankingDisplayProps {
   questionLabel: string
   onSaveQuestionLabel?: (newLabel: string) => void
   questionTypeBadge?: React.ReactNode
-  hideSegment?: boolean
+  showSegment?: boolean
 }
 
 export const RankingDisplay: React.FC<RankingDisplayProps> = ({
@@ -16,7 +16,7 @@ export const RankingDisplay: React.FC<RankingDisplayProps> = ({
   questionLabel,
   onSaveQuestionLabel,
   questionTypeBadge,
-  hideSegment = false
+  showSegment = true
 }) => {
   // Remove "Example: ..." text from ranking question labels
   const cleanLabel = (label: string): string => {
@@ -62,7 +62,7 @@ export const RankingDisplay: React.FC<RankingDisplayProps> = ({
         }}
       >
         {/* Left: Segment Label */}
-        {!hideSegment && (
+        {showSegment && (
           <div style={{ flex: '0 0 auto', minWidth: '80px' }}>
             <p className="text-xs font-semibold text-brand-gray/60" style={{ margin: 0 }}>Segment: {group.label}</p>
           </div>
