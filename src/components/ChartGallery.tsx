@@ -109,11 +109,14 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
   // Chart width resize state
   const [chartWidthPercent, setChartWidthPercent] = useState(100)
+  const [pieChartWidth, setPieChartWidth] = useState<number | null>(null) // Pixel width for pie charts (null = auto/default)
   const [isResizingChart, setIsResizingChart] = useState(false)
   const [resizingHandle, setResizingHandle] = useState<'left' | 'right' | null>(null)
   const chartResizeStartX = useRef<number>(0)
   const chartResizeStartWidth = useRef<number>(100)
+  const pieResizeStartWidth = useRef<number>(580) // Default pie chart width
   const chartContainerRef = useRef<HTMLDivElement | null>(null)
+  const chartVariantRef = useRef<'bar' | 'pie' | 'stacked' | 'heatmap'>('bar') // Track chart variant for resize handlers
 
   // Chart height resize state
   const [chartHeightOffset, setChartHeightOffset] = useState(0)
@@ -341,6 +344,10 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     setResizingHandle(handle)
     chartResizeStartX.current = e.clientX
     chartResizeStartWidth.current = chartWidthPercent
+    // For pie charts, capture current width from the export container
+    if (chartVariantRef.current === 'pie' && exportContentRef.current) {
+      pieResizeStartWidth.current = pieChartWidth ?? exportContentRef.current.offsetWidth
+    }
   }
 
   useEffect(() => {
@@ -348,28 +355,42 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
     let rafId: number | null = null
     let pendingWidth: number | null = null
+    let pendingPieWidth: number | null = null
 
     const handleMouseMove = (e: MouseEvent) => {
       const container = chartContainerRef.current
       if (!container) return
 
-      const containerWidth = container.offsetWidth
       const deltaX = e.clientX - chartResizeStartX.current
-      // Calculate new width percentage based on drag distance
-      // Left handle: dragging left (negative deltaX) = expand, dragging right = shrink
-      // Right handle: dragging right (positive deltaX) = expand, dragging left = shrink
-      const deltaPercent = (deltaX / containerWidth) * 100
-      const adjustedDelta = resizingHandle === 'left' ? -deltaPercent : deltaPercent
-      pendingWidth = Math.max(40, Math.min(100, chartResizeStartWidth.current + adjustedDelta))
 
-      // Throttle updates using requestAnimationFrame
-      if (rafId === null) {
-        rafId = requestAnimationFrame(() => {
-          if (pendingWidth !== null) {
-            setChartWidthPercent(pendingWidth)
-          }
-          rafId = null
-        })
+      // For pie charts, use pixel-based resizing
+      if (chartVariantRef.current === 'pie') {
+        const adjustedDelta = resizingHandle === 'left' ? -deltaX : deltaX
+        pendingPieWidth = Math.max(400, Math.min(1200, pieResizeStartWidth.current + adjustedDelta))
+
+        if (rafId === null) {
+          rafId = requestAnimationFrame(() => {
+            if (pendingPieWidth !== null) {
+              setPieChartWidth(pendingPieWidth)
+            }
+            rafId = null
+          })
+        }
+      } else {
+        // For bar charts, use percentage-based resizing
+        const containerWidth = container.offsetWidth
+        const deltaPercent = (deltaX / containerWidth) * 100
+        const adjustedDelta = resizingHandle === 'left' ? -deltaPercent : deltaPercent
+        pendingWidth = Math.max(40, Math.min(100, chartResizeStartWidth.current + adjustedDelta))
+
+        if (rafId === null) {
+          rafId = requestAnimationFrame(() => {
+            if (pendingWidth !== null) {
+              setChartWidthPercent(pendingWidth)
+            }
+            rafId = null
+          })
+        }
       }
     }
 
@@ -378,7 +399,9 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         cancelAnimationFrame(rafId)
       }
       // Apply final position
-      if (pendingWidth !== null) {
+      if (chartVariantRef.current === 'pie' && pendingPieWidth !== null) {
+        setPieChartWidth(pendingPieWidth)
+      } else if (pendingWidth !== null) {
         setChartWidthPercent(pendingWidth)
       }
       setIsResizingChart(false)
@@ -396,6 +419,9 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       }
     }
   }, [isResizingChart, resizingHandle])
+
+  // Measured pie width state - the effect that populates this is defined after chartVariant
+  const [measuredPieWidth, setMeasuredPieWidth] = useState<number | null>(null)
 
   // Chart height resize handlers
   const handleHeightResizeStart = (e: React.MouseEvent) => {
@@ -531,6 +557,29 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     canUsePie ? 'pie' :
     canUseStacked ? 'stacked' : 'bar'
   const [chartVariant, setChartVariant] = useState<'bar' | 'pie' | 'stacked' | 'heatmap'>(initialChartVariant)
+
+  // Keep the ref in sync with chartVariant state for use in resize handlers
+  useEffect(() => {
+    chartVariantRef.current = chartVariant
+  }, [chartVariant])
+
+  // Measure initial pie chart width after render (for handle positioning)
+  useEffect(() => {
+    if (chartVariant === 'pie' && exportContentRef.current && !pieChartWidth) {
+      // Small delay to ensure layout is complete
+      const timer = setTimeout(() => {
+        if (exportContentRef.current) {
+          setMeasuredPieWidth(exportContentRef.current.offsetWidth)
+        }
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [chartVariant, pieChartWidth])
+
+  // Get the effective pie chart width for handle positioning
+  // Default to 700px if not measured yet (will be updated after render)
+  const effectivePieWidth = pieChartWidth ?? measuredPieWidth ?? 700
+
   const [heatmapTransposed, setHeatmapTransposed] = useState(false)
   const [_heatmapFilters, _setHeatmapFilters] = useState<{ products: string[], attributes: string[] }>({ products: [], attributes: [] })
   const [_showHeatmapProductFilter, _setShowHeatmapProductFilter] = useState(false)
@@ -1524,19 +1573,23 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         minHeight: `${300 + chartHeightOffset}px`,
         transition: isResizingHeight ? 'none' : 'min-height 0.1s ease-out'
       }}>
-      {/* Right resize handle */}
+      {/* Right resize handle - positioned based on chart type */}
       <div
         onMouseDown={handleChartResizeStart('right')}
         style={{
           position: 'absolute',
-          left: `calc(${chartWidthPercent}% + 20px)`,
+          // For pie charts, position based on pixel width; for bar charts, use percentage
+          // Add extra offset (30px) to ensure handle is outside the container shadow
+          left: chartVariant === 'pie'
+            ? `${effectivePieWidth + 40}px`
+            : `calc(${chartWidthPercent}% + 30px)`,
           top: '50%',
           transform: 'translateY(-50%)',
           height: '80px',
           width: '20px',
           cursor: 'ew-resize',
           backgroundColor: isResizingChart && resizingHandle === 'right' ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
-          transition: 'background-color 0.15s ease',
+          transition: isResizingChart ? 'none' : 'background-color 0.15s ease, left 0.1s ease-out',
           zIndex: 10,
           display: 'flex',
           alignItems: 'center',
@@ -1573,10 +1626,14 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
             backgroundColor: '#ffffff',
             borderRadius: '20px',
             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)',
-            padding: '12px 5px 20px 0px',
-            margin: '8px auto',
-            width: 'fit-content',
-            minWidth: chartVariant === 'pie' ? '60%' : '90%' // Pie charts are 30% narrower
+            padding: chartVariant === 'pie' ? '12px 40px 20px 10px' : '12px 5px 20px 0px', // 10px left, 40px right padding for pie charts
+            margin: chartVariant === 'pie' ? '8px 0' : '8px auto', // Left-align pie charts, center bar charts
+            // For pie charts: use explicit width if set by user, otherwise fit-content (no max-width to prevent legend wrapping)
+            width: chartVariant === 'pie'
+              ? (pieChartWidth ? `${pieChartWidth}px` : 'fit-content')
+              : 'fit-content',
+            minWidth: chartVariant === 'pie' ? undefined : '90%', // No minWidth for pie charts - let content determine size
+            transition: isResizingChart ? 'none' : 'width 0.1s ease-out'
           }}
         >
       {(() => {

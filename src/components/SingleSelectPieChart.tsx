@@ -266,7 +266,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
   const reversedPieData = [...pieData].reverse()
 
   const legendContent = (
-    <div className="flex flex-col items-start gap-3 text-sm font-semibold text-brand-gray" style={{ paddingBottom: '10px' }}>
+    <div className="flex flex-col items-start gap-3 text-sm font-semibold text-brand-gray" style={{ paddingBottom: '10px', whiteSpace: 'nowrap' }}>
       {pieData.map((entry, index) => {
         // Find original option key from data
         const dataPoint = data.find(d => d.optionDisplay === entry.name)
@@ -361,37 +361,29 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
   )
 
   return (
-    <div className="w-full">
-      <div style={{ width: '100%' }}>
-        {/* Header Row: Spacer (left) | Title (center) | Badge (right) */}
+    <div style={{ display: 'inline-block' }}>
+      <div style={{ width: 'fit-content' }}>
+        {/* Header Row: Title centered above chart+legend */}
         <div
           onMouseDown={handleTitleMouseDown}
           style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
             marginTop: '15px',
             marginBottom: '15px',
             paddingLeft: '16px',
             paddingRight: '16px',
-            gap: '16px',
             transform: `translate(${titleOffset.x}px, ${titleOffset.y}px)`,
             cursor: isDraggingTitle ? 'grabbing' : 'grab',
             userSelect: 'none',
             transition: isDraggingTitle ? 'none' : 'transform 0.1s ease-out',
             position: 'relative',
-            zIndex: 20
+            zIndex: 20,
+            textAlign: 'center'
           }}
         >
-          {/* Left: Spacer for balance */}
-          <div style={{ flex: '0 0 auto', minWidth: '80px' }}></div>
-
-          {/* Center: Title - takes available width like bar charts */}
+          {/* Center: Title - wraps based on chart+legend width */}
           <div
             style={{
-              flex: '1 1 auto',
-              textAlign: 'center',
-              minWidth: 0
+              textAlign: 'center'
             }}
           >
             {questionLabel && (
@@ -467,9 +459,6 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
               )
             )}
           </div>
-
-          {/* Right: Spacer for balance */}
-          <div style={{ flex: '0 0 auto', minWidth: '80px' }}></div>
         </div>
 
         <div
