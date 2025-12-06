@@ -1309,34 +1309,46 @@ export default function App() {
               ORA
             </h1>
 
-            {/* Feature Pills with expandable cards */}
+            {/* Feature Pills container with NEW! badge */}
             <div
               style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '10px',
-                justifyContent: 'center',
+                position: 'relative',
+                padding: '16px',
+                border: '1px solid rgba(251, 191, 36, 0.5)',
+                borderRadius: '12px',
+                background: 'rgba(254, 243, 199, 0.15)',
                 maxWidth: '720px',
                 margin: '0 auto'
               }}
             >
-              {/* Sparkle indicator */}
-              <span className="whats-new-sparkle" style={{
+              {/* NEW! badge at corner of container */}
+              <span className="new-badge-pulse" style={{
+                position: 'absolute',
+                top: '-10px',
+                left: '-10px',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '8px 14px',
+                padding: '4px 8px',
                 background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-                borderRadius: '100px',
-                fontSize: '13px',
-                fontWeight: 600,
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontWeight: 700,
                 color: '#92400e',
-                border: '1px solid rgba(251, 191, 36, 0.4)'
+                border: '1px solid rgba(251, 191, 36, 0.4)',
+                zIndex: 10
               }}>
-                <span style={{ fontSize: '14px' }}>✨</span>
-                What's new
+                NEW!
               </span>
 
+              {/* Grid of feature pills */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, auto)',
+                  gap: '10px',
+                  justifyContent: 'center'
+                }}
+              >
               {/* Feature pill 1 - Multi-factor comparison */}
               <div className="feature-pill-wrapper pill-1">
                 <div className="feature-pill">
@@ -1414,6 +1426,44 @@ export default function App() {
                   </div>
                 </div>
               </div>
+
+              {/* Feature pill 5 - Deck-ready container */}
+              <div className="feature-pill-wrapper pill-5">
+                <div className="feature-pill">
+                  <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="3" y="3" width="18" height="18" rx="3" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
+                    <rect x="6" y="8" width="12" height="2" rx="1" fill="#3A8518" />
+                    <rect x="6" y="12" width="8" height="6" rx="1" fill="#E7CB38" />
+                    <rect x="15" y="12" width="3" height="6" rx="1" fill="#CED6DE" />
+                  </svg>
+                  <span className="pill-label">Deck-ready container</span>
+                </div>
+                <div className="pill-card">
+                  <div className="pill-card-content">
+                    <div className="pill-card-tagline">Presentation-ready charts 📊</div>
+                    <div className="pill-card-location">Toggle in Display settings</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Feature pill 6 - Copy chart button */}
+              <div className="feature-pill-wrapper pill-6">
+                <div className="feature-pill">
+                  <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="8" y="8" width="12" height="12" rx="2" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
+                    <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="#3A8518" strokeWidth="1.5" strokeLinecap="round" />
+                    <path d="M12 12l2 2 4-4" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <span className="pill-label">Copy chart button</span>
+                </div>
+                <div className="pill-card">
+                  <div className="pill-card-content">
+                    <div className="pill-card-tagline">One-click to clipboard 📋</div>
+                    <div className="pill-card-location">Click the copy icon on any chart</div>
+                  </div>
+                </div>
+              </div>
+              </div>
             </div>
           </div>
 
@@ -1457,7 +1507,7 @@ export default function App() {
               color: '#6B7280',
               marginBottom: '8px'
             }}>
-              Last updated on December 5, 2024
+              Last updated on December 6, 2024
             </p>
             <p style={{
               fontSize: '13px',
@@ -1500,8 +1550,18 @@ export default function App() {
             50% { transform: scale(1.15); }
           }
 
+          @keyframes new-badge-bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+          }
+
           .whats-new-sparkle {
             animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards, sparkle-wiggle 3s ease-in-out infinite 0.5s;
+            opacity: 0;
+          }
+
+          .new-badge-pulse {
+            animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards, new-badge-bounce 2s ease-in-out infinite 0.5s;
             opacity: 0;
           }
 
