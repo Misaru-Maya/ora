@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, memo } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faSort, faFilter, faRotate, faChartSimple, faArrowUpShortWide, faArrowDownWideShort, faArrowUpAZ, faChartPie, faTableCellsLarge, faBars, faChartBar } from '@fortawesome/free-solid-svg-icons'
+import { faSort, faFilter, faRotate, faChartSimple, faArrowUpShortWide, faArrowDownWideShort, faArrowUpAZ, faChartPie, faTableCellsLarge, faBars, faChartBar, faCopy, faCheck } from '@fortawesome/free-solid-svg-icons'
 import { ComparisonChart } from './ComparisonChart'
 import { SingleSelectPieChart } from './SingleSelectPieChart'
 import { HeatmapTable } from './HeatmapTable'
@@ -121,6 +121,11 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   const heightResizeStartY = useRef<number>(0)
   const heightResizeStartOffset = useRef<number>(0)
 
+  // Copy to clipboard state
+  const [isCopying, setIsCopying] = useState(false)
+  const [copySuccess, setCopySuccess] = useState(false)
+  const exportContentRef = useRef<HTMLDivElement | null>(null)
+
   // Screenshot handler - captures only chart content without buttons
   // Uses dynamic import to avoid loading html2canvas until actually needed
   const _handleScreenshot = async () => {
@@ -140,6 +145,125 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       link.click()
     } catch (error) {
       console.error('Screenshot failed:', error)
+    }
+  }
+
+  // Copy to clipboard handler - copies chart with rounded corners and shadow
+  const handleCopyToClipboard = async () => {
+    if (!exportContentRef.current || isCopying) return
+
+    setIsCopying(true)
+    setCopySuccess(false)
+
+    try {
+      const html2canvas = (await import('html2canvas')).default
+
+      // Step 1: Capture the content at 3x scale for very high resolution
+      const captureScale = 3 // Higher = sharper image (2 = standard, 3 = high, 4 = very high)
+      const contentCanvas = await html2canvas(exportContentRef.current, {
+        backgroundColor: '#ffffff',
+        scale: captureScale,
+        logging: false,
+        useCORS: true,
+      })
+
+      // Step 2: Create final canvas with room for shadow
+      // Match ORA's CSS shadow: 0 4px 20px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)
+      const borderRadius = 20 * captureScale // 20px scaled
+      const padding = 15 * captureScale // Extra space for shadow spread
+      const outputScale = 2 // Final output size (200% of 2x = 4x original)
+
+      const finalWidth = (contentCanvas.width + padding * 2) * outputScale
+      const finalHeight = (contentCanvas.height + padding * 2) * outputScale
+
+      const finalCanvas = document.createElement('canvas')
+      finalCanvas.width = finalWidth
+      finalCanvas.height = finalHeight
+      const ctx = finalCanvas.getContext('2d')
+
+      if (ctx) {
+        ctx.scale(outputScale, outputScale)
+
+        // Draw rounded rectangle path
+        const x = padding
+        const y = padding
+        const w = contentCanvas.width
+        const h = contentCanvas.height
+        const r = borderRadius
+
+        const drawRoundedRect = () => {
+          ctx.beginPath()
+          ctx.moveTo(x + r, y)
+          ctx.lineTo(x + w - r, y)
+          ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+          ctx.lineTo(x + w, y + h - r)
+          ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+          ctx.lineTo(x + r, y + h)
+          ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+          ctx.lineTo(x, y + r)
+          ctx.quadraticCurveTo(x, y, x + r, y)
+          ctx.closePath()
+        }
+
+        // Step 3: Draw shadows matching app CSS exactly:
+        // boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)'
+
+        // First shadow layer: 0 4px 20px rgba(0, 0, 0, 0.08)
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.08)'
+        ctx.shadowBlur = 20 * captureScale // 20px scaled
+        ctx.shadowOffsetX = 0
+        ctx.shadowOffsetY = 4 * captureScale // 4px scaled
+        drawRoundedRect()
+        ctx.fillStyle = '#ffffff'
+        ctx.fill()
+
+        // Second shadow layer: 0 2px 8px rgba(0, 0, 0, 0.04)
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.04)'
+        ctx.shadowBlur = 8 * captureScale // 8px scaled
+        ctx.shadowOffsetX = 0
+        ctx.shadowOffsetY = 2 * captureScale // 2px scaled
+        drawRoundedRect()
+        ctx.fill()
+
+        // Step 5: Reset shadow and clip to rounded rectangle
+        ctx.shadowColor = 'transparent'
+        ctx.shadowBlur = 0
+        ctx.shadowOffsetX = 0
+        ctx.shadowOffsetY = 0
+
+        // Clip to rounded rectangle and draw content
+        ctx.save()
+        drawRoundedRect()
+        ctx.clip()
+
+        // Draw the captured content
+        ctx.drawImage(contentCanvas, padding, padding)
+        ctx.restore()
+      }
+
+      // Step 5: Copy to clipboard
+      finalCanvas.toBlob(async (blob) => {
+        if (blob) {
+          try {
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob })
+            ])
+            setCopySuccess(true)
+            setTimeout(() => setCopySuccess(false), 2000)
+          } catch (clipboardError) {
+            console.error('Clipboard write failed:', clipboardError)
+            // Fallback: download the image
+            const link = document.createElement('a')
+            link.download = `${displayLabel || 'chart'}.png`
+            link.href = finalCanvas.toDataURL('image/png')
+            link.click()
+          }
+        }
+        setIsCopying(false)
+      }, 'image/png')
+    } catch (error) {
+      console.error('Copy to clipboard failed:', error)
+      setIsCopying(false)
     }
   }
 
@@ -1310,6 +1434,35 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               </div>
             </>
           )}
+          {/* Divider before copy button */}
+          <div style={{ width: '1px', height: '20px', backgroundColor: 'rgba(0, 0, 0, 0.1)', margin: '0 6px' }} />
+          {/* Copy to Clipboard Button */}
+          <button
+            onClick={handleCopyToClipboard}
+            disabled={isCopying}
+            className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95 cursor-pointer"
+            style={{
+              height: '32px',
+              width: '32px',
+              backgroundColor: copySuccess ? 'rgba(58, 133, 24, 0.12)' : 'rgba(255, 255, 255, 0.7)',
+              border: copySuccess ? '1px solid rgba(58, 133, 24, 0.25)' : '1px solid rgba(0, 0, 0, 0.08)',
+              borderRadius: '8px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+              backdropFilter: 'blur(8px)',
+              opacity: isCopying ? 0.7 : 1,
+              cursor: isCopying ? 'wait' : 'pointer'
+            }}
+            title={copySuccess ? 'Copied!' : 'Copy chart to clipboard'}
+          >
+            <FontAwesomeIcon
+              icon={copySuccess ? faCheck : faCopy}
+              style={{
+                fontSize: '13px',
+                color: copySuccess ? '#3A8518' : '#64748b',
+                transition: 'color 0.2s ease'
+              }}
+            />
+          </button>
         </div>
       </div>
 
@@ -1413,6 +1566,19 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         width: `${chartWidthPercent}%`,
         transition: isResizingChart ? 'none' : 'width 0.1s ease-out'
       }}>
+        {/* Export wrapper with rounded corners and shadow for clipboard copy */}
+        <div
+          ref={exportContentRef}
+          style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '20px',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)',
+            padding: '12px 5px 20px 0px',
+            margin: '8px auto',
+            width: 'fit-content',
+            minWidth: chartVariant === 'pie' ? '60%' : '90%' // Pie charts are 30% narrower
+          }}
+        >
       {(() => {
         devLog('Render Debug:', {
           qid: question.qid,
@@ -1713,7 +1879,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
           />
         )
       })()}
-      </div>
+        </div>{/* Close export wrapper */}
+      </div>{/* Close chartContentRef */}
       {/* Height resize handle below the chart */}
       <div
         onMouseDown={handleHeightResizeStart}

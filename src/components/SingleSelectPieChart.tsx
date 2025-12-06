@@ -165,16 +165,95 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
 
   devLog('About to render pie chart with pieData:', pieData)
 
+  // Label line length constant - used by both label and labelLine renderers
+  const LABEL_LINE_LENGTH = 12
+  // Gap between line end and text
+  const TEXT_GAP = 2
+
+  // Custom label line renderer - line color matches each slice's color
+  const renderLabelLine = (props: any) => {
+    const RADIAN = Math.PI / 180
+    const { cx, cy, midAngle, outerRadius, index } = props
+
+    // Line starts at pie edge
+    const startX = cx + outerRadius * Math.cos(-midAngle * RADIAN)
+    const startY = cy + outerRadius * Math.sin(-midAngle * RADIAN)
+
+    // Line ends at consistent distance from pie
+    const endX = cx + (outerRadius + LABEL_LINE_LENGTH) * Math.cos(-midAngle * RADIAN)
+    const endY = cy + (outerRadius + LABEL_LINE_LENGTH) * Math.sin(-midAngle * RADIAN)
+
+    // Get the slice color - index is for reversedPieData, so calculate original color index
+    const colorIndex = pieData.length - 1 - index
+    const sliceColor = colors[colorIndex % colors.length]
+
+    return (
+      <line
+        x1={startX}
+        y1={startY}
+        x2={endX}
+        y2={endY}
+        stroke={sliceColor}
+        strokeWidth={1}
+      />
+    )
+  }
+
   // Custom label formatter to show rounded values with % sign
-  // Using dark gray color for better readability (same as legend text)
+  // Position labels at end of label lines with consistent gap, no overlap
   const renderLabel = (entry: any) => {
+    const RADIAN = Math.PI / 180
+    const midAngle = entry.midAngle
+
+    // Position at end of label line plus small gap
+    const labelRadius = entry.outerRadius + LABEL_LINE_LENGTH + TEXT_GAP
+
+    // Calculate label position
+    const labelX = entry.cx + labelRadius * Math.cos(-midAngle * RADIAN)
+    const labelY = entry.cy + labelRadius * Math.sin(-midAngle * RADIAN)
+
+    // Normalize angle to 0-360 range
+    const normalizedAngle = ((midAngle % 360) + 360) % 360
+
+    // Determine text anchor based on horizontal position (left vs right of center)
+    // Using cos to determine: positive cos = right side, negative cos = left side
+    const cosAngle = Math.cos(-midAngle * RADIAN)
+    let textAnchor: 'start' | 'middle' | 'end'
+
+    if (cosAngle > 0.3) {
+      // Right side - text extends right
+      textAnchor = 'start'
+    } else if (cosAngle < -0.3) {
+      // Left side - text extends left
+      textAnchor = 'end'
+    } else {
+      // Near top/bottom - center the text
+      textAnchor = 'middle'
+    }
+
+    // Determine vertical baseline based on vertical position (above vs below center)
+    // Using sin to determine: positive sin (in our coord system) = below, negative = above
+    const sinAngle = Math.sin(-midAngle * RADIAN)
+    let dominantBaseline: 'hanging' | 'central' | 'auto'
+
+    if (sinAngle > 0.3) {
+      // Below center - text hangs from anchor point
+      dominantBaseline = 'hanging'
+    } else if (sinAngle < -0.3) {
+      // Above center - text sits above anchor point
+      dominantBaseline = 'auto'
+    } else {
+      // Near horizontal - center vertically
+      dominantBaseline = 'central'
+    }
+
     return (
       <text
-        x={entry.x}
-        y={entry.y}
+        x={labelX}
+        y={labelY}
         fill="#1f2833"
-        textAnchor={entry.x > entry.cx ? 'start' : 'end'}
-        dominantBaseline="central"
+        textAnchor={textAnchor}
+        dominantBaseline={dominantBaseline}
         fontSize="16"
         fontWeight="600"
       >
@@ -397,7 +476,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
           onMouseDown={handleChartMouseDown}
           className={`flex justify-center ${legendOrientation === 'horizontal' ? 'flex-row items-center' : 'flex-col items-center gap-4'}`}
           style={{
-            gap: legendOrientation === 'horizontal' ? '30px' : undefined,
+            gap: legendOrientation === 'horizontal' ? '24px' : undefined, // Reduced by 20% from 30px
             transform: `translate(${chartOffset.x}px, ${chartOffset.y}px)`,
             cursor: isDraggingChart ? 'grabbing' : 'grab',
             transition: isDraggingChart ? 'none' : 'transform 0.1s ease-out',
@@ -418,7 +497,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
                   outerRadius={85}
                   paddingAngle={2}
                   label={renderLabel}
-                  labelLine={true}
+                  labelLine={renderLabelLine}
                   startAngle={90}
                   endAngle={450}
                   isAnimationActive={false}
