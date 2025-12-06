@@ -229,7 +229,7 @@ export default function App() {
     }
   }, [editingSegment])
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(['segmentation'])
+    new Set(['display'])
   )
   const [expandedDisplayGroups, setExpandedDisplayGroups] = useState<Set<string>>(
     new Set(['color'])

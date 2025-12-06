@@ -1234,8 +1234,8 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
             alignItems: 'stretch',
             marginTop: '15px',
             marginBottom: '20px',
-            marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
-            marginRight: isHorizontal ? '60px' : '48px',
+            marginLeft: '48px',
+            marginRight: '48px',
             gap: '12px',
             transform: `translate(${titleOffset.x}px, ${titleOffset.y}px)`,
             cursor: isDraggingTitle ? 'grabbing' : 'grab',
@@ -1245,10 +1245,20 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
             zIndex: 20
           }}
         >
-          {/* Title Row with Badge */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', width: '100%', position: 'relative' }}>
+          {/* Title Row with Badge - same 3-column layout as horizontal */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%', gap: '16px' }}>
+            {/* Left: Empty spacer to balance right badges */}
+            <div style={{ flex: '0 0 auto', minWidth: '80px' }} />
+
             {/* Center: Title */}
-            <div style={{ textAlign: 'center', maxWidth: 'calc(100% - 120px)' }}>
+            <div
+              style={{
+                flex: '1 1 auto',
+                textAlign: 'center',
+                minWidth: 0,
+                paddingRight: '10px'
+              }}
+            >
               {questionLabel && (
                 editingQuestionLabel ? (
                   <textarea
@@ -1322,8 +1332,9 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                 )
               )}
             </div>
-            {/* Right: Segment + Badge - positioned absolutely to not affect title centering */}
-            <div style={{ position: 'absolute', right: 0, top: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+
+            {/* Right: Segment Card + Question Type Badge */}
+            <div style={{ flex: '0 0 auto', minWidth: '80px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
               {showSegment && sentimentType === 'advocates' && (
                 <div
                   style={{
@@ -1388,8 +1399,8 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
             justifyContent: 'space-between',
             marginTop: '15px',
             marginBottom: '20px',
-            marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
-            marginRight: isHorizontal ? '60px' : '48px',
+            marginLeft: '48px',
+            marginRight: '48px',
             gap: '16px',
             transform: `translate(${titleOffset.x}px, ${titleOffset.y}px)`,
             cursor: isDraggingTitle ? 'grabbing' : 'grab',
@@ -1410,7 +1421,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
               flex: '1 1 auto',
               textAlign: 'center',
               minWidth: 0,
-              maxWidth: 'calc(100% - 200px)'
+              paddingRight: '10px'
             }}
           >
             {questionLabel && (
