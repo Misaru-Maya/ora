@@ -890,11 +890,11 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
           overflow: 'hidden'
         }}
       >
-        <table style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%', tableLayout: 'fixed' }}>
+        <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
           <thead>
             <tr>
               <th style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: 'transparent',
                 padding: '8px 12px',
                 textAlign: 'center',
                 fontSize: '14px',
@@ -1022,7 +1022,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
               return (
               <tr key={row.option}>
                 <td style={{
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: 'transparent',
                   padding: cellPadding,
                   fontSize: '14px',
                   fontWeight: 600,

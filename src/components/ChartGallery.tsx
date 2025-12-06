@@ -1626,8 +1626,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
             backgroundColor: '#ffffff',
             borderRadius: '20px',
             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)',
-            padding: chartVariant === 'pie' ? '12px 40px 20px 10px' : '12px 5px 20px 0px', // 10px left, 40px right padding for pie charts
-            margin: chartVariant === 'pie' ? '8px 0' : '8px auto', // Left-align pie charts, center bar charts
+            padding: chartVariant === 'pie' ? '24px 40px 20px 10px' : chartVariant === 'heatmap' ? '12px 5px 0px 0px' : '32px 5px 0px 0px', // Heatmap: 12px top, Bar: 32px top
+            margin: chartVariant === 'pie' ? '8px 0' : '8px auto 0px auto', // Bar charts: 0px bottom margin
             // For pie charts: use explicit width if set by user, otherwise fit-content (no max-width to prevent legend wrapping)
             width: chartVariant === 'pie'
               ? (pieChartWidth ? `${pieChartWidth}px` : 'fit-content')
