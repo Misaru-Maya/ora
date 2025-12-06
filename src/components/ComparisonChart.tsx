@@ -26,10 +26,29 @@ const GROUP_COLORS = [
 ]
 
 const LABEL_FONT_SIZE = 16
+const LABEL_FONT_SIZE_MIN = 12
+const LABEL_FONT_SIZE_MAX = 18
 const HORIZONTAL_BAR_SIZE = Math.round(Math.max(LABEL_FONT_SIZE + 10, 36) * 0.95)
 const VERTICAL_BAR_SIZE = Math.max(LABEL_FONT_SIZE + 10, 36)
 const AXIS_LINE_STYLE = { stroke: '#000', strokeWidth: 1 }
 const TICK_LINE_STYLE = { stroke: '#000', strokeWidth: 1 }
+
+// Calculate dynamic font size based on bar dimensions
+// For horizontal bars: scale based on bar height (thinner bars = smaller text)
+// For vertical bars: scale based on bar width (narrower bars = smaller text)
+const getDynamicFontSize = (dimension: number, isStacked: boolean = false): number => {
+  // For stacked charts, use the segment dimension
+  // For regular charts, use bar dimension
+  const minDimension = isStacked ? 30 : 24
+  const maxDimension = isStacked ? 80 : 50
+
+  if (dimension <= minDimension) return LABEL_FONT_SIZE_MIN
+  if (dimension >= maxDimension) return LABEL_FONT_SIZE_MAX
+
+  // Linear interpolation between min and max font size
+  const ratio = (dimension - minDimension) / (maxDimension - minDimension)
+  return Math.round(LABEL_FONT_SIZE_MIN + ratio * (LABEL_FONT_SIZE_MAX - LABEL_FONT_SIZE_MIN))
+}
 
 const parseCoordinate = (value: string | number | undefined) => {
   if (typeof value === 'number') return value
@@ -47,13 +66,14 @@ const HorizontalValueLabel: React.FC<LabelProps> = ({ x, y, width, height, value
   const barWidth = parseCoordinate(width)
   const barHeight = parseCoordinate(height)
   const numericValue = typeof value === 'number' ? value : Number(value)
+  const fontSize = getDynamicFontSize(barHeight)
   if (!Number.isFinite(numericValue) || numericValue === 0) {
     return (
       <text
         x={originX + 4}
         y={originY + barHeight / 2}
         dy={3}
-        fontSize={LABEL_FONT_SIZE}
+        fontSize={fontSize}
         fill="#111"
       >
         0%
@@ -67,7 +87,7 @@ const HorizontalValueLabel: React.FC<LabelProps> = ({ x, y, width, height, value
       x={originX + barWidth + 6}
       y={originY + barHeight / 2}
       dy={3}
-      fontSize={LABEL_FONT_SIZE}
+      fontSize={fontSize}
       fontWeight="600"
       fill="#111"
     >
@@ -82,6 +102,7 @@ const VerticalValueLabel: React.FC<LabelProps> = ({ x, y, width, value }) => {
   const originY = parseCoordinate(y)
   const barWidth = parseCoordinate(width)
   const numericValue = typeof value === 'number' ? value : Number(value)
+  const fontSize = getDynamicFontSize(barWidth)
   if (!Number.isFinite(numericValue) || numericValue === 0) {
     return null
   }
@@ -91,7 +112,7 @@ const VerticalValueLabel: React.FC<LabelProps> = ({ x, y, width, value }) => {
       x={originX + barWidth / 2}
       y={originY - 4}
       textAnchor="middle"
-      fontSize={LABEL_FONT_SIZE}
+      fontSize={fontSize}
       fontWeight="600"
       fill="#111"
     >
@@ -115,6 +136,8 @@ const StackedHorizontalValueLabel: React.FC<LabelProps & { fill?: string }> = ({
 
   const text = `${Math.round(numericValue)}%`
   const isSmall = numericValue < 3
+  // For stacked horizontal, use bar width (segment width) for font size scaling
+  const fontSize = getDynamicFontSize(barWidth, true)
 
   // For small values shown outside, always use black
   // For values shown inside, calculate optimal contrast color based on background
@@ -127,7 +150,7 @@ const StackedHorizontalValueLabel: React.FC<LabelProps & { fill?: string }> = ({
         x={originX + barWidth / 2}
         y={originY - 4}
         textAnchor="middle"
-        fontSize={LABEL_FONT_SIZE}
+        fontSize={fontSize}
         fontWeight="600"
         fill={textColor}
       >
@@ -142,7 +165,7 @@ const StackedHorizontalValueLabel: React.FC<LabelProps & { fill?: string }> = ({
       y={originY + barHeight / 2}
       dy={3}
       textAnchor="middle"
-      fontSize={LABEL_FONT_SIZE}
+      fontSize={fontSize}
       fontWeight="600"
       fill={textColor}
     >
@@ -166,6 +189,8 @@ const StackedVerticalValueLabel: React.FC<LabelProps & { fill?: string }> = ({ x
 
   const text = `${Math.round(numericValue)}%`
   const isSmall = numericValue < 3
+  // For stacked vertical, use bar height (segment height) for font size scaling
+  const fontSize = getDynamicFontSize(barHeight, true)
 
   // For small values shown outside, always use black
   // For values shown inside, calculate optimal contrast color based on background
@@ -178,7 +203,7 @@ const StackedVerticalValueLabel: React.FC<LabelProps & { fill?: string }> = ({ x
         x={originX + barWidth / 2}
         y={originY - 4}
         textAnchor="middle"
-        fontSize={LABEL_FONT_SIZE}
+        fontSize={fontSize}
         fontWeight="600"
         fill={textColor}
       >
@@ -193,7 +218,7 @@ const StackedVerticalValueLabel: React.FC<LabelProps & { fill?: string }> = ({ x
       y={originY + barHeight / 2}
       dy={3}
       textAnchor="middle"
-      fontSize={LABEL_FONT_SIZE}
+      fontSize={fontSize}
       fontWeight="600"
       fill={textColor}
     >
@@ -1034,8 +1059,44 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
 
   // Always show legend when there are groups to display
   const showLegend = groups.length > 0
-  // Calculate default width, but use user-resized width if set
-  const defaultAxisWidth = Math.max(200, maxLabelWidth + 10)
+  // Calculate dynamic Y-axis width based on actual label text lengths (for horizontal charts)
+  const calculateDynamicAxisWidth = () => {
+    if (!isHorizontal || data.length === 0) return 200
+
+    // Find the longest label text
+    const longestLabel = data.reduce((longest, d) => {
+      const label = d.optionDisplay || ''
+      return label.length > longest.length ? label : longest
+    }, '')
+
+    // Estimate width: ~8px per character + padding
+    // Account for word wrapping - if label has multiple words, it might wrap
+    const charWidth = 8
+    const padding = 20
+    const maxCharsPerLine = 25 // Approximate max chars before wrapping
+
+    // Calculate based on longest line after potential wrapping
+    const words = longestLabel.split(' ')
+    let longestLineLength = 0
+    let currentLineLength = 0
+
+    words.forEach(word => {
+      if (currentLineLength + word.length + 1 > maxCharsPerLine && currentLineLength > 0) {
+        longestLineLength = Math.max(longestLineLength, currentLineLength)
+        currentLineLength = word.length
+      } else {
+        currentLineLength += (currentLineLength > 0 ? 1 : 0) + word.length
+      }
+    })
+    longestLineLength = Math.max(longestLineLength, currentLineLength)
+
+    const estimatedWidth = longestLineLength * charWidth + padding
+
+    // Clamp between reasonable min (80px) and max (300px)
+    return Math.max(80, Math.min(300, estimatedWidth))
+  }
+
+  const defaultAxisWidth = calculateDynamicAxisWidth()
   const horizontalAxisWidth = yAxisWidth ?? defaultAxisWidth // Use resized width or default
   const legendOffset = 40
   const horizontalLegendAdjustment = 70
@@ -1049,7 +1110,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
     if (stacked) {
       // Stacked chart legend
       return (
-        <div className="flex flex-wrap items-center gap-y-2" style={{ columnGap: '16px' }}>
+        <div className="flex flex-wrap items-center justify-center gap-y-2" style={{ columnGap: '16px' }}>
           {groups.map((group, index) => {
             const isEditing = editingLegend === group.key
             const hasAsterisk = group.label.endsWith('*')
@@ -1245,18 +1306,14 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
             zIndex: 20
           }}
         >
-          {/* Title Row with Badge - same 3-column layout as horizontal */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%', gap: '16px' }}>
-            {/* Left: Empty spacer to balance right badges */}
-            <div style={{ flex: '0 0 auto', minWidth: '80px' }} />
-
-            {/* Center: Title */}
+          {/* Title Row with Badge */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', width: '100%', gap: '16px' }}>
+            {/* Center: Title - takes full width, badges positioned at end */}
             <div
               style={{
                 flex: '1 1 auto',
                 textAlign: 'center',
-                minWidth: 0,
-                paddingRight: '10px'
+                minWidth: 0
               }}
             >
               {questionLabel && (
@@ -1334,7 +1391,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
             </div>
 
             {/* Right: Segment Card + Question Type Badge */}
-            <div style={{ flex: '0 0 auto', minWidth: '80px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
+            <div style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
               {showSegment && sentimentType === 'advocates' && (
                 <div
                   style={{

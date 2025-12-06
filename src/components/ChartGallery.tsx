@@ -555,17 +555,25 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   // 1. Multi-filter comparison mode: vertical bar chart (never heatmap)
   // 2. Sentiment questions in compare mode: vertical bar chart (alphabetical sort set elsewhere)
   // 3. Heatmap for sentiment questions and product follow-up questions in filter mode
-  // 4. Pie chart when available (single select with one segment)
-  // 5. Stacked chart when available (single select with multiple segments)
+  // 4. Stacked chart when available (single select with multiple segments) - preferred default
+  // 5. Pie chart when available (single select with one segment)
   // 6. Bar chart as fallback
   const isSentimentInCompareMode = isSentimentQuestion && comparisonMode
   const initialChartVariant: 'bar' | 'pie' | 'stacked' | 'heatmap' =
     multiFilterCompareMode ? 'bar' :
     isSentimentInCompareMode ? 'bar' :
     (isSentimentQuestion || isProductFollowUpQuestion) ? 'heatmap' :
-    canUsePie ? 'pie' :
-    canUseStacked ? 'stacked' : 'bar'
+    canUseStacked ? 'stacked' :
+    canUsePie ? 'pie' : 'bar'
   const [chartVariant, setChartVariant] = useState<'bar' | 'pie' | 'stacked' | 'heatmap'>(initialChartVariant)
+
+  // Set horizontal orientation for stacked charts on initial mount
+  useEffect(() => {
+    if (initialChartVariant === 'stacked') {
+      setChartOrientation('horizontal')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run on mount
 
   // Keep the ref in sync with chartVariant state for use in resize handlers
   useEffect(() => {
@@ -657,14 +665,14 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       chartDefaultsSetForQidRef.current = question.qid
 
       // Set default chart variant
-      // Priority: heatmap for sentiment/product follow-up > pie when available > stacked when available > bar
+      // Priority: heatmap for sentiment/product follow-up > stacked when available > pie when available > bar
       if (isSentimentQuestion || isProductFollowUpQuestion) {
         setChartVariant('heatmap')
-      } else if (canUsePie) {
-        setChartVariant('pie')
       } else if (canUseStacked) {
         setChartVariant('stacked')
         setChartOrientation('horizontal') // Stacked charts default to horizontal
+      } else if (canUsePie) {
+        setChartVariant('pie')
       } else {
         setChartVariant('bar')
       }
