@@ -745,13 +745,45 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
   // Get portal target element
   const filterPortalTarget = portalReady && questionId ? document.getElementById(`heatmap-filters-${questionId}`) : null
 
-  // Early return if no data - but still render the filter button via portal (only if 10+ products)
+  // Early return if no data - but still render the title and filter button (no question type badge)
   if (sortedData.length === 0 || sortedGroups.length === 0) {
     return (
       <>
         {filterPortalTarget && allGroupsOrdered.length >= 10 && createPortal(filterButtons, filterPortalTarget)}
-        <div className="w-full py-10 text-center text-xs text-brand-gray/60">
-          No products selected. Use the filter button to select products.
+        <div className="w-full" style={{ paddingLeft: '2px', paddingBottom: '30px', width: '95%', margin: '0 auto' }}>
+          {/* Header Row with Title */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginTop: '15px',
+              marginBottom: '15px'
+            }}
+          >
+            {/* Center: Title */}
+            <div style={{ textAlign: 'center', maxWidth: '80%' }}>
+              {displayQuestionLabel && (
+                <h3
+                  className="text-sm font-semibold text-brand-gray"
+                  style={{
+                    fontFamily: 'Space Grotesk, sans-serif',
+                    wordWrap: 'break-word',
+                    whiteSpace: 'normal',
+                    lineHeight: '1.4',
+                    margin: 0
+                  }}
+                >
+                  {displayQuestionLabel}
+                </h3>
+              )}
+            </div>
+          </div>
+
+          {/* No Data Message */}
+          <div className="py-10 text-center text-sm text-brand-gray/60">
+            No data available
+          </div>
         </div>
       </>
     )

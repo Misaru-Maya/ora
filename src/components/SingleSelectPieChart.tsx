@@ -157,8 +157,40 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
 
   if (!pieData.length) {
     return (
-      <div className="flex h-64 items-center justify-center text-sm text-brand-gray/60">
-        No data available for pie chart.
+      <div className="w-full" style={{ paddingBottom: '30px' }}>
+        {/* Header Row with Title (no question type badge) */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: '15px',
+            marginBottom: '15px'
+          }}
+        >
+          {/* Center: Title */}
+          <div style={{ textAlign: 'center', maxWidth: '80%' }}>
+            {questionLabel && (
+              <h3
+                className="text-sm font-semibold text-brand-gray"
+                style={{
+                  fontFamily: 'Space Grotesk, sans-serif',
+                  wordWrap: 'break-word',
+                  whiteSpace: 'normal',
+                  lineHeight: '1.4',
+                  margin: 0
+                }}
+              >
+                {questionLabel}
+              </h3>
+            )}
+          </div>
+        </div>
+
+        {/* No Data Message */}
+        <div className="py-10 text-center text-sm text-brand-gray/60">
+          No data available
+        </div>
       </div>
     )
   }

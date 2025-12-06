@@ -349,16 +349,80 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
 
   if (!sentimentColumn) {
     return (
-      <div className="w-full py-10 text-center text-xs text-brand-gray/60">
-        No sentiment column found.
+      <div className="w-full" style={{ paddingLeft: '2px', paddingBottom: '30px', width: '95%', margin: '0 auto' }}>
+        {/* Header Row with Title (no question type badge) */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: '15px',
+            marginBottom: '15px'
+          }}
+        >
+          {/* Center: Title */}
+          <div style={{ textAlign: 'center', maxWidth: '80%' }}>
+            {questionLabel && (
+              <h3
+                className="text-sm font-semibold text-brand-gray"
+                style={{
+                  fontFamily: 'Space Grotesk, sans-serif',
+                  wordWrap: 'break-word',
+                  whiteSpace: 'normal',
+                  lineHeight: '1.4',
+                  margin: 0
+                }}
+              >
+                {questionLabel}
+              </h3>
+            )}
+          </div>
+        </div>
+
+        {/* No Data Message */}
+        <div className="py-10 text-center text-sm text-brand-gray/60">
+          No data available
+        </div>
       </div>
     )
   }
 
   if (filteredProducts.length === 0) {
     return (
-      <div className="w-full py-10 text-center text-xs text-brand-gray/60">
-        No products selected.
+      <div className="w-full" style={{ paddingLeft: '2px', paddingBottom: '30px', width: '95%', margin: '0 auto' }}>
+        {/* Header Row with Title (no question type badge) */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: '15px',
+            marginBottom: '15px'
+          }}
+        >
+          {/* Center: Title */}
+          <div style={{ textAlign: 'center', maxWidth: '80%' }}>
+            {questionLabel && (
+              <h3
+                className="text-sm font-semibold text-brand-gray"
+                style={{
+                  fontFamily: 'Space Grotesk, sans-serif',
+                  wordWrap: 'break-word',
+                  whiteSpace: 'normal',
+                  lineHeight: '1.4',
+                  margin: 0
+                }}
+              >
+                {questionLabel}
+              </h3>
+            )}
+          </div>
+        </div>
+
+        {/* No Data Message */}
+        <div className="py-10 text-center text-sm text-brand-gray/60">
+          No data available
+        </div>
       </div>
     )
   }

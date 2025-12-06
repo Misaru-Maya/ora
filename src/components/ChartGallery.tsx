@@ -1657,13 +1657,44 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         })
 
         if (!hasData) {
-          if (selectedOptions.length === 0) {
-            return <div className="py-10 text-center text-xs text-brand-gray/60">No options selected.</div>
-          } else if (shouldFilterByStatSig && !hasStatSigResults) {
-            return <div className="py-10 text-center text-xs text-brand-gray/60">No stat sig results :(</div>
-          } else {
-            return <div className="py-10 text-center text-xs text-brand-gray/60">No data available.</div>
-          }
+          // Show title with "No data available" message (no question type badge)
+          return (
+            <div className="w-full" style={{ paddingBottom: '30px' }}>
+              {/* Header Row with Title */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: '15px',
+                  marginBottom: '20px'
+                }}
+              >
+                {/* Center: Title */}
+                <div style={{ textAlign: 'center', maxWidth: '80%' }}>
+                  {displayLabel && (
+                    <h3
+                      className="text-sm font-semibold text-brand-gray"
+                      style={{
+                        fontFamily: 'Space Grotesk, sans-serif',
+                        wordWrap: 'break-word',
+                        whiteSpace: 'normal',
+                        lineHeight: '1.4',
+                        margin: 0
+                      }}
+                    >
+                      {displayLabel}
+                    </h3>
+                  )}
+                </div>
+              </div>
+
+              {/* No Data Message */}
+              <div className="py-10 text-center text-sm text-brand-gray/60">
+                No data available
+              </div>
+            </div>
+          )
         }
 
         // Render ranking questions with RankingDisplay component

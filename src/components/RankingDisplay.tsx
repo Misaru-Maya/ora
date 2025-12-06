@@ -200,8 +200,8 @@ export const RankingDisplay: React.FC<RankingDisplayProps> = ({
       </div>
 
       {sortedData.length === 0 && (
-        <div className="py-10 text-center text-xs text-brand-gray/60">
-          No ranking data available.
+        <div className="py-10 text-center text-sm text-brand-gray/60">
+          No data available
         </div>
       )}
     </div>

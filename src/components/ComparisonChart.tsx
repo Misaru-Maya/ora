@@ -975,8 +975,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
       }
 
   // Calculate dynamic label widths based on chart layout
-  // For vertical charts: available width per option = (estimated chart width - margins) / number of options
-  // Using a multiplier to make labels wider when there's more space between bars
+  // For vertical charts: maximize label width while maintaining 20px gap between labels
   const calculateMaxLabelWidth = () => {
     if (isHorizontal) {
       // For horizontal charts, scale based on number of groups (more groups = narrower bars = more space for labels)
@@ -984,27 +983,22 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
       const scaleFactor = Math.max(1, Math.min(1.8, 1 + (barCategoryGap - 20) / 40))
       return Math.floor(baseWidth * scaleFactor)
     } else {
-      // For vertical charts, calculate based on available space per bar
-      // Estimate: typical chart container is ~1000px wide after margins
-      const estimatedChartWidth = 1000
-      const totalBarsInCategory = stacked ? 1 : groups.length
-      const totalBarWidth = barSize * totalBarsInCategory
+      // For vertical charts, calculate maximum label width while maintaining 20px gap
+      // Estimate: typical chart container is ~1000px wide after margins (right: 48px, left: 48px)
+      const estimatedChartWidth = 1000 - 48 - 48 // subtract margins
+      const gapBetweenLabels = 20 // required gap between labels
 
-      // Calculate minimum spacing needed to prevent overlap
-      // Each bar category needs space for the bar(s) plus the label
-      const minLabelWidth = 60 // Minimum width for readability
-      const _minSpacingBetweenLabels = 10 // Minimum gap between adjacent labels
+      // Total gaps = (number of options - 1) * gap
+      const totalGaps = (data.length - 1) * gapBetweenLabels
 
-      // Calculate available width per category
-      const availableWidthPerCategory = estimatedChartWidth / data.length
+      // Available width for all labels = chart width - total gaps
+      const availableWidthForLabels = estimatedChartWidth - totalGaps
 
-      // Max label width is the available space minus the bar width and spacing
-      // We use 85% of the remaining space to leave some buffer
-      const remainingSpaceForLabel = availableWidthPerCategory - totalBarWidth
-      const calculatedWidth = remainingSpaceForLabel * 0.85
+      // Max width per label
+      const maxWidthPerLabel = availableWidthForLabels / data.length
 
-      // Ensure labels don't get too wide or too narrow
-      return Math.floor(Math.max(minLabelWidth, Math.min(200, calculatedWidth)))
+      // Ensure labels don't get too narrow (min 60px) or too wide (max 300px)
+      return Math.floor(Math.max(60, Math.min(300, maxWidthPerLabel)))
     }
   }
 
@@ -1239,7 +1233,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
             flexDirection: 'column',
             alignItems: 'stretch',
             marginTop: '15px',
-            marginBottom: '15px',
+            marginBottom: '20px',
             marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
             marginRight: isHorizontal ? '60px' : '48px',
             gap: '12px',
@@ -1393,7 +1387,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
             alignItems: 'flex-start',
             justifyContent: 'space-between',
             marginTop: '15px',
-            marginBottom: '15px',
+            marginBottom: '20px',
             marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
             marginRight: isHorizontal ? '60px' : '48px',
             gap: '16px',
