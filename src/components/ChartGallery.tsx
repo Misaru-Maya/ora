@@ -1636,12 +1636,13 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
             borderRadius: showContainer ? '20px' : '0',
             boxShadow: showContainer ? '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)' : 'none',
             padding: showContainer ? (chartVariant === 'pie' ? '24px 40px 20px 24px' : chartVariant === 'heatmap' ? '12px 5px 0px 0px' : '32px 5px 0px 0px') : '0', // Pie: 24px left padding
-            margin: chartVariant === 'pie' ? '8px 0' : '8px auto 0px auto', // Bar charts: 0px bottom margin
-            // For pie charts: use explicit width if set by user, otherwise fit-content (no max-width to prevent legend wrapping)
+            margin: chartVariant === 'pie' ? '8px 0 0 2.5%' : '8px auto 0px auto', // Pie: align left edge with bar/heatmap (2.5% = (100%-95%)/2)
+            // Pie charts: use explicit width if set by user, otherwise fit-content
+            // Bar charts and heatmaps: use 95% width to align consistently
             width: chartVariant === 'pie'
               ? (pieChartWidth ? `${pieChartWidth}px` : 'fit-content')
-              : 'fit-content',
-            minWidth: chartVariant === 'pie' ? undefined : '90%', // No minWidth for pie charts - let content determine size
+              : '95%',
+            minWidth: chartVariant === 'pie' ? undefined : undefined, // No minWidth needed since we're using fixed 95% width
             transition: isResizingChart ? 'none' : 'width 0.1s ease-out'
           }}
         >
