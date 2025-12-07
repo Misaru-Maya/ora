@@ -362,11 +362,17 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   useEffect(() => {
     if (!isResizingChart || !resizingHandle) return
 
+    let lastUpdate = 0
+    let pendingWidth: number | null = null
+    let timeoutId: number | null = null
+
     const handleMouseMove = (e: MouseEvent) => {
       const container = chartContainerRef.current
       if (!container) return
 
       const deltaX = e.clientX - chartResizeStartX.current
+      const isHeatmap = chartVariantRef.current === 'heatmap'
+      const now = Date.now()
 
       // For pie charts, use pixel-based resizing
       if (chartVariantRef.current === 'pie') {
@@ -374,16 +380,41 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         const newWidth = Math.max(400, Math.min(1200, pieResizeStartWidth.current + adjustedDelta))
         setPieChartWidth(newWidth)
       } else {
-        // For bar charts, use percentage-based resizing
+        // For bar/heatmap charts, use percentage-based resizing
         const containerWidth = container.offsetWidth
         const deltaPercent = (deltaX / containerWidth) * 100
         const adjustedDelta = resizingHandle === 'left' ? -deltaPercent : deltaPercent
         const newWidth = Math.max(40, Math.min(100, chartResizeStartWidth.current + adjustedDelta))
-        setChartWidthPercent(newWidth)
+
+        // Debounce heatmap updates to prevent expensive recalculations
+        if (isHeatmap) {
+          pendingWidth = newWidth
+          if (now - lastUpdate >= 50) {
+            lastUpdate = now
+            setChartWidthPercent(newWidth)
+          } else if (timeoutId === null) {
+            timeoutId = window.setTimeout(() => {
+              if (pendingWidth !== null) {
+                setChartWidthPercent(pendingWidth)
+                lastUpdate = Date.now()
+              }
+              timeoutId = null
+            }, 50 - (now - lastUpdate))
+          }
+        } else {
+          setChartWidthPercent(newWidth)
+        }
       }
     }
 
     const handleMouseUp = () => {
+      // Apply final position for heatmaps
+      if (pendingWidth !== null) {
+        setChartWidthPercent(pendingWidth)
+      }
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId)
+      }
       setIsResizingChart(false)
       setResizingHandle(null)
     }
@@ -394,6 +425,9 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     return () => {
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId)
+      }
     }
   }, [isResizingChart, resizingHandle])
 
@@ -412,14 +446,49 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   useEffect(() => {
     if (!isResizingHeight) return
 
+    let lastUpdate = 0
+    let pendingOffset: number | null = null
+    let rafId: number | null = null
+
     const handleMouseMove = (e: MouseEvent) => {
       const deltaY = e.clientY - heightResizeStartY.current
       // Clamp height offset between -100 and 300
       const newOffset = Math.max(-100, Math.min(300, heightResizeStartOffset.current + deltaY))
-      setChartHeightOffset(newOffset)
+
+      // For heatmaps, debounce updates to prevent expensive recalculations
+      // For other charts, update immediately
+      const now = Date.now()
+      const isHeatmap = chartVariantRef.current === 'heatmap'
+
+      if (isHeatmap) {
+        pendingOffset = newOffset
+        // Debounce: only update every 50ms for heatmaps
+        if (now - lastUpdate >= 50) {
+          lastUpdate = now
+          setChartHeightOffset(newOffset)
+        } else if (rafId === null) {
+          // Schedule update for remaining time
+          rafId = window.setTimeout(() => {
+            if (pendingOffset !== null) {
+              setChartHeightOffset(pendingOffset)
+              lastUpdate = Date.now()
+            }
+            rafId = null
+          }, 50 - (now - lastUpdate))
+        }
+      } else {
+        setChartHeightOffset(newOffset)
+      }
     }
 
     const handleMouseUp = () => {
+      // Apply final position
+      if (pendingOffset !== null) {
+        setChartHeightOffset(pendingOffset)
+      }
+      if (rafId !== null) {
+        clearTimeout(rafId)
+      }
       setIsResizingHeight(false)
     }
 
@@ -429,6 +498,9 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     return () => {
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
+      if (rafId !== null) {
+        clearTimeout(rafId)
+      }
     }
   }, [isResizingHeight])
 
