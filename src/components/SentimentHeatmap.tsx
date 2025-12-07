@@ -612,7 +612,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
 
   return (
     <>
-      {filterPortalTarget && sortedProducts.length >= 10 && createPortal(filterButtons, filterPortalTarget)}
+      {filterPortalTarget && sortedProducts.length >= 2 && createPortal(filterButtons, filterPortalTarget)}
       <div className="w-full" style={{ paddingLeft: '2px', paddingBottom: '30px', width: '95%', margin: '0 auto' }}>
         {/* Header Row - Title is draggable separately */}
         <div

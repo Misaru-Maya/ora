@@ -53,7 +53,6 @@ export const EXCLUDED_OPTION_VALUES = [
   'other',
   'not specified',
   'none of the above',
-  'skip',
   'no preference',
   'prefer not to say',
 ]

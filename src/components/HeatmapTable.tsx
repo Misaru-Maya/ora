@@ -585,7 +585,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
           height="16"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#64748b"
+          stroke={selectedProducts.length < allGroupsOrdered.length ? '#3A8518' : '#64748b'}
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -749,7 +749,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
   if (sortedData.length === 0 || sortedGroups.length === 0) {
     return (
       <>
-        {filterPortalTarget && allGroupsOrdered.length >= 10 && createPortal(filterButtons, filterPortalTarget)}
+        {filterPortalTarget && allGroupsOrdered.length >= 2 && createPortal(filterButtons, filterPortalTarget)}
         <div className="w-full" style={{ paddingLeft: '2px', paddingBottom: '30px', width: '95%', margin: '0 auto' }}>
           {/* Header Row with Title */}
           <div
@@ -805,7 +805,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
 
   return (
     <>
-      {filterPortalTarget && allGroupsOrdered.length >= 10 && createPortal(filterButtons, filterPortalTarget)}
+      {filterPortalTarget && allGroupsOrdered.length >= 2 && createPortal(filterButtons, filterPortalTarget)}
     <div className="w-full" style={{ paddingLeft: '2px', paddingBottom: '30px', width: '95%', margin: '0 auto' }}>
       {/* Header Row - Title is draggable separately */}
       <div

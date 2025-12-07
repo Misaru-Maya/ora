@@ -55,7 +55,7 @@ export interface BuildSeriesResult {
   groups: GroupSeriesMeta[]
 }
 
-const EXCLUDED_LABELS = ['other', 'not specified', 'none of the above', 'skip']
+const EXCLUDED_LABELS = ['other', 'not specified', 'none of the above', 'no preference', 'prefer not to say']
 
 function uniq<T>(arr: T[]): T[] {
   return Array.from(new Set(arr))

@@ -631,11 +631,35 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       })
 
       // For ranking questions, show all options by default
+      // For heatmaps (sentiment/product follow-up), show top 10 by value if more than 10 options
       // For other questions, select only the top 8 options by default (marked with __isTop8)
       // Users can manually select other options from the filter dropdown
       let selectedDefaults: string[]
       if (question.type === 'ranking') {
+        // Ranking questions show all attributes
         selectedDefaults = allOptions
+      } else if (isSentimentQuestion || isProductFollowUpQuestion) {
+        // Heatmaps: if more than 10 attributes, select top 10 by value (descending)
+        if (allOptions.length > 10) {
+          // Sort by average value descending (same logic as HeatmapTable)
+          const overallGroup = series.groups.find(g => g.label === 'Overall')
+          const sortedByValue = series.data
+            .filter(d => allOptions.includes(d.option))
+            .map(d => {
+              const sortValue = overallGroup
+                ? Number(d[overallGroup.key] ?? 0)
+                : series.groups.length
+                  ? series.groups.reduce((sum, g) => sum + Number(d[g.key] ?? 0), 0) / series.groups.length
+                  : 0
+              return { option: d.option, value: sortValue }
+            })
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 10)
+            .map(d => d.option)
+          selectedDefaults = sortedByValue
+        } else {
+          selectedDefaults = allOptions
+        }
       } else {
         // Use __isTop8 flag to determine default selection
         const top8Options = series.data
@@ -936,10 +960,24 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       }
     })
 
-    const sorted = [...annotated]
-    const isPieChart = chartVariant === 'pie' && canUsePie
+    // Filter out options where any group has 0 or 1% values (same as processedData)
+    const filteredAnnotated = annotated.filter(item => {
+      const hasLowValue = series.groups.some(group => {
+        const value = Number(item.data[group.key] ?? 0)
+        return value <= 1
+      })
+      return !hasLowValue
+    })
 
-    switch (cardSort) {
+    const sorted = [...filteredAnnotated]
+    const isPieChart = chartVariant === 'pie' && canUsePie
+    const isHeatmap = chartVariant === 'heatmap'
+
+    // For heatmaps, always sort by value descending to match the display order
+    // (HeatmapTable always sorts rows by value descending)
+    if (isHeatmap) {
+      sorted.sort((a, b) => b.average - a.average)
+    } else switch (cardSort) {
       case 'descending':
         sorted.sort((a, b) => isPieChart ? a.average - b.average : b.average - a.average)
         break
@@ -1029,10 +1067,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       finalOrder = [...ordered, ...remaining]
     }
 
-    // Move excluded values to the bottom
-    const excludedItems = finalOrder.filter(d => isExcludedValue(d.optionDisplay))
-    const nonExcludedItems = finalOrder.filter(d => !isExcludedValue(d.optionDisplay))
-    return [...nonExcludedItems, ...excludedItems]
+    // Filter out excluded values completely
+    return finalOrder.filter(d => !isExcludedValue(d.optionDisplay))
   }, [series, cardSort, statSigFilteredData, chartVariant, canUsePie, showAsterisks, customOptionOrder])
 
   // Transpose data when axes are swapped
@@ -1872,13 +1908,14 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
             sampleData: heatmapSeries.data[0]
           })
 
-          // Apply custom option labels to heatmap data and filter out excluded values
+          // Apply custom option labels to heatmap data, filter out excluded values, and apply selectedOptions filter
           heatmapSeries.data = heatmapSeries.data
             .map(dataPoint => ({
               ...dataPoint,
               optionDisplay: optionLabels[dataPoint.option] || dataPoint.optionDisplay
             }))
             .filter(dataPoint => !isExcludedValue(dataPoint.optionDisplay))
+            .filter(dataPoint => selectedOptions.includes(dataPoint.option))
 
           return (
             <HeatmapTable
