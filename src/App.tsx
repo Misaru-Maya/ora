@@ -198,6 +198,9 @@ export default function App() {
   const [editingComparisonSetId, setEditingComparisonSetId] = useState<string | null>(null)
   const [comparisonSetLabelInput, setComparisonSetLabelInput] = useState('')
   const [addingFiltersToSetId, setAddingFiltersToSetId] = useState<string | null>(null)
+  const [consumerQuestionDropdownOpen, setConsumerQuestionDropdownOpen] = useState<Record<string, boolean>>({})
+  const [consumerQuestionSearch, setConsumerQuestionSearch] = useState<Record<string, string>>({})
+  const [selectedConsumerQuestions, setSelectedConsumerQuestions] = useState<Record<string, Set<string>>>({})
 
   // Performance: Use transition for non-urgent updates to keep UI responsive
   const [isPending, startTransition] = useTransition()
@@ -699,6 +702,58 @@ export default function App() {
     return counts
   }, [dataset, rows, selections.comparisonSets])
 
+  // Memoize segment columns filter data to avoid recomputing on every render
+  const segmentFilterData = useMemo(() => {
+    if (!rowsRaw || !segmentColumns) return {}
+
+    const MIN_RESPONDENTS_FOR_SEGMENT = 10
+    const result: Record<string, string[]> = {}
+
+    const sortedCols = segmentColumns
+      .filter(col => col !== 'Overall')
+      .sort((a, b) => {
+        if (a.toLowerCase().includes('product preference')) return -1
+        if (b.toLowerCase().includes('product preference')) return 1
+        if (a.toLowerCase() === 'country') return -1
+        if (b.toLowerCase() === 'country') return 1
+        return 0
+      })
+
+    for (const column of sortedCols) {
+      const valueCounts = new Map<string, number>()
+      for (const r of rowsRaw) {
+        const val = stripQuotes(String(r[column]))
+        if (val) {
+          valueCounts.set(val, (valueCounts.get(val) || 0) + 1)
+        }
+      }
+
+      const rawValues = Array.from(new Set(rowsRaw.map(r => stripQuotes(String(r[column])))))
+        .filter(v => {
+          if (!v || v === 'null' || v === 'undefined') return false
+          const count = valueCounts.get(v) || 0
+          if (count < MIN_RESPONDENTS_FOR_SEGMENT) return false
+          const normalized = v.replace(/\s+/g, ' ').trim().toLowerCase()
+          if (normalized.includes('overall')) return false
+          if (normalized === 'not specified' || normalized === 'prefer not to say') return false
+          return true
+        })
+
+      const values = sortSegmentValues(rawValues, column)
+      if (values.length > 1) {
+        result[column] = values
+      }
+    }
+
+    return result
+  }, [rowsRaw, segmentColumns])
+
+  // Memoize available consumer questions for multi-filter comparison
+  const availableConsumerQuestions = useMemo(() => {
+    if (!dataset) return []
+    return dataset.questions.filter(q => (q.type === 'single' || q.type === 'multi') && q.columns.length > 1)
+  }, [dataset])
+
   // Create stable reference for segments to avoid unnecessary recalculations
   const segmentsKey = useMemo(() =>
     JSON.stringify(selections.segments || []),
@@ -924,57 +979,63 @@ export default function App() {
   }, [])
 
   const addFilterToComparisonSet = useCallback((setId: string, filter: SegmentDef) => {
-    let currentSets = selections.comparisonSets || []
+    // Use startTransition for non-urgent state updates to keep UI responsive
+    startTransition(() => {
+      let currentSets = selections.comparisonSets || []
 
-    // If the set doesn't exist yet (e.g., default_set_1), create it
-    const setExists = currentSets.some(s => s.id === setId)
-    if (!setExists) {
-      const newSet: ComparisonSet = {
-        id: setId,
-        label: 'Set 1',
-        filters: []
+      // If the set doesn't exist yet (e.g., default_set_1), create it
+      const setExists = currentSets.some(s => s.id === setId)
+      if (!setExists) {
+        const newSet: ComparisonSet = {
+          id: setId,
+          label: 'Set 1',
+          filters: []
+        }
+        currentSets = [newSet]
+        // Keep the card open when creating a new set from default
+        setAddingFiltersToSetId(setId)
       }
-      currentSets = [newSet]
-      // Keep the card open when creating a new set from default
-      setAddingFiltersToSetId(setId)
-    }
 
-    const newSets = currentSets.map(s => {
-      if (s.id !== setId) return s
-      // Check if filter already exists
-      const exists = s.filters.some(f => f.column === filter.column && f.value === filter.value)
-      if (exists) return s
-      const newFilters = [...s.filters, filter]
-      // Auto-generate label
-      return { ...s, filters: newFilters, label: generateSetLabel(newFilters) }
-    })
-
-    // Check if we now have 2+ valid comparison sets - if so, reset sidebar segments to Overall
-    const validSetsCount = newSets.filter(s => s.filters.length > 0).length
-    if (validSetsCount >= 2) {
-      setSelections({
-        comparisonSets: newSets,
-        multiFilterCompareMode: true,
-        segments: [{ column: 'Overall', value: 'Overall' }]
+      const newSets = currentSets.map(s => {
+        if (s.id !== setId) return s
+        // Check if filter already exists
+        const exists = s.filters.some(f => f.column === filter.column && f.value === filter.value)
+        if (exists) return s
+        const newFilters = [...s.filters, filter]
+        // Auto-generate label
+        return { ...s, filters: newFilters, label: generateSetLabel(newFilters) }
       })
-    } else {
-      setSelections({ comparisonSets: newSets })
-    }
-  }, [selections.comparisonSets, setSelections, generateSetLabel])
+
+      // Check if we now have 2+ valid comparison sets - if so, reset sidebar segments to Overall
+      const validSetsCount = newSets.filter(s => s.filters.length > 0).length
+      if (validSetsCount >= 2) {
+        setSelections({
+          comparisonSets: newSets,
+          multiFilterCompareMode: true,
+          segments: [{ column: 'Overall', value: 'Overall' }]
+        })
+      } else {
+        setSelections({ comparisonSets: newSets })
+      }
+    })
+  }, [selections.comparisonSets, setSelections, generateSetLabel, startTransition])
 
   const removeFilterFromComparisonSet = useCallback((setId: string, filter: SegmentDef) => {
-    const currentSets = selections.comparisonSets || []
-    // If the set doesn't exist, nothing to remove
-    if (!currentSets.some(s => s.id === setId)) return
+    // Use startTransition for non-urgent state updates to keep UI responsive
+    startTransition(() => {
+      const currentSets = selections.comparisonSets || []
+      // If the set doesn't exist, nothing to remove
+      if (!currentSets.some(s => s.id === setId)) return
 
-    const newSets = currentSets.map(s => {
-      if (s.id !== setId) return s
-      const newFilters = s.filters.filter(f => !(f.column === filter.column && f.value === filter.value))
-      // Auto-generate label
-      return { ...s, filters: newFilters, label: generateSetLabel(newFilters) }
+      const newSets = currentSets.map(s => {
+        if (s.id !== setId) return s
+        const newFilters = s.filters.filter(f => !(f.column === filter.column && f.value === filter.value))
+        // Auto-generate label
+        return { ...s, filters: newFilters, label: generateSetLabel(newFilters) }
+      })
+      setSelections({ comparisonSets: newSets })
     })
-    setSelections({ comparisonSets: newSets })
-  }, [selections.comparisonSets, setSelections, generateSetLabel])
+  }, [selections.comparisonSets, setSelections, generateSetLabel, startTransition])
 
   const toggleSegmentGroup = (column: string) => {
     const newExpanded = new Set(expandedSegmentGroups)
@@ -2371,80 +2432,314 @@ export default function App() {
                               <div style={{ marginBottom: '8px' }}>
                                 <span style={{ fontSize: '11px', fontWeight: 600, color: '#374151' }}>Select filters:</span>
                               </div>
-                              <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                                {/* Segment columns - same order as Segmentation sidebar */}
-                                {segmentColumns
-                                  .filter(col => col !== 'Overall')
-                                  .sort((a, b) => {
-                                    // Put Product Preference first, then Country, then others (same as sidebar)
-                                    if (a.toLowerCase().includes('product preference')) return -1
-                                    if (b.toLowerCase().includes('product preference')) return 1
-                                    if (a.toLowerCase() === 'country') return -1
-                                    if (b.toLowerCase() === 'country') return 1
-                                    return 0
-                                  })
-                                  .map(column => {
-                                  // Count respondents for each value (same filtering as sidebar)
-                                  const valueCounts = new Map<string, number>()
-                                  rowsRaw.forEach(r => {
-                                    const val = stripQuotes(String(r[column]))
-                                    if (val) {
-                                      valueCounts.set(val, (valueCounts.get(val) || 0) + 1)
-                                    }
-                                  })
+                              <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                                {/* Segment columns - using memoized data */}
+                                {Object.entries(segmentFilterData).map(([column, values]) => (
+                                  <div key={column} style={{ marginBottom: '8px' }}>
+                                    <div style={{ fontSize: '11px', fontWeight: 500, color: '#6B7280', marginBottom: '4px' }}>{column}</div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                      {values.map(value => {
+                                        const isInSet = compSet.filters.some(f => f.column === column && f.value === value)
+                                        return (
+                                          <button
+                                            key={value}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              if (isInSet) {
+                                                removeFilterFromComparisonSet(compSet.id, { column, value })
+                                              } else {
+                                                addFilterToComparisonSet(compSet.id, { column, value })
+                                              }
+                                            }}
+                                            style={{
+                                              padding: '3px 8px',
+                                              fontSize: '11px',
+                                              backgroundColor: isInSet ? '#3A8518' : '#F3F4F6',
+                                              color: isInSet ? 'white' : '#374151',
+                                              border: 'none',
+                                              borderRadius: '4px',
+                                              cursor: 'pointer'
+                                            }}
+                                          >
+                                            {value}
+                                          </button>
+                                        )
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
 
-                                  const MIN_RESPONDENTS_FOR_SEGMENT = 10
-                                  const rawValues = Array.from(new Set(rowsRaw.map(r => stripQuotes(String(r[column])))))
-                                    .filter(v => {
-                                      if (!v || v === 'null' || v === 'undefined') return false
-                                      const count = valueCounts.get(v) || 0
-                                      if (count < MIN_RESPONDENTS_FOR_SEGMENT) return false
-                                      const normalized = v.replace(/\s+/g, ' ').trim().toLowerCase()
-                                      if (normalized.includes('overall')) return false
-                                      if (normalized === 'not specified' || normalized === 'prefer not to say') return false
-                                      return true
-                                    })
-
-                                  // Sort values same as sidebar
-                                  const values = sortSegmentValues(rawValues, column)
-
-                                  if (values.length <= 1) return null
+                                {/* Consumer Questions section */}
+                                {availableConsumerQuestions.length > 0 && (() => {
+                                  const searchTerm = consumerQuestionSearch[compSet.id] || ''
+                                  const searchLower = searchTerm.trim().toLowerCase()
+                                  const filteredQuestions = searchLower
+                                    ? availableConsumerQuestions.filter(q =>
+                                        q.label.toLowerCase().includes(searchLower) ||
+                                        q.columns.some(col => col.optionLabel.toLowerCase().includes(searchLower))
+                                      )
+                                    : availableConsumerQuestions
+                                  const isDropdownOpen = consumerQuestionDropdownOpen[compSet.id] || false
+                                  const selectedQids = selectedConsumerQuestions[compSet.id] || new Set<string>()
+                                  const selectedQuestionsList = availableConsumerQuestions.filter(q => selectedQids.has(q.qid))
 
                                   return (
-                                    <div key={column} style={{ marginBottom: '8px' }}>
-                                      <div style={{ fontSize: '11px', fontWeight: 500, color: '#6B7280', marginBottom: '4px' }}>{column}</div>
-                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                        {values.map(value => {
-                                          const isInSet = compSet.filters.some(f => f.column === column && f.value === value)
-                                          return (
+                                    <>
+                                      <div style={{
+                                        fontSize: '10px',
+                                        fontWeight: 600,
+                                        color: '#9CA3AF',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.5px',
+                                        marginTop: '12px',
+                                        marginBottom: '8px',
+                                        paddingTop: '8px',
+                                        borderTop: '1px solid #E5E7EB'
+                                      }}>
+                                        Consumer Questions
+                                      </div>
+
+                                      {/* Question Dropdown */}
+                                      <div id={`consumer-questions-${compSet.id}`} style={{ position: 'relative', marginBottom: '8px' }}>
+                                        <div
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            const willOpen = !isDropdownOpen
+                                            setConsumerQuestionDropdownOpen(prev => ({ ...prev, [compSet.id]: willOpen }))
+                                            // Auto-scroll to show the dropdown when opening
+                                            if (willOpen) {
+                                              setTimeout(() => {
+                                                const element = document.getElementById(`consumer-questions-${compSet.id}`)
+                                                element?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                                              }, 50)
+                                            }
+                                          }}
+                                          style={{
+                                            padding: '8px 12px',
+                                            border: '1px solid #E5E7EB',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            fontSize: '11px',
+                                            backgroundColor: 'white',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            color: '#374151',
+                                            transition: 'border-color 0.15s ease',
+                                            boxShadow: isDropdownOpen ? '0 0 0 2px rgba(58, 133, 24, 0.2)' : 'none'
+                                          }}
+                                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#3A8518' }}
+                                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E5E7EB' }}
+                                        >
+                                          <span style={{ fontWeight: 500 }}>
+                                            {selectedQids.size > 0 ? `${selectedQids.size} question${selectedQids.size > 1 ? 's' : ''} selected` : 'Select questions...'}
+                                          </span>
+                                          <svg
+                                            width="12"
+                                            height="12"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="#6B7280"
+                                            strokeWidth="2"
+                                            style={{
+                                              transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                                              transition: 'transform 0.2s ease',
+                                              flexShrink: 0
+                                            }}
+                                          >
+                                            <path d="M6 9l6 6 6-6" />
+                                          </svg>
+                                        </div>
+
+                                        {isDropdownOpen && (
+                                          <div
+                                            onClick={(e) => e.stopPropagation()}
+                                            style={{
+                                              position: 'absolute',
+                                              top: '100%',
+                                              left: 0,
+                                              right: 0,
+                                              marginTop: '4px',
+                                              backgroundColor: 'white',
+                                              border: '1px solid #E5E7EB',
+                                              borderRadius: '6px',
+                                              zIndex: 1000,
+                                              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                              overflow: 'hidden'
+                                            }}
+                                          >
+                                            {/* Search Input */}
+                                            <div style={{ padding: '8px', borderBottom: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}>
+                                              <input
+                                                type="text"
+                                                placeholder="Search questions..."
+                                                value={searchTerm}
+                                                onChange={(e) => {
+                                                  setConsumerQuestionSearch(prev => ({ ...prev, [compSet.id]: e.target.value }))
+                                                }}
+                                                onClick={(e) => e.stopPropagation()}
+                                                style={{
+                                                  width: '100%',
+                                                  padding: '6px 10px',
+                                                  fontSize: '11px',
+                                                  border: '1px solid #E5E7EB',
+                                                  borderRadius: '4px',
+                                                  outline: 'none'
+                                                }}
+                                                onFocus={(e) => {
+                                                  e.target.style.borderColor = '#3A8518'
+                                                  e.target.style.boxShadow = '0 0 0 2px rgba(58, 133, 24, 0.1)'
+                                                }}
+                                                onBlur={(e) => {
+                                                  e.target.style.borderColor = '#E5E7EB'
+                                                  e.target.style.boxShadow = 'none'
+                                                }}
+                                              />
+                                            </div>
+
+                                            {/* Questions List with Checkboxes */}
+                                            <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                                              {filteredQuestions.length === 0 ? (
+                                                <div style={{ padding: '10px', fontSize: '11px', color: '#6B7280', textAlign: 'center' }}>
+                                                  No questions found
+                                                </div>
+                                              ) : (
+                                                filteredQuestions.map(q => {
+                                                  const isSelected = selectedQids.has(q.qid)
+                                                  return (
+                                                    <label
+                                                      key={q.qid}
+                                                      style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        padding: '8px 10px',
+                                                        fontSize: '11px',
+                                                        cursor: 'pointer',
+                                                        gap: '8px',
+                                                        backgroundColor: isSelected ? '#F0FDF4' : 'white'
+                                                      }}
+                                                      onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = '#F9FAFB' }}
+                                                      onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = isSelected ? '#F0FDF4' : 'white' }}
+                                                    >
+                                                      <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => {
+                                                          setSelectedConsumerQuestions(prev => {
+                                                            const currentSet = prev[compSet.id] || new Set<string>()
+                                                            const newSet = new Set(currentSet)
+                                                            if (newSet.has(q.qid)) {
+                                                              newSet.delete(q.qid)
+                                                            } else {
+                                                              newSet.add(q.qid)
+                                                            }
+                                                            return { ...prev, [compSet.id]: newSet }
+                                                          })
+                                                        }}
+                                                        style={{ cursor: 'pointer', accentColor: '#3A8518' }}
+                                                      />
+                                                      <span style={{ color: '#374151' }}>{q.label}</span>
+                                                    </label>
+                                                  )
+                                                })
+                                              )}
+                                            </div>
+
+                                            {/* Done Button */}
+                                            <div style={{ padding: '8px', borderTop: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}>
+                                              <button
+                                                onClick={() => setConsumerQuestionDropdownOpen(prev => ({ ...prev, [compSet.id]: false }))}
+                                                style={{
+                                                  width: '100%',
+                                                  padding: '6px 12px',
+                                                  fontSize: '11px',
+                                                  fontWeight: 500,
+                                                  backgroundColor: '#3A8518',
+                                                  color: 'white',
+                                                  border: 'none',
+                                                  borderRadius: '4px',
+                                                  cursor: 'pointer'
+                                                }}
+                                              >
+                                                Done
+                                              </button>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Answer Options for Selected Questions */}
+                                      {selectedQuestionsList.map(question => (
+                                        <div key={question.qid} style={{ marginBottom: '20px' }}>
+                                          <div style={{
+                                            fontSize: '11px',
+                                            fontWeight: 500,
+                                            color: '#374151',
+                                            marginBottom: '4px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px'
+                                          }}>
+                                            <span>{question.label}</span>
                                             <button
-                                              key={value}
                                               onClick={(e) => {
                                                 e.stopPropagation()
-                                                if (isInSet) {
-                                                  removeFilterFromComparisonSet(compSet.id, { column, value })
-                                                } else {
-                                                  addFilterToComparisonSet(compSet.id, { column, value })
-                                                }
+                                                setSelectedConsumerQuestions(prev => {
+                                                  const currentSet = prev[compSet.id] || new Set<string>()
+                                                  const newSet = new Set(currentSet)
+                                                  newSet.delete(question.qid)
+                                                  return { ...prev, [compSet.id]: newSet }
+                                                })
                                               }}
                                               style={{
-                                                padding: '3px 8px',
-                                                fontSize: '11px',
-                                                backgroundColor: isInSet ? '#3A8518' : '#F3F4F6',
-                                                color: isInSet ? 'white' : '#374151',
+                                                padding: '0 4px',
+                                                fontSize: '10px',
+                                                color: '#9CA3AF',
+                                                backgroundColor: 'transparent',
                                                 border: 'none',
-                                                borderRadius: '4px',
-                                                cursor: 'pointer'
+                                                cursor: 'pointer',
+                                                lineHeight: 1
                                               }}
+                                              title="Remove question"
                                             >
-                                              {value}
+                                              ✕
                                             </button>
-                                          )
-                                        })}
-                                      </div>
-                                    </div>
+                                          </div>
+                                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                            {question.columns.map(col => {
+                                              const value = col.optionLabel
+                                              const isInSet = compSet.filters.some(f => f.column === question.qid && f.value === value)
+                                              return (
+                                                <button
+                                                  key={value}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    if (isInSet) {
+                                                      removeFilterFromComparisonSet(compSet.id, { column: question.qid, value })
+                                                    } else {
+                                                      addFilterToComparisonSet(compSet.id, { column: question.qid, value })
+                                                    }
+                                                  }}
+                                                  style={{
+                                                    padding: '3px 8px',
+                                                    fontSize: '11px',
+                                                    backgroundColor: isInSet ? '#3A8518' : '#F3F4F6',
+                                                    color: isInSet ? 'white' : '#374151',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer'
+                                                  }}
+                                                >
+                                                  {value}
+                                                </button>
+                                              )
+                                            })}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </>
                                   )
-                                })}
+                                })()}
                               </div>
                             </div>
                           )}
@@ -2488,7 +2783,13 @@ export default function App() {
                       {/* Clear all button */}
                       {(selections.comparisonSets || []).length > 0 && (
                         <button
-                          onClick={() => setSelections({ comparisonSets: [], multiFilterCompareMode: false })}
+                          onClick={() => {
+                            setSelections({ comparisonSets: [], multiFilterCompareMode: false })
+                            // Also clear consumer question selections
+                            setSelectedConsumerQuestions({})
+                            setConsumerQuestionDropdownOpen({})
+                            setConsumerQuestionSearch({})
+                          }}
                           style={{
                             padding: '6px 10px',
                             fontSize: '11px',
