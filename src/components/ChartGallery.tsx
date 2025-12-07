@@ -1838,8 +1838,12 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
           devLog('Stacked data:', stackedData)
           devLog('Stacked groups:', stackedGroups)
 
+          // Generate a key based on the order of groups to force re-render when order changes
+          const groupOrderKey = stackedGroups.map(g => g.key).join('|')
+
           return (
             <ComparisonChart
+              key={groupOrderKey}
               data={stackedData}
               groups={stackedGroups}
               orientation={chartOrientation}
