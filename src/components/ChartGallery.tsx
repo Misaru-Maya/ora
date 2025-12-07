@@ -362,10 +362,6 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   useEffect(() => {
     if (!isResizingChart || !resizingHandle) return
 
-    let rafId: number | null = null
-    let pendingWidth: number | null = null
-    let pendingPieWidth: number | null = null
-
     const handleMouseMove = (e: MouseEvent) => {
       const container = chartContainerRef.current
       if (!container) return
@@ -375,44 +371,19 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       // For pie charts, use pixel-based resizing
       if (chartVariantRef.current === 'pie') {
         const adjustedDelta = resizingHandle === 'left' ? -deltaX : deltaX
-        pendingPieWidth = Math.max(400, Math.min(1200, pieResizeStartWidth.current + adjustedDelta))
-
-        if (rafId === null) {
-          rafId = requestAnimationFrame(() => {
-            if (pendingPieWidth !== null) {
-              setPieChartWidth(pendingPieWidth)
-            }
-            rafId = null
-          })
-        }
+        const newWidth = Math.max(400, Math.min(1200, pieResizeStartWidth.current + adjustedDelta))
+        setPieChartWidth(newWidth)
       } else {
         // For bar charts, use percentage-based resizing
         const containerWidth = container.offsetWidth
         const deltaPercent = (deltaX / containerWidth) * 100
         const adjustedDelta = resizingHandle === 'left' ? -deltaPercent : deltaPercent
-        pendingWidth = Math.max(40, Math.min(100, chartResizeStartWidth.current + adjustedDelta))
-
-        if (rafId === null) {
-          rafId = requestAnimationFrame(() => {
-            if (pendingWidth !== null) {
-              setChartWidthPercent(pendingWidth)
-            }
-            rafId = null
-          })
-        }
+        const newWidth = Math.max(40, Math.min(100, chartResizeStartWidth.current + adjustedDelta))
+        setChartWidthPercent(newWidth)
       }
     }
 
     const handleMouseUp = () => {
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId)
-      }
-      // Apply final position
-      if (chartVariantRef.current === 'pie' && pendingPieWidth !== null) {
-        setPieChartWidth(pendingPieWidth)
-      } else if (pendingWidth !== null) {
-        setChartWidthPercent(pendingWidth)
-      }
       setIsResizingChart(false)
       setResizingHandle(null)
     }
@@ -423,9 +394,6 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     return () => {
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId)
-      }
     }
   }, [isResizingChart, resizingHandle])
 
@@ -444,33 +412,14 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   useEffect(() => {
     if (!isResizingHeight) return
 
-    let rafId: number | null = null
-    let pendingOffset: number | null = null
-
     const handleMouseMove = (e: MouseEvent) => {
       const deltaY = e.clientY - heightResizeStartY.current
       // Clamp height offset between -100 and 300
-      pendingOffset = Math.max(-100, Math.min(300, heightResizeStartOffset.current + deltaY))
-
-      // Throttle updates using requestAnimationFrame
-      if (rafId === null) {
-        rafId = requestAnimationFrame(() => {
-          if (pendingOffset !== null) {
-            setChartHeightOffset(pendingOffset)
-          }
-          rafId = null
-        })
-      }
+      const newOffset = Math.max(-100, Math.min(300, heightResizeStartOffset.current + deltaY))
+      setChartHeightOffset(newOffset)
     }
 
     const handleMouseUp = () => {
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId)
-      }
-      // Apply final position
-      if (pendingOffset !== null) {
-        setChartHeightOffset(pendingOffset)
-      }
       setIsResizingHeight(false)
     }
 
@@ -480,9 +429,6 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     return () => {
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId)
-      }
     }
   }, [isResizingHeight])
 
@@ -1623,26 +1569,25 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         paddingTop: '0px',
         paddingBottom: '30px',
         position: 'relative',
-        minHeight: `${300 + chartHeightOffset}px`,
-        transition: isResizingHeight ? 'none' : 'min-height 0.1s ease-out'
+        minHeight: `${300 + chartHeightOffset}px`
       }}>
       {/* Right resize handle - positioned based on chart type */}
       <div
         onMouseDown={handleChartResizeStart('right')}
         style={{
           position: 'absolute',
-          // For pie charts, position based on pixel width; for bar/heatmap, use 95% content width
-          // Add 40px offset to ensure handle is outside the container shadow (consistent across all chart types)
+          // For pie charts, position based on pixel width; for bar/heatmap, position relative to chart width
+          // Handle moves with chart container to maintain consistent padding
           left: chartVariant === 'pie'
             ? `${effectivePieWidth + 40}px`
-            : `calc(95% + 40px)`,
+            : `calc(${chartWidthPercent * 0.95}% + 40px)`,
           top: '50%',
           transform: 'translateY(-50%)',
           height: '80px',
           width: '20px',
           cursor: 'ew-resize',
           backgroundColor: isResizingChart && resizingHandle === 'right' ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
-          transition: isResizingChart ? 'none' : 'background-color 0.15s ease, left 0.1s ease-out',
+          transition: 'background-color 0.15s ease',
           zIndex: 10,
           display: 'flex',
           alignItems: 'center',
@@ -1669,8 +1614,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         }} />
       </div>
       <div ref={chartContentRef} style={{
-        width: `${chartWidthPercent}%`,
-        transition: isResizingChart ? 'none' : 'width 0.1s ease-out'
+        width: `${chartWidthPercent}%`
       }}>
         {/* Export wrapper with rounded corners and shadow for clipboard copy */}
         <div
@@ -1686,8 +1630,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
             width: chartVariant === 'pie'
               ? (pieChartWidth ? `${pieChartWidth}px` : 'fit-content')
               : '95%',
-            minWidth: chartVariant === 'pie' ? undefined : undefined, // No minWidth needed since we're using fixed 95% width
-            transition: isResizingChart ? 'none' : 'width 0.1s ease-out'
+            minWidth: chartVariant === 'pie' ? undefined : undefined // No minWidth needed since we're using fixed 95% width
           }}
         >
       {(() => {
