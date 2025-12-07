@@ -9,6 +9,7 @@ import { RankingDisplay } from './RankingDisplay'
 import { buildSeries, buildSeriesFromComparisonSets } from '../dataCalculations'
 import type { BuildSeriesResult } from '../dataCalculations'
 import type { ParsedCSV, QuestionDef, SortOrder, SegmentDef, ComparisonSet } from '../types'
+import { stripQuotes } from '../utils/stringUtils'
 
 // Performance: Disable console logs in production
 const isDev = process.env.NODE_ENV === 'development'
@@ -38,6 +39,7 @@ interface ChartCardProps {
   filterSignificantOnly?: boolean
   dataset: ParsedCSV
   segmentColumn?: string
+  segments?: SegmentDef[]
   sortOrder: SortOrder
   showAsterisks?: boolean
   comparisonMode?: boolean
@@ -79,6 +81,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   filterSignificantOnly = false,
   dataset,
   segmentColumn: _segmentColumn,
+  segments: segmentsProp,
   sortOrder,
   showAsterisks = true,
   comparisonMode = true,
@@ -539,7 +542,14 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   )
 
   // Check if this is a product follow-up question with positive/negative
+  // Note: For bar chart averaging, we check isProductQuestion (not canUseHeatmap)
+  // so this works in compare mode too
   const isProductFollowUpQuestion = canUseHeatmap &&
+    (question.label.toLowerCase().includes('(positive)') ||
+     question.label.toLowerCase().includes('(negative)'))
+
+  // Separate check for bar chart averaging - this should work in compare mode too
+  const isProductFollowUpForBarChart = isProductQuestion &&
     (question.label.toLowerCase().includes('(positive)') ||
      question.label.toLowerCase().includes('(negative)'))
 
@@ -1156,14 +1166,14 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               <div
                 className="absolute left-0 top-10 z-50 w-[22rem] animate-in fade-in slide-in-from-top-2 duration-200"
                 style={{
-                  backgroundColor: 'white',
+                  backgroundColor: '#ffffff',
                   borderRadius: '12px',
-                  boxShadow: '0 4px 24px -4px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+                  boxShadow: '0 4px 24px -4px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.08)',
                   overflow: 'hidden'
                 }}
               >
                 {/* Header */}
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#ffffff' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Filter Attributes</span>
                     <div style={{ display: 'flex', gap: '6px' }}>
@@ -1213,7 +1223,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                   </div>
                 </div>
                 {/* Options list */}
-                <div className="max-h-64 overflow-y-auto" style={{ padding: '8px' }}>
+                <div className="max-h-64 overflow-y-auto" style={{ padding: '8px', backgroundColor: '#ffffff' }}>
                   {sortedOptionsForFilter.map((option, index) => (
                     <label
                       key={option.option}
@@ -1314,19 +1324,19 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               <div
                 className="absolute left-0 top-10 z-10 animate-in fade-in slide-in-from-top-2 duration-200"
                 style={{
-                  backgroundColor: 'white',
+                  backgroundColor: '#ffffff',
                   borderRadius: '12px',
-                  boxShadow: '0 4px 24px -4px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+                  boxShadow: '0 4px 24px -4px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.08)',
                   overflow: 'hidden',
                   minWidth: '160px'
                 }}
               >
                 {/* Header */}
-                <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ padding: '10px 14px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#ffffff' }}>
                   <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Sort By</span>
                 </div>
                 {/* Options */}
-                <div style={{ padding: '6px' }}>
+                <div style={{ padding: '6px', backgroundColor: '#ffffff' }}>
                   {SORT_OPTIONS.map((option) => {
                     const isSelected = cardSort === option
                     const icons: Record<string, typeof faSort> = {
@@ -1957,8 +1967,10 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
         // For product follow-up questions, we need to recalculate the data
         // by averaging per-product percentages instead of using the aggregated "Overall"
-        if (isProductFollowUpQuestion && productColumn) {
-          devLog('📊 Product follow-up bar chart: recalculating with averaged per-product data')
+        // Use isProductFollowUpForBarChart which works in compare mode (not dependent on canUseHeatmap)
+        if (isProductFollowUpForBarChart && productColumn) {
+          console.log('📊 Product follow-up bar chart: recalculating with averaged per-product data')
+          console.log('📊 isProductFollowUpForBarChart:', isProductFollowUpForBarChart, 'productColumn:', productColumn)
 
           // Get all unique products from the dataset
           const allProducts = Array.from(
@@ -1966,57 +1978,155 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
           ).sort()
 
           if (allProducts.length > 0) {
-            // Build series with products as segments
-            const productSeries = buildSeries({
-              dataset,
-              question,
-              segmentColumn: productColumn,
-              groups: allProducts,
-              sortOrder
-            })
+            // Check if we're in compare mode with multiple segments
+            const isInCompareMode = series.groups.length > 1 || (series.groups.length === 1 && series.groups[0].label !== 'Overall')
 
-            // Average the percentages across all products for each option
-            const averagedData = productSeries.data.map(dataPoint => {
-              // Get all product values and calculate the average
-              const productValues = productSeries.groups.map(g => Number(dataPoint[g.key] || 0))
-              const avgValue = productValues.length > 0
-                ? productValues.reduce((sum, val) => sum + val, 0) / productValues.length
-                : 0
+            // In compare mode, we still need to calculate per-product averages for each segment
+            if (isInCompareMode && segmentsProp && segmentsProp.length > 0) {
+              console.log('📊 Product follow-up in compare mode: calculating per-segment product averages')
+              console.log('📊 Segments prop:', segmentsProp)
 
-              // Create new data point with averaged "Overall" value
-              const newDataPoint: any = {
-                ...dataPoint,
-                overall: avgValue, // Store the averaged percentage
-                optionDisplay: optionLabels[dataPoint.option] || dataPoint.optionDisplay,
-                groupSummaries: [{
-                  label: 'Overall',
-                  count: 0, // Not meaningful for averages
-                  denominator: 0,
-                  percent: avgValue
-                }]
-              }
+              // Get all unique options from the question
+              const allOptions = question.columns.map(col => col.optionLabel).filter(Boolean)
 
-              return newDataPoint
-            }).filter(d => !isExcludedValue(d.optionDisplay))
+              // For each segment, calculate the average across products
+              const averagedData = allOptions.map(optionLabel => {
+                const newDataPoint: any = {
+                  option: optionLabel,
+                  optionDisplay: optionLabels[optionLabel] || optionLabel,
+                  significance: [],
+                  groupSummaries: []
+                }
 
-            const averagedGroups = [{ key: 'overall', label: 'Overall' }]
+                // For each segment, filter dataset and calculate per-product averages
+                segmentsProp.filter(seg => seg.value !== 'Overall').forEach(segment => {
+                  // Filter dataset rows to this segment
+                  const segmentRows = dataset.rows.filter(row => {
+                    const rowValue = stripQuotes(String(row[segment.column] ?? '').trim())
+                    return rowValue === segment.value
+                  })
 
-            return (
-              <ComparisonChart
-                data={averagedData}
-                groups={averagedGroups}
-                orientation={chartOrientation}
-                questionLabel={displayLabel}
-                colors={chartColors}
-                optionLabels={optionLabels}
-                onSaveOptionLabel={onSaveOptionLabel}
-                onSaveQuestionLabel={onSaveQuestionLabel}
-                questionTypeBadge={questionTypeBadge}
-                heightOffset={chartHeightOffset}
-                showSegment={showSegment}
-                sentimentType={sentimentType}
-              />
-            )
+                  if (segmentRows.length === 0) {
+                    devLog(`📊 No rows found for segment ${segment.column}=${segment.value}`)
+                    return
+                  }
+
+                  // Create filtered dataset for this segment
+                  const filteredDataset: ParsedCSV = {
+                    ...dataset,
+                    rows: segmentRows
+                  }
+
+                  // Build product series from filtered dataset
+                  const productSeries = buildSeries({
+                    dataset: filteredDataset,
+                    question,
+                    segmentColumn: productColumn,
+                    groups: allProducts,
+                    sortOrder
+                  })
+
+                  // Find the matching data point for this option
+                  const matchingPoint = productSeries.data.find(d =>
+                    d.option.toLowerCase() === optionLabel.toLowerCase()
+                  )
+
+                  if (matchingPoint) {
+                    // Get all product values and calculate the average
+                    const productValues = productSeries.groups.map(g => Number(matchingPoint[g.key] || 0))
+                    const avgValue = productValues.length > 0
+                      ? productValues.reduce((sum, val) => sum + val, 0) / productValues.length
+                      : 0
+
+                    // Find the matching group key from series.groups
+                    const groupMeta = series.groups.find(g => g.label === segment.value)
+                    if (groupMeta) {
+                      newDataPoint[groupMeta.key] = avgValue
+                      newDataPoint.groupSummaries.push({
+                        label: segment.value,
+                        count: 0,
+                        denominator: 0,
+                        percent: avgValue
+                      })
+                    }
+                  }
+                })
+
+                return newDataPoint
+              }).filter(d => !isExcludedValue(d.optionDisplay))
+
+              devLog('📊 Averaged data for compare mode:', averagedData)
+
+              return (
+                <ComparisonChart
+                  data={averagedData}
+                  groups={series.groups}
+                  orientation={chartOrientation}
+                  questionLabel={displayLabel}
+                  colors={chartColors}
+                  optionLabels={optionLabels}
+                  onSaveOptionLabel={onSaveOptionLabel}
+                  onSaveQuestionLabel={onSaveQuestionLabel}
+                  questionTypeBadge={questionTypeBadge}
+                  heightOffset={chartHeightOffset}
+                  showSegment={showSegment}
+                  sentimentType={sentimentType}
+                />
+              )
+            } else if (!isInCompareMode) {
+              // Non-compare mode (Overall only): Build series with products as segments
+              // and average the per-product percentages
+              const productSeries = buildSeries({
+                dataset,
+                question,
+                segmentColumn: productColumn,
+                groups: allProducts,
+                sortOrder
+              })
+
+              // Average the percentages across all products for each option
+              const averagedData = productSeries.data.map(dataPoint => {
+                // Get all product values and calculate the average
+                const productValues = productSeries.groups.map(g => Number(dataPoint[g.key] || 0))
+                const avgValue = productValues.length > 0
+                  ? productValues.reduce((sum, val) => sum + val, 0) / productValues.length
+                  : 0
+
+                // Create new data point with averaged "Overall" value
+                const newDataPoint: any = {
+                  ...dataPoint,
+                  overall: avgValue, // Store the averaged percentage
+                  optionDisplay: optionLabels[dataPoint.option] || dataPoint.optionDisplay,
+                  groupSummaries: [{
+                    label: 'Overall',
+                    count: 0, // Not meaningful for averages
+                    denominator: 0,
+                    percent: avgValue
+                  }]
+                }
+
+                return newDataPoint
+              }).filter(d => !isExcludedValue(d.optionDisplay))
+
+              const averagedGroups = [{ key: 'overall', label: 'Overall' }]
+
+              return (
+                <ComparisonChart
+                  data={averagedData}
+                  groups={averagedGroups}
+                  orientation={chartOrientation}
+                  questionLabel={displayLabel}
+                  colors={chartColors}
+                  optionLabels={optionLabels}
+                  onSaveOptionLabel={onSaveOptionLabel}
+                  onSaveQuestionLabel={onSaveQuestionLabel}
+                  questionTypeBadge={questionTypeBadge}
+                  heightOffset={chartHeightOffset}
+                  showSegment={showSegment}
+                  sentimentType={sentimentType}
+                />
+              )
+            }
           }
         }
 
@@ -2236,6 +2346,7 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
                 filterSignificantOnly={filterSignificantOnly}
                 dataset={dataset}
                 segmentColumn={segmentColumn}
+                segments={segments}
                 sortOrder={sortOrder}
                 showAsterisks={showAsterisks}
                 comparisonMode={comparisonMode}
