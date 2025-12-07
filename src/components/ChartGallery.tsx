@@ -1138,7 +1138,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-md transition-shadow hover:shadow-lg space-y-4" style={{ paddingRight: '30px' }}>
-      <div className="flex items-center gap-2 pb-2" style={{ width: '95%', margin: '0 auto', marginBottom: '20px', marginLeft: 'calc(2.5% - 30px)' }}>
+      <div className="flex items-center gap-2 pb-2" style={{ width: '95%', margin: '0 auto', marginBottom: '20px', marginLeft: 'calc(2.5% - 30px)', position: 'relative', zIndex: 100 }}>
         <div className="flex items-center gap-2">
           {/* 1. Filter Icon Button */}
           <div className="relative" ref={filterMenuRef}>
