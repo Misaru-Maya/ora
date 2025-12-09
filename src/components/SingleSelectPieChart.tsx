@@ -226,13 +226,13 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
 
   // Custom label line renderer - line color matches each slice's color
   // Only show line if label is shown
-  const renderLabelLine = (props: any) => {
+  const renderLabelLine = (props: any): React.ReactElement => {
     const RADIAN = Math.PI / 180
     const { cx, cy, midAngle, outerRadius, index } = props
 
-    // Don't render line if label is hidden
+    // Don't render line if label is hidden - return empty group instead of null
     if (!labelsToShow.has(index)) {
-      return null
+      return <g />
     }
 
     // Line starts at pie edge
@@ -545,7 +545,7 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
                   outerRadius={85}
                   paddingAngle={2}
                   label={renderLabel}
-                  labelLine={renderLabelLine}
+                  labelLine={renderLabelLine as any}
                   startAngle={90}
                   endAngle={450}
                   isAnimationActive={false}
