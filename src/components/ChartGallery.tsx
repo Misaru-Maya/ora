@@ -652,27 +652,44 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         setChartOrientation('vertical')
       }
 
-      // Filter out excluded values from defaults
-      const allOptions = series.data.map(d => d.option).filter(option => {
+      // Get all options (including excluded values like "Not Specified" - they'll be deselected by default)
+      const allOptions = series.data.map(d => d.option)
+
+      // Helper to check if an option has 0% across all groups
+      const hasZeroPercent = (option: string) => {
+        const dataPoint = series.data.find(d => d.option === option)
+        if (!dataPoint) return true
+        // If no groups, can't determine - don't exclude
+        if (series.groups.length === 0) return false
+        // Check if ALL groups have 0%
+        return series.groups.every(group => {
+          const value = Number(dataPoint[group.key] ?? 0)
+          return value === 0
+        })
+      }
+
+      // Get non-excluded options for default selection (also exclude 0% options)
+      const nonExcludedOptions = allOptions.filter(option => {
         const displayValue = series.data.find(d => d.option === option)?.optionDisplay || option
-        return !isExcludedValue(displayValue)
+        // Exclude if it's an excluded value (like "Not Specified") OR if it has 0% across all groups
+        return !isExcludedValue(displayValue) && !hasZeroPercent(option)
       })
 
-      // For ranking questions, show all options by default
+      // For ranking questions, show all non-excluded options by default
       // For heatmaps (sentiment/product follow-up), show top 10 by value if more than 10 options
       // For other questions, select only the top 8 options by default (marked with __isTop8)
-      // Users can manually select other options from the filter dropdown
+      // Users can manually select excluded options (like "Not Specified") from the filter dropdown
       let selectedDefaults: string[]
       if (question.type === 'ranking') {
-        // Ranking questions show all attributes
-        selectedDefaults = allOptions
+        // Ranking questions show all non-excluded attributes
+        selectedDefaults = nonExcludedOptions
       } else if (isSentimentQuestion || isProductFollowUpQuestion) {
         // Heatmaps: if more than 10 attributes, select top 10 by value (descending)
-        if (allOptions.length > 10) {
+        if (nonExcludedOptions.length > 10) {
           // Sort by average value descending (same logic as HeatmapTable)
           const overallGroup = series.groups.find(g => g.label === 'Overall')
           const sortedByValue = series.data
-            .filter(d => allOptions.includes(d.option))
+            .filter(d => nonExcludedOptions.includes(d.option))
             .map(d => {
               const sortValue = overallGroup
                 ? Number(d[overallGroup.key] ?? 0)
@@ -686,14 +703,14 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
             .map(d => d.option)
           selectedDefaults = sortedByValue
         } else {
-          selectedDefaults = allOptions
+          selectedDefaults = nonExcludedOptions
         }
       } else {
-        // Use __isTop8 flag to determine default selection
+        // Use __isTop8 flag to determine default selection (excludes "Not Specified" and 0% options)
         const top8Options = series.data
-          .filter((d: any) => d.__isTop8 && !isExcludedValue(d.optionDisplay || d.option))
+          .filter((d: any) => d.__isTop8 && !isExcludedValue(d.optionDisplay || d.option) && !hasZeroPercent(d.option))
           .map(d => d.option)
-        selectedDefaults = top8Options.length > 0 ? top8Options : allOptions.slice(0, 8)
+        selectedDefaults = top8Options.length > 0 ? top8Options : nonExcludedOptions.slice(0, 8)
       }
       setSelectedOptions(selectedDefaults)
 
@@ -859,17 +876,17 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     })
     const filtered = annotated.filter(item => selectedOptions.includes(item.data.option))
 
-    // Filter out options where any group has 0 or 1% values
-    const filteredWithoutLowValues = filtered.filter(item => {
-      // Check if any group has a value <= 1%
-      const hasLowValue = series.groups.some(group => {
+    // Only filter out options where ALL groups have exactly 0% (no data at all)
+    const filteredWithoutEmptyValues = filtered.filter(item => {
+      // Check if ALL groups have 0% - only exclude if there's absolutely no data
+      const allGroupsEmpty = series.groups.every(group => {
         const value = Number(item.data[group.key] ?? 0)
-        return value <= 1
+        return value === 0
       })
-      return !hasLowValue
+      return !allGroupsEmpty
     })
 
-    const sorted = [...filteredWithoutLowValues]
+    const sorted = [...filteredWithoutEmptyValues]
     const isPieChart = chartVariant === 'pie' && canUsePie
 
     // Apply sorting only if there's no custom order
@@ -988,13 +1005,13 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       }
     })
 
-    // Filter out options where any group has 0 or 1% values (same as processedData)
+    // Only filter out options where ALL groups have exactly 0% (same as processedData)
     const filteredAnnotated = annotated.filter(item => {
-      const hasLowValue = series.groups.some(group => {
+      const allGroupsEmpty = series.groups.every(group => {
         const value = Number(item.data[group.key] ?? 0)
-        return value <= 1
+        return value === 0
       })
-      return !hasLowValue
+      return !allGroupsEmpty
     })
 
     const sorted = [...filteredAnnotated]
@@ -1095,8 +1112,10 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       finalOrder = [...ordered, ...remaining]
     }
 
-    // Filter out excluded values completely
-    return finalOrder.filter(d => !isExcludedValue(d.optionDisplay))
+    // Move excluded values (like "Not Specified") to the bottom of the list, regardless of sort order
+    const nonExcluded = finalOrder.filter(d => !isExcludedValue(d.optionDisplay))
+    const excluded = finalOrder.filter(d => isExcludedValue(d.optionDisplay))
+    return [...nonExcluded, ...excluded]
   }, [series, cardSort, statSigFilteredData, chartVariant, canUsePie, showAsterisks, customOptionOrder])
 
   // Transpose data when axes are swapped

@@ -197,15 +197,43 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
 
   devLog('About to render pie chart with pieData:', pieData)
 
+  // Reverse the pie data for rendering to match clockwise legend order
+  const reversedPieData = React.useMemo(() => [...pieData].reverse(), [pieData])
+
   // Label line length constant - used by both label and labelLine renderers
   const LABEL_LINE_LENGTH = 12
   // Gap between line end and text
   const TEXT_GAP = 2
+  // Minimum angle difference (in degrees) to show both labels - prevents overlap
+  const MIN_ANGLE_DIFF = 15
+
+  // Pre-calculate which labels should be shown
+  // Rules:
+  // 1. Hide labels for values less than 2% (rounded)
+  // 2. Always show labels for values 2% and above
+  const labelsToShow = React.useMemo(() => {
+    const shownLabels = new Set<number>()
+
+    reversedPieData.forEach((slice, index) => {
+      // Only show labels for values >= 2% (rounded)
+      if (Math.round(slice.value) >= 2) {
+        shownLabels.add(index)
+      }
+    })
+
+    return shownLabels
+  }, [reversedPieData])
 
   // Custom label line renderer - line color matches each slice's color
+  // Only show line if label is shown
   const renderLabelLine = (props: any) => {
     const RADIAN = Math.PI / 180
     const { cx, cy, midAngle, outerRadius, index } = props
+
+    // Don't render line if label is hidden
+    if (!labelsToShow.has(index)) {
+      return null
+    }
 
     // Line starts at pie edge
     const startX = cx + outerRadius * Math.cos(-midAngle * RADIAN)
@@ -237,15 +265,17 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
     const RADIAN = Math.PI / 180
     const midAngle = entry.midAngle
 
+    // Don't render label if it would overlap - check using index
+    if (!labelsToShow.has(entry.index)) {
+      return null
+    }
+
     // Position at end of label line plus small gap
     const labelRadius = entry.outerRadius + LABEL_LINE_LENGTH + TEXT_GAP
 
     // Calculate label position
     const labelX = entry.cx + labelRadius * Math.cos(-midAngle * RADIAN)
     const labelY = entry.cy + labelRadius * Math.sin(-midAngle * RADIAN)
-
-    // Normalize angle to 0-360 range
-    const normalizedAngle = ((midAngle % 360) + 360) % 360
 
     // Determine text anchor based on horizontal position (left vs right of center)
     // Using cos to determine: positive cos = right side, negative cos = left side
@@ -293,9 +323,6 @@ export const SingleSelectPieChart: React.FC<SingleSelectPieChartProps> = ({
       </text>
     )
   }
-
-  // Reverse the pie data for rendering to match clockwise legend order
-  const reversedPieData = [...pieData].reverse()
 
   const legendContent = (
     <div className="flex flex-col items-start gap-3 text-sm font-semibold text-brand-gray" style={{ paddingBottom: '10px', whiteSpace: 'nowrap' }}>
