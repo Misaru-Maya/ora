@@ -47,7 +47,7 @@ export const RankingDisplay: React.FC<RankingDisplayProps> = ({
   })
 
   return (
-    <div className="flex flex-col items-center space-y-4">
+    <div className="flex flex-col items-center" style={{ width: '100%', gap: '16px' }}>
       {/* Header Row: Segment (left) | Title (center) | Badge (right) */}
       <div
         style={{
@@ -55,9 +55,6 @@ export const RankingDisplay: React.FC<RankingDisplayProps> = ({
           alignItems: 'flex-start',
           justifyContent: 'space-between',
           width: '100%',
-          maxWidth: '500px',
-          marginTop: '15px',
-          marginBottom: '5px',
           gap: '16px'
         }}
       >
@@ -145,8 +142,8 @@ export const RankingDisplay: React.FC<RankingDisplayProps> = ({
         </div>
       </div>
 
-      {/* Ranking List - Center Aligned */}
-      <div className="space-y-0" style={{ maxWidth: '500px', width: '100%' }}>
+      {/* Ranking List - Full Width */}
+      <div className="space-y-0" style={{ width: '100%' }}>
         {sortedData.map((item, index) => {
           const avgRanking = typeof item[group.key] === 'number' ? (item[group.key] as number) : 0
 

@@ -1724,7 +1724,15 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
             backgroundColor: showContainer ? '#ffffff' : 'transparent',
             borderRadius: showContainer ? '20px' : '0',
             boxShadow: showContainer ? '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)' : 'none',
-            padding: showContainer ? (chartVariant === 'pie' ? '24px 40px 20px 24px' : chartVariant === 'heatmap' ? '12px 5px 0px 0px' : '32px 5px 0px 0px') : '0', // Pie: 24px left padding
+            padding: showContainer
+              ? (question.type === 'ranking'
+                ? '32px 48px 32px 48px'  // Ranking: generous padding all around to match other charts
+                : chartVariant === 'pie'
+                  ? '24px 40px 20px 24px'
+                  : chartVariant === 'heatmap'
+                    ? '12px 5px 0px 0px'
+                    : '32px 5px 0px 0px')
+              : '0',
             margin: chartVariant === 'pie' ? '8px 0 0 2.5%' : '8px auto 0px auto', // Pie: align left edge with bar/heatmap (2.5% = (100%-95%)/2)
             // Pie charts: use explicit width if set by user, otherwise fit-content
             // Bar charts and heatmaps: use 95% width to align consistently
