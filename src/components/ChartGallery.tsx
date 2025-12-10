@@ -582,7 +582,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   // Set initial chart variant priority:
   // 1. Multi-filter comparison mode: vertical bar chart (never heatmap)
   // 2. Sentiment questions in compare mode: vertical bar chart (alphabetical sort set elsewhere)
-  // 3. Heatmap for sentiment questions and product follow-up questions in filter mode
+  // 3. Heatmap for ALL product-level questions in filter mode (canUseHeatmap)
   // 4. Stacked chart when available (single select with multiple segments) - preferred default
   // 5. Pie chart when available (single select with one segment)
   // 6. Bar chart as fallback
@@ -590,7 +590,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   const initialChartVariant: 'bar' | 'pie' | 'stacked' | 'heatmap' =
     multiFilterCompareMode ? 'bar' :
     isSentimentInCompareMode ? 'bar' :
-    (isSentimentQuestion || isProductFollowUpQuestion) ? 'heatmap' :
+    canUseHeatmap ? 'heatmap' :
     canUseStacked ? 'stacked' :
     canUsePie ? 'pie' : 'bar'
   const [chartVariant, setChartVariant] = useState<'bar' | 'pie' | 'stacked' | 'heatmap'>(initialChartVariant)
@@ -734,8 +734,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       chartDefaultsSetForQidRef.current = question.qid
 
       // Set default chart variant
-      // Priority: heatmap for sentiment/product follow-up > stacked when available > pie when available > bar
-      if (isSentimentQuestion || isProductFollowUpQuestion) {
+      // Priority: heatmap for ALL product-level questions > stacked when available > pie when available > bar
+      if (canUseHeatmap) {
         setChartVariant('heatmap')
       } else if (canUseStacked) {
         setChartVariant('stacked')
@@ -746,7 +746,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         setChartVariant('bar')
       }
     }
-  }, [question.qid, isSentimentQuestion, isProductFollowUpQuestion, canUsePie, canUseStacked])
+  }, [question.qid, canUseHeatmap, canUsePie, canUseStacked])
 
   useEffect(() => {
     // Fallback to bar if current variant is no longer available
@@ -772,9 +772,9 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     const isNowFilterMode = !comparisonMode
 
     if (wasCompareMode && isNowFilterMode) {
-      // Priority: heatmap (only for sentiment/product follow-up) > stacked > pie
-      if (canUseHeatmap && (isSentimentQuestion || isProductFollowUpQuestion)) {
-        // Heatmap for sentiment or product follow-up questions in Filter mode
+      // Priority: heatmap for ALL product-level questions > stacked > pie
+      if (canUseHeatmap) {
+        // Heatmap for all product-level questions in Filter mode
         setChartVariant('heatmap')
       } else if (canUseStacked) {
         // Stacked available: use horizontal stacked
@@ -788,7 +788,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     }
 
     prevComparisonModeRef.current = comparisonMode
-  }, [comparisonMode, canUseHeatmap, canUsePie, canUseStacked, isSentimentQuestion, isProductFollowUpQuestion])
+  }, [comparisonMode, canUseHeatmap, canUsePie, canUseStacked])
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -1563,7 +1563,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                     <FontAwesomeIcon icon={faChartBar} style={{ fontSize: '13px', color: chartVariant === 'stacked' ? '#3A8518' : '#64748b' }} />
                   </button>
                 )}
-                {canUseHeatmap && (isSentimentQuestion || isProductFollowUpQuestion) && (
+                {canUseHeatmap && (
                   <button
                     className="flex items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer"
                     style={{
