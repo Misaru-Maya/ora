@@ -203,6 +203,10 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
       const checkPortal = () => {
         const target = document.getElementById(`heatmap-filters-${questionId}`)
         if (target) {
+          // Debug: Check if there are existing children in the portal target
+          if (target.children.length > 0) {
+            console.warn(`⚠️ HeatmapTable: Portal target already has ${target.children.length} children for question ${questionId}`)
+          }
           setPortalReady(true)
           return true
         }
@@ -564,7 +568,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
   // Product filter button - will be rendered via portal in ChartGallery button area
   // This is defined before the early return so it can always be rendered
   const filterButtons = (
-    <div className="relative heatmap-dropdown-container">
+    <div key={`filter-${questionId}`} className="relative heatmap-dropdown-container" data-heatmap-filter={questionId}>
       <button
         onClick={() => setShowProductFilter(!showProductFilter)}
         className="flex items-center justify-center text-gray-600 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 active:scale-95"

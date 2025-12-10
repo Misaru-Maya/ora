@@ -1147,6 +1147,105 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     return { transposedData: newData, transposedGroups: newGroups }
   }, [axesSwapped, processedData, series.groups])
 
+  // Check if heatmap data has meaningful variation across products
+  // If all values are 0% or identical across all products, OR only one product has data,
+  // we should fall back to bar/pie chart
+  const heatmapHasNoVariation = useMemo(() => {
+    if (!canUseHeatmap || !productColumn) return false
+
+    // Get all unique products from the dataset
+    const allProducts = Array.from(
+      new Set(dataset.rows.map(row => normalizeProductValue(row[productColumn])).filter(v => v && v !== 'Unspecified'))
+    )
+
+    if (allProducts.length === 0) return false
+
+    // Build the heatmap series to check values
+    const heatmapSeries = buildSeries({
+      dataset,
+      question,
+      segmentColumn: productColumn,
+      groups: allProducts,
+      sortOrder
+    })
+
+    // Use the group keys from the built series (these are the actual keys in the data points)
+    const groupKeys = heatmapSeries.groups.map(g => g.key)
+
+    devLog('📊 Heatmap variation check:', {
+      questionLabel: question.label,
+      productsCount: allProducts.length,
+      groupKeys: groupKeys.slice(0, 5),
+      dataPointsCount: heatmapSeries.data.length,
+      sampleData: heatmapSeries.data[0]
+    })
+
+    // Track which products have ANY non-zero values across all attributes
+    const productsWithData = new Set<string>()
+
+    // Check each attribute row - we need at least ONE attribute with variation across products
+    let hasAnyVariation = false
+    for (const dataPoint of heatmapSeries.data) {
+      // Get all product values for this attribute using the GROUP KEYS (not product names)
+      const productValues = groupKeys.map(key => {
+        const value = Number(dataPoint[key] ?? 0)
+        return Math.round(value) // Round to avoid floating point comparison issues
+      })
+
+      // Track which products have non-zero values
+      groupKeys.forEach((key, idx) => {
+        if (productValues[idx] > 0) {
+          productsWithData.add(key)
+        }
+      })
+
+      // Check if values have variation (not all identical)
+      const uniqueValues = new Set(productValues)
+
+      devLog('📊 Attribute variation:', {
+        attribute: dataPoint.option,
+        values: productValues.slice(0, 5),
+        uniqueCount: uniqueValues.size
+      })
+
+      if (uniqueValues.size > 1) {
+        // Found variation in at least one attribute - heatmap might be meaningful
+        hasAnyVariation = true
+      }
+    }
+
+    // Check if only 0 or 1 product has any data - heatmap doesn't make sense
+    const productsWithDataCount = productsWithData.size
+    devLog('📊 Products with data:', {
+      count: productsWithDataCount,
+      products: Array.from(productsWithData).slice(0, 5)
+    })
+
+    if (productsWithDataCount <= 1) {
+      devLog('📊 Only', productsWithDataCount, 'product(s) have data - falling back to bar/pie chart')
+      return true
+    }
+
+    if (!hasAnyVariation) {
+      devLog('📊 Heatmap has no variation - falling back to bar/pie chart')
+      return true
+    }
+
+    return false
+  }, [canUseHeatmap, productColumn, dataset, question, sortOrder])
+
+  // When heatmap has no variation and chart is set to heatmap, switch to pie (single select) or bar (multi select)
+  useEffect(() => {
+    if (heatmapHasNoVariation && chartVariant === 'heatmap') {
+      devLog('📊 Switching from heatmap due to no variation - using', canUsePie ? 'pie' : 'bar')
+      if (canUsePie) {
+        setChartVariant('pie')
+      } else {
+        setChartVariant('bar')
+      }
+    }
+  }, [heatmapHasNoVariation, chartVariant, canUsePie])
+
   const hasData = transposedData.length > 0
   const hasBaseData = series.data.length > 0
   const hasStatSigResults = statSigFilteredData.length > 0
@@ -1563,7 +1662,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                     <FontAwesomeIcon icon={faChartBar} style={{ fontSize: '13px', color: chartVariant === 'stacked' ? '#3A8518' : '#64748b' }} />
                   </button>
                 )}
-                {canUseHeatmap && (
+                {canUseHeatmap && !heatmapHasNoVariation && (
                   <button
                     className="flex items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer"
                     style={{
@@ -1886,7 +1985,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
           )
         }
 
-        if (chartVariant === 'heatmap' && canUseHeatmap) {
+        if (chartVariant === 'heatmap' && canUseHeatmap && !heatmapHasNoVariation) {
           devLog('Rendering heatmap')
 
           // productColumn and sentimentColumn are already cached via useMemo above
