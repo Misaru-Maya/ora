@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, memo } from 'react'
 import { createPortal } from 'react-dom'
 import type { SeriesDataPoint, GroupSeriesMeta } from '../dataCalculations'
-import { stripQuotes, stripSentimentPrefix, getContrastTextColor, GREEN_PALETTE, YELLOW_PALETTE } from '../utils'
+import { stripQuotes, stripSentimentPrefix, getContrastTextColor, GREEN_PALETTE, YELLOW_PALETTE, getContinuousGradientColor } from '../utils'
 
 // Performance: Disable console logs in production
 const isDev = process.env.NODE_ENV === 'development'
@@ -30,7 +30,7 @@ interface HeatmapTableProps {
   sentimentType?: 'advocates' | 'detractors' | null  // For product follow-up questions
 }
 
-// Get color based on value and sentiment
+// Get color based on value and sentiment using continuous gradient
 const getColor = (value: number, sentiment: 'positive' | 'negative', minVal: number, maxVal: number) => {
   const palette = sentiment === 'positive' ? GREEN_PALETTE : YELLOW_PALETTE
 
@@ -38,18 +38,8 @@ const getColor = (value: number, sentiment: 'positive' | 'negative', minVal: num
   const range = maxVal - minVal
   const normalized = range > 0 ? ((value - minVal) / range) * 100 : 50
 
-  // Map to palette buckets (larger values = darker colors, smaller values = lighter colors)
-  // Order from large to small: s40, s30, s20, s10/t10, t20, t40, t60, t80
-  let bgColor: string
-  if (normalized >= 87.5) bgColor = palette.s40  // Largest values - darkest
-  else if (normalized >= 75) bgColor = palette.s30
-  else if (normalized >= 62.5) bgColor = palette.s20
-  else if (normalized >= 50) bgColor = palette.s10
-  else if (normalized >= 37.5) bgColor = palette.t10
-  else if (normalized >= 25) bgColor = palette.t20
-  else if (normalized >= 12.5) bgColor = palette.t40
-  else if (normalized >= 0) bgColor = palette.t60
-  else bgColor = palette.t80  // Smallest values - lightest
+  // Get continuous gradient color (smooth interpolation between palette colors)
+  const bgColor = getContinuousGradientColor(normalized, palette)
 
   // Calculate optimal text color based on background luminance
   const textColor = getContrastTextColor(bgColor)
@@ -486,18 +476,23 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
     }
   }, [groups, sentiment, defaultProductSelection])
 
-  // Calculate min/max for color scaling
-  const { minValue, maxValue } = useMemo(() => {
-    let min = Infinity
-    let max = -Infinity
-    filteredData.forEach(row => {
-      sortedGroups.forEach(group => {
+  // Calculate min/max for color scaling PER PRODUCT (column)
+  // Each product column has its own color scale based on its own min/max values
+  const productMinMax = useMemo(() => {
+    const minMax = new Map<string, { min: number; max: number }>()
+
+    sortedGroups.forEach(group => {
+      let min = Infinity
+      let max = -Infinity
+      filteredData.forEach(row => {
         const val = typeof row[group.key] === 'number' ? (row[group.key] as number) : 0
         if (val < min) min = val
         if (val > max) max = val
       })
+      minMax.set(group.key, { min, max })
     })
-    return { minValue: min, maxValue: max }
+
+    return minMax
   }, [filteredData, sortedGroups])
 
   // Sort rows (attributes) by value
@@ -1156,7 +1151,8 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                 </td>
                 {displayGroups.map(group => {
                   const value = typeof row[group.key] === 'number' ? (row[group.key] as number) : 0
-                  const { bg, text } = getColor(value, sentiment, minValue, maxValue)
+                  const productRange = productMinMax.get(group.key) || { min: 0, max: 100 }
+                  const { bg, text } = getColor(value, sentiment, productRange.min, productRange.max)
                   return (
                     <td
                       key={group.key}

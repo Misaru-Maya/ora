@@ -58,7 +58,84 @@ export const YELLOW_PALETTE = {
 }
 
 /**
+ * Parse hex color to RGB components
+ */
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const cleanHex = hex.replace('#', '')
+  return {
+    r: parseInt(cleanHex.substring(0, 2), 16),
+    g: parseInt(cleanHex.substring(2, 4), 16),
+    b: parseInt(cleanHex.substring(4, 6), 16)
+  }
+}
+
+/**
+ * Convert RGB to hex color
+ */
+function rgbToHex(r: number, g: number, b: number): string {
+  const toHex = (n: number) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0')
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+}
+
+/**
+ * Interpolate between two colors based on a ratio (0-1)
+ */
+function interpolateColor(color1: string, color2: string, ratio: number): string {
+  const rgb1 = hexToRgb(color1)
+  const rgb2 = hexToRgb(color2)
+
+  const r = rgb1.r + (rgb2.r - rgb1.r) * ratio
+  const g = rgb1.g + (rgb2.g - rgb1.g) * ratio
+  const b = rgb1.b + (rgb2.b - rgb1.b) * ratio
+
+  return rgbToHex(r, g, b)
+}
+
+/**
+ * Get continuous gradient color based on normalized value (0-100)
+ * Interpolates smoothly between palette colors
+ */
+export function getContinuousGradientColor(
+  normalized: number,
+  palette: typeof GREEN_PALETTE
+): string {
+  // Define color stops from lightest (0) to darkest (100)
+  const stops = [
+    { pos: 0, color: palette.t60 },
+    { pos: 14.3, color: palette.t40 },
+    { pos: 28.6, color: palette.t20 },
+    { pos: 42.9, color: palette.t10 },
+    { pos: 57.1, color: palette.s10 },
+    { pos: 71.4, color: palette.s20 },
+    { pos: 85.7, color: palette.s30 },
+    { pos: 100, color: palette.s40 }
+  ]
+
+  // Clamp normalized value
+  const clampedValue = Math.max(0, Math.min(100, normalized))
+
+  // Find the two stops to interpolate between
+  let lowerStop = stops[0]
+  let upperStop = stops[stops.length - 1]
+
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (clampedValue >= stops[i].pos && clampedValue <= stops[i + 1].pos) {
+      lowerStop = stops[i]
+      upperStop = stops[i + 1]
+      break
+    }
+  }
+
+  // Calculate interpolation ratio between the two stops
+  const range = upperStop.pos - lowerStop.pos
+  const ratio = range > 0 ? (clampedValue - lowerStop.pos) / range : 0
+
+  return interpolateColor(lowerStop.color, upperStop.color, ratio)
+}
+
+/**
  * Get background and text color for a heatmap cell based on value and sentiment
+ * Uses continuous gradient for smooth color transitions
  */
 export function getHeatmapColor(
   value: number,
@@ -73,17 +150,8 @@ export function getHeatmapColor(
   const range = maxVal - minVal
   const normalized = range > 0 ? ((value - minVal) / range) * 100 : 50
 
-  // Map to palette buckets (larger values = darker colors, smaller values = lighter colors)
-  let bgColor: string
-  if (normalized >= 87.5) bgColor = palette.s40  // Largest values - darkest
-  else if (normalized >= 75) bgColor = palette.s30
-  else if (normalized >= 62.5) bgColor = palette.s20
-  else if (normalized >= 50) bgColor = palette.s10
-  else if (normalized >= 37.5) bgColor = palette.t10
-  else if (normalized >= 25) bgColor = palette.t20
-  else if (normalized >= 12.5) bgColor = palette.t40
-  else if (normalized >= 0) bgColor = palette.t60
-  else bgColor = palette.t80  // Smallest values - lightest
+  // Get continuous gradient color
+  const bgColor = getContinuousGradientColor(normalized, palette)
 
   // Calculate optimal text color based on background luminance
   const textColor = getContrastTextColor(bgColor)

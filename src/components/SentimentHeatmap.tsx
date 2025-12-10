@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { ParsedCSV } from '../types'
-import { stripQuotes, getContrastTextColor, GREEN_PALETTE, YELLOW_PALETTE } from '../utils'
+import { stripQuotes, getContrastTextColor, GREEN_PALETTE, YELLOW_PALETTE, getContinuousGradientColor } from '../utils'
 
 interface SentimentHeatmapProps {
   dataset: ParsedCSV
@@ -24,7 +24,7 @@ interface ProductSentiment {
   totalResponses: number
 }
 
-// Get color based on value within a row (advocates or detractors)
+// Get color based on value within a row (advocates or detractors) using continuous gradient
 const getColor = (value: number, sentiment: 'advocate' | 'detractor', minVal: number, maxVal: number) => {
   const palette = sentiment === 'advocate' ? GREEN_PALETTE : YELLOW_PALETTE
 
@@ -32,17 +32,8 @@ const getColor = (value: number, sentiment: 'advocate' | 'detractor', minVal: nu
   const range = maxVal - minVal
   const normalized = range > 0 ? ((value - minVal) / range) * 100 : 50
 
-  // Map to palette buckets (larger values = darker colors)
-  let bgColor: string
-  if (normalized >= 87.5) bgColor = palette.s40
-  else if (normalized >= 75) bgColor = palette.s30
-  else if (normalized >= 62.5) bgColor = palette.s20
-  else if (normalized >= 50) bgColor = palette.s10
-  else if (normalized >= 37.5) bgColor = palette.t10
-  else if (normalized >= 25) bgColor = palette.t20
-  else if (normalized >= 12.5) bgColor = palette.t40
-  else if (normalized >= 0) bgColor = palette.t60
-  else bgColor = palette.t80
+  // Get continuous gradient color (smooth interpolation between palette colors)
+  const bgColor = getContinuousGradientColor(normalized, palette)
 
   const textColor = getContrastTextColor(bgColor)
   return { bg: bgColor, text: textColor }
@@ -156,9 +147,12 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
   // Note: top50Products and bottom50Products are now derived from orderedProducts
   // (defined later) to ensure they always match the displayed dropdown order.
 
-  // Initialize selected products - show all by default
+  // Initialize selected products - exclude products with 0% for both advocates and detractors
   useEffect(() => {
-    setSelectedProducts(sortedProducts.map(p => p.productName))
+    const nonZeroProducts = sortedProducts
+      .filter(p => p.advocatePercent > 0 || p.detractorPercent > 0)
+      .map(p => p.productName)
+    setSelectedProducts(nonZeroProducts)
   }, [sortedProducts])
 
   // Check for portal target availability
