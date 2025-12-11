@@ -104,8 +104,10 @@ function getGroupKey(label: string): string {
 }
 
 function cleanFileName(fileName: string): string {
-  // Remove "-[timestamp].csv" pattern at the end of file names
-  return fileName.replace(/-\d+\.csv$/, '.csv')
+  // Remove "All_data_-_" prefix and "-[timestamp].csv" pattern at the end of file names
+  return fileName
+    .replace(/^All_data_-_/i, '')
+    .replace(/-\d+\.csv$/, '.csv')
 }
 
 function normalizeProductValue(value: unknown): string {
@@ -1355,10 +1357,21 @@ export default function App() {
       // Add the image with padding - use JPEG format for smaller file size
       pdf.addImage(imgData, 'JPEG', 30, 30, imgWidth, imgHeight, undefined, 'FAST')
 
-      // Generate filename from CSV file name
-      const fileName = summary?.fileName
-        ? `${summary.fileName.replace(/\.csv$/i, '')}_charts.pdf`
-        : 'ora_charts.pdf'
+      // Generate filename: {cleaned CSV name}_{segment}_{Filter or Compare}.pdf
+      const baseFileName = summary?.fileName
+        ? cleanFileName(summary.fileName).replace(/\.csv$/i, '')
+        : 'ora_charts'
+
+      // Get segment info
+      const segmentPart = selections.segments && selections.segments.length > 0
+        ? selections.segments.map(s => s.value).join('_')
+        : selections.segmentColumn || 'Overall'
+
+      // Get mode (Filter or Compare)
+      const modePart = selections.multiFilterCompareMode ? 'Compare' : 'Filter'
+
+      const fileName = `${baseFileName}_${segmentPart}_${modePart}.pdf`
+        .replace(/\s+/g, '_') // Replace spaces with underscores
 
       pdf.save(fileName)
     } catch (error) {
