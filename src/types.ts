@@ -59,6 +59,15 @@ export interface ComparisonSet {
   color?: string       // Optional custom color for this set
 }
 
+// Product Bucket: A named group of products for aggregated analysis
+// Products CAN be in multiple buckets (overlap allowed)
+export interface ProductBucket {
+  id: string           // Unique identifier (e.g., "bucket_123456_abc")
+  label: string        // Display name (e.g., "Earth Tones", "Blue Theme")
+  products: string[]   // Array of product names in this bucket
+  color?: string       // Optional custom color for charts
+}
+
 export interface Selections {
   segmentColumn?: string
   groups: string[]
@@ -71,6 +80,11 @@ export interface Selections {
   productColumn?: string
   productGroups: string[]
   productOrder?: string[] // Custom order for products in heatmaps (drag-and-drop from sidebar)
+  // Product Bucketing: Group products into named buckets for aggregated analysis
+  productBuckets?: ProductBucket[] // List of defined product buckets
+  productBucketMode?: boolean // true = show bucketed aggregation view, false = individual products
+  activeBucketIds?: string[] // Which buckets to display (for filtering which buckets to show)
+  bucketLabels?: Record<string, string> // Map of bucket id to custom label
   question?: string // qid
   sortOrder: SortOrder
   statSigFilter: StatSigFilter

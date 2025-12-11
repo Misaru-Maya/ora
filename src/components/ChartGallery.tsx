@@ -6,9 +6,9 @@ import { SingleSelectPieChart } from './SingleSelectPieChart'
 import { HeatmapTable } from './HeatmapTable'
 import { SentimentHeatmap } from './SentimentHeatmap'
 import { RankingDisplay } from './RankingDisplay'
-import { buildSeries, buildSeriesFromComparisonSets } from '../dataCalculations'
+import { buildSeries, buildSeriesFromComparisonSets, buildSeriesFromProductBuckets } from '../dataCalculations'
 import type { BuildSeriesResult } from '../dataCalculations'
-import type { ParsedCSV, QuestionDef, SortOrder, SegmentDef, ComparisonSet } from '../types'
+import type { ParsedCSV, QuestionDef, SortOrder, SegmentDef, ComparisonSet, ProductBucket } from '../types'
 import { stripQuotes } from '../utils/stringUtils'
 
 // Performance: Disable console logs in production
@@ -2369,6 +2369,10 @@ interface ChartGalleryProps {
   showContainer?: boolean
   showSegment?: boolean
   showQuestionType?: boolean
+  // Product Bucketing props
+  productBuckets?: ProductBucket[]
+  productBucketMode?: boolean
+  productColumn?: string
 }
 
 export const ChartGallery: React.FC<ChartGalleryProps> = ({
@@ -2394,12 +2398,45 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
   productOrder = [],
   showContainer = true,
   showSegment = true,
-  showQuestionType = true
+  showQuestionType = true,
+  // Product Bucketing
+  productBuckets = [],
+  productBucketMode = false,
+  productColumn
 }) => {
   const renderableEntries = useMemo(() => {
     // Check if we have valid comparison sets for multi-filter mode
     const validComparisonSets = comparisonSets.filter(s => s.filters.length > 0)
     const useMultiFilterMode = multiFilterCompareMode && validComparisonSets.length >= 2
+
+    // Check if we have valid product buckets for bucket mode
+    const validProductBuckets = productBuckets.filter(b => b.products.length > 0)
+    const useProductBucketMode = productBucketMode && validProductBuckets.length >= 2 && productColumn
+
+    // If using product bucket mode - aggregate by buckets
+    if (useProductBucketMode) {
+      return questions
+        .map(question => {
+          const series = buildSeriesFromProductBuckets({
+            dataset,
+            question,
+            productBuckets: validProductBuckets,
+            productColumn: productColumn!,
+            sortOrder,
+            segments // Apply any segment filters first
+          })
+
+          // Apply custom labels to series data options
+          const questionOptionLabels = optionLabels[question.qid] || {}
+          series.data = series.data.map(dataPoint => ({
+            ...dataPoint,
+            optionDisplay: questionOptionLabels[dataPoint.option] || dataPoint.optionDisplay
+          }))
+
+          return { question, series }
+        })
+        .filter(entry => entry.series.data.length > 0)
+    }
 
     // If using multi-filter comparison mode
     if (useMultiFilterMode) {
@@ -2477,7 +2514,7 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
         return { question, series }
       })
       .filter(entry => entry.series.data.length > 0)
-  }, [dataset, questions, segmentColumn, groups, segments, sortOrder, groupLabels, optionLabels, comparisonMode, multiFilterCompareMode, comparisonSets])
+  }, [dataset, questions, segmentColumn, groups, segments, sortOrder, groupLabels, optionLabels, comparisonMode, multiFilterCompareMode, comparisonSets, productBuckets, productBucketMode, productColumn])
 
   // Create a wrapper div with ref for each chart
   return (

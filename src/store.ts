@@ -23,6 +23,11 @@ const initialSelections: Selections = {
   sortOrder: 'descending',
   productGroups: [],
   productOrder: [],
+  // Product Bucketing defaults
+  productBuckets: [], // Empty buckets by default
+  productBucketMode: false, // Default to individual products view
+  activeBucketIds: [], // All buckets active by default (empty = all)
+  bucketLabels: {},
   statSigFilter: 'all',
   showAsterisks: false, // Default to false - asterisks off in filter mode, on in comparison mode
   showContainer: true, // Default to true - show container

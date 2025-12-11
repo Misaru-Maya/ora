@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState, useRef, useTransition, useCallback } from 'react'
 import { CSVUpload, type CSVUploadHandle } from './components/CSVUpload'
 import { useORAStore } from './store'
-import type { QuestionDef, ComparisonSet, SegmentDef } from './types'
-import { buildSeries, buildSeriesFromComparisonSets } from './dataCalculations'
+import type { QuestionDef, ComparisonSet, SegmentDef, ProductBucket } from './types'
+import { buildSeries, buildSeriesFromComparisonSets, buildSeriesFromProductBuckets } from './dataCalculations'
 import { ChartGallery } from './components/ChartGallery'
 import { RegressionAnalysisPanel } from './components/RegressionAnalysisPanel'
 import { stripQuotes, isExcludedValue } from './utils'
@@ -203,6 +203,11 @@ export default function App() {
   const [consumerQuestionDropdownOpen, setConsumerQuestionDropdownOpen] = useState<Record<string, boolean>>({})
   const [consumerQuestionSearch, setConsumerQuestionSearch] = useState<Record<string, string>>({})
   const [selectedConsumerQuestions, setSelectedConsumerQuestions] = useState<Record<string, Set<string>>>({})
+
+  // Product Bucketing state
+  const [editingBucketId, setEditingBucketId] = useState<string | null>(null)
+  const [bucketLabelInput, setBucketLabelInput] = useState('')
+  const [addingProductsToBucketId, setAddingProductsToBucketId] = useState<string | null>(null)
 
   // Performance: Use transition for non-urgent updates to keep UI responsive
   const [isPending, startTransition] = useTransition()
@@ -1042,6 +1047,103 @@ export default function App() {
       setSelections({ comparisonSets: newSets })
     })
   }, [selections.comparisonSets, setSelections, generateSetLabel, startTransition])
+
+  // Product Bucketing management functions
+  const generateBucketId = () => `bucket_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+  const addProductBucket = useCallback(() => {
+    const currentBuckets = selections.productBuckets || []
+    const newBucketNumber = currentBuckets.length + 1
+    const newBucket: ProductBucket = {
+      id: generateBucketId(),
+      label: `Bucket ${newBucketNumber}`,
+      products: []
+    }
+    setSelections({
+      productBuckets: [...currentBuckets, newBucket]
+    })
+    setAddingProductsToBucketId(newBucket.id)
+  }, [selections.productBuckets, setSelections])
+
+  const removeProductBucket = useCallback((bucketId: string) => {
+    const currentBuckets = selections.productBuckets || []
+    const newBuckets = currentBuckets.filter(b => b.id !== bucketId)
+    setSelections({
+      productBuckets: newBuckets,
+      productBucketMode: newBuckets.length >= 2 ? selections.productBucketMode : false
+    })
+    if (addingProductsToBucketId === bucketId) {
+      setAddingProductsToBucketId(null)
+    }
+  }, [selections.productBuckets, selections.productBucketMode, addingProductsToBucketId, setSelections])
+
+  const updateProductBucketLabel = useCallback((bucketId: string, newLabel: string) => {
+    let currentBuckets = selections.productBuckets || []
+
+    // If the bucket doesn't exist yet (e.g., default_bucket_1), create it first
+    const bucketExists = currentBuckets.some(b => b.id === bucketId)
+    if (!bucketExists) {
+      const newBucket: ProductBucket = {
+        id: bucketId,
+        label: newLabel,
+        products: []
+      }
+      currentBuckets = [newBucket]
+    }
+
+    const newBuckets = currentBuckets.map(b =>
+      b.id === bucketId ? { ...b, label: newLabel } : b
+    )
+    setSelections({ productBuckets: newBuckets })
+  }, [selections.productBuckets, setSelections])
+
+  const addProductToBucket = useCallback((bucketId: string, product: string) => {
+    startTransition(() => {
+      let currentBuckets = selections.productBuckets || []
+
+      // If the bucket doesn't exist yet (e.g., default_bucket_1), create it
+      const bucketExists = currentBuckets.some(b => b.id === bucketId)
+      if (!bucketExists) {
+        const newBucket: ProductBucket = {
+          id: bucketId,
+          label: 'Bucket 1',
+          products: []
+        }
+        currentBuckets = [newBucket]
+        setAddingProductsToBucketId(bucketId)
+      }
+
+      const newBuckets = currentBuckets.map(b => {
+        if (b.id !== bucketId) return b
+        // Check if product already exists in bucket
+        if (b.products.includes(product)) return b
+        const newProducts = [...b.products, product]
+        // Keep the existing label - don't auto-generate from products
+        return { ...b, products: newProducts }
+      })
+
+      setSelections({ productBuckets: newBuckets })
+    })
+  }, [selections.productBuckets, setSelections, startTransition])
+
+  const removeProductFromBucket = useCallback((bucketId: string, product: string) => {
+    startTransition(() => {
+      const currentBuckets = selections.productBuckets || []
+      if (!currentBuckets.some(b => b.id === bucketId)) return
+
+      const newBuckets = currentBuckets.map(b => {
+        if (b.id !== bucketId) return b
+        const newProducts = b.products.filter(p => p !== product)
+        // Keep the existing label - don't auto-generate from products
+        return { ...b, products: newProducts }
+      })
+      setSelections({ productBuckets: newBuckets })
+    })
+  }, [selections.productBuckets, setSelections, startTransition])
+
+  const toggleProductBucketMode = useCallback((enabled: boolean) => {
+    setSelections({ productBucketMode: enabled })
+  }, [setSelections])
 
   const toggleSegmentGroup = (column: string) => {
     const newExpanded = new Set(expandedSegmentGroups)
@@ -3880,6 +3982,427 @@ export default function App() {
                   </section>
                 )}
 
+                {/* Product Buckets Section - Only show when products exist */}
+                {productColumn && productValues.length > 0 && (
+                  <section
+                    className="rounded-xl bg-white shadow-sm"
+                  >
+                    <div
+                      className="flex items-center justify-between cursor-pointer"
+                      onClick={() => toggleSection('productBuckets')}
+                      style={{
+                        padding: '14px 16px',
+                        backgroundColor: 'white',
+                        borderRadius: '12px',
+                        transition: 'background-color 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#FEF3C7'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'white'
+                      }}
+                    >
+                      <div className="flex items-center" style={{ gap: '10px' }}>
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#3A8518"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M2 12h6l2-6 4 12 2-6h6" />
+                        </svg>
+                        <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#374151', letterSpacing: '0.025em' }}>Product Buckets</h4>
+                        {/* Status indicator */}
+                        {(() => {
+                          const validBuckets = (selections.productBuckets || []).filter(b => b.products.length > 0)
+                          if (validBuckets.length >= 2 && selections.productBucketMode) {
+                            return (
+                              <span style={{ fontSize: '10px', padding: '2px 6px', backgroundColor: '#E8F5E0', color: '#3A8518', borderRadius: '4px', fontWeight: 500 }}>
+                                Active
+                              </span>
+                            )
+                          } else if (validBuckets.length === 1) {
+                            return (
+                              <span style={{ fontSize: '10px', padding: '2px 6px', backgroundColor: '#FEF3C7', color: '#92400E', borderRadius: '4px', fontWeight: 500 }}>
+                                Need 1 more
+                              </span>
+                            )
+                          }
+                          return null
+                        })()}
+                      </div>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#3A8518"
+                        strokeWidth="2"
+                        className="flex-shrink-0 transition-transform"
+                        style={{ transform: expandedSections.has('productBuckets') ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                      >
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
+                    </div>
+                    {expandedSections.has('productBuckets') && (
+                      <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '0 0 12px 12px' }}>
+                        {/* Bucket Mode Toggle - Show when 2+ valid buckets */}
+                        {(() => {
+                          const validBuckets = (selections.productBuckets || []).filter(b => b.products.length > 0)
+                          if (validBuckets.length >= 2) {
+                            return (
+                              <div style={{ marginBottom: '12px', padding: '10px', backgroundColor: '#F0FDF4', borderRadius: '8px' }}>
+                                <div className="flex items-center justify-between">
+                                  <span style={{ fontSize: '12px', fontWeight: 500, color: '#374151' }}>View by Buckets</span>
+                                  <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={selections.productBucketMode ?? false}
+                                      onChange={(e) => {
+                                        e.stopPropagation()
+                                        toggleProductBucketMode(e.target.checked)
+                                      }}
+                                      style={{ opacity: 0, width: 0, height: 0 }}
+                                    />
+                                    <span
+                                      style={{
+                                        position: 'absolute',
+                                        cursor: 'pointer',
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        backgroundColor: selections.productBucketMode ? '#3A8518' : '#D1D5DB',
+                                        transition: '0.3s',
+                                        borderRadius: '11px'
+                                      }}
+                                    >
+                                      <span
+                                        style={{
+                                          position: 'absolute',
+                                          height: '18px',
+                                          width: '18px',
+                                          left: selections.productBucketMode ? '20px' : '2px',
+                                          top: '2px',
+                                          backgroundColor: 'white',
+                                          transition: '0.3s',
+                                          borderRadius: '50%',
+                                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                        }}
+                                      />
+                                    </span>
+                                  </label>
+                                </div>
+                              </div>
+                            )
+                          }
+                          return null
+                        })()}
+
+                        {/* Buckets List */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          {(() => {
+                            const currentBuckets = selections.productBuckets || []
+                            const displayBuckets = currentBuckets.length > 0 ? currentBuckets : [{
+                              id: 'default_bucket_1',
+                              label: 'Bucket 1',
+                              products: []
+                            }]
+                            const effectiveAddingId = currentBuckets.length === 0 ? 'default_bucket_1' : addingProductsToBucketId
+
+                            return displayBuckets.map((bucket, idx) => {
+                              const isEditing = effectiveAddingId === bucket.id || (currentBuckets.length === 0 && idx === 0)
+                              return (
+                                <div
+                                  key={bucket.id}
+                                  onClick={(e) => {
+                                    if ((e.target as HTMLElement).closest('button')) return
+                                    if (!isEditing) {
+                                      setAddingProductsToBucketId(bucket.id)
+                                    }
+                                  }}
+                                  style={{
+                                    padding: '12px',
+                                    backgroundColor: isEditing ? '#FFFBEB' : '#F9FAFB',
+                                    borderRadius: '8px',
+                                    border: isEditing ? '2px solid #E7CB38' : '1px solid #E5E7EB',
+                                    cursor: isEditing ? 'default' : 'pointer',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                >
+                                  {/* Bucket Header */}
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      {editingBucketId === bucket.id ? (
+                                        <input
+                                          type="text"
+                                          value={bucketLabelInput}
+                                          onChange={(e) => setBucketLabelInput(e.target.value)}
+                                          onBlur={() => {
+                                            if (bucketLabelInput.trim()) {
+                                              updateProductBucketLabel(bucket.id, bucketLabelInput.trim())
+                                            }
+                                            setEditingBucketId(null)
+                                          }}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              if (bucketLabelInput.trim()) {
+                                                updateProductBucketLabel(bucket.id, bucketLabelInput.trim())
+                                              }
+                                              setEditingBucketId(null)
+                                            } else if (e.key === 'Escape') {
+                                              setEditingBucketId(null)
+                                            }
+                                          }}
+                                          onClick={(e) => e.stopPropagation()}
+                                          autoFocus
+                                          style={{
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            color: '#374151',
+                                            border: '1px solid #D1D5DB',
+                                            borderRadius: '4px',
+                                            padding: '2px 6px',
+                                            width: '120px'
+                                          }}
+                                        />
+                                      ) : (
+                                        <span
+                                          style={{ fontSize: '13px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setEditingBucketId(bucket.id)
+                                            setBucketLabelInput(bucket.label)
+                                          }}
+                                          title="Click to edit label"
+                                        >
+                                          {bucket.label}
+                                        </span>
+                                      )}
+                                      {/* Product count badge */}
+                                      {bucket.products.length > 0 && (
+                                        <span style={{ fontSize: '10px', padding: '1px 5px', backgroundColor: '#E8F5E0', color: '#3A8518', borderRadius: '10px' }}>
+                                          {bucket.products.length}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                      {/* Remove bucket button */}
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          removeProductBucket(bucket.id)
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          e.currentTarget.style.color = '#DC2626'
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.currentTarget.style.color = '#9CA3AF'
+                                        }}
+                                        style={{
+                                          padding: '4px',
+                                          backgroundColor: 'transparent',
+                                          border: 'none',
+                                          cursor: 'pointer',
+                                          color: '#9CA3AF',
+                                          transition: 'color 0.15s ease'
+                                        }}
+                                        title="Remove bucket"
+                                      >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                          <path d="M18 6L6 18M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                      {/* Done editing button */}
+                                      {isEditing && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setAddingProductsToBucketId(null)
+                                          }}
+                                          style={{
+                                            padding: '4px',
+                                            backgroundColor: 'transparent',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            color: '#3A8518'
+                                          }}
+                                          title="Done editing"
+                                        >
+                                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                            <path d="M20 6L9 17l-5-5" />
+                                          </svg>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Products in this bucket */}
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                    {bucket.products.length === 0 ? (
+                                      <span style={{ fontSize: '11px', color: '#9CA3AF', fontStyle: 'italic' }}>
+                                        {isEditing ? 'Select products below' : 'Click to add products'}
+                                      </span>
+                                    ) : (
+                                      bucket.products.map((product) => (
+                                        <div
+                                          key={product}
+                                          style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            padding: '4px 8px',
+                                            backgroundColor: '#E8F5E0',
+                                            borderRadius: '4px',
+                                            fontSize: '11px',
+                                            color: '#3A8518'
+                                          }}
+                                        >
+                                          <span>{product}</span>
+                                          {isEditing && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                removeProductFromBucket(bucket.id, product)
+                                              }}
+                                              style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                padding: '0',
+                                                display: 'flex',
+                                                color: '#3A8518'
+                                              }}
+                                            >
+                                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                                <path d="M18 6L6 18M6 6l12 12" />
+                                              </svg>
+                                            </button>
+                                          )}
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+
+                                  {/* Product selection panel when editing */}
+                                  {isEditing && (
+                                    <div style={{ marginTop: '12px', padding: '10px', backgroundColor: 'white', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
+                                      <div style={{ marginBottom: '8px' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#374151' }}>Select products:</span>
+                                      </div>
+                                      <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                        {productValues.map(product => {
+                                          const isInBucket = bucket.products.includes(product)
+                                          return (
+                                            <button
+                                              key={product}
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                if (isInBucket) {
+                                                  removeProductFromBucket(bucket.id, product)
+                                                } else {
+                                                  addProductToBucket(bucket.id, product)
+                                                }
+                                              }}
+                                              style={{
+                                                padding: '4px 10px',
+                                                fontSize: '11px',
+                                                backgroundColor: isInBucket ? '#3A8518' : '#F3F4F6',
+                                                color: isInBucket ? 'white' : '#374151',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.15s ease'
+                                              }}
+                                              onMouseEnter={(e) => {
+                                                if (!isInBucket) {
+                                                  e.currentTarget.style.backgroundColor = '#E5E7EB'
+                                                }
+                                              }}
+                                              onMouseLeave={(e) => {
+                                                if (!isInBucket) {
+                                                  e.currentTarget.style.backgroundColor = '#F3F4F6'
+                                                }
+                                              }}
+                                            >
+                                              {product}
+                                            </button>
+                                          )
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })
+                          })()}
+
+                          {/* Add New Bucket Button */}
+                          <button
+                            onClick={addProductBucket}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              padding: '10px',
+                              backgroundColor: '#F9FAFB',
+                              border: '2px dashed #D1D5DB',
+                              borderRadius: '8px',
+                              color: '#6B7280',
+                              fontSize: '13px',
+                              fontWeight: 500,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#F3F4F6'
+                              e.currentTarget.style.borderColor = '#9CA3AF'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = '#F9FAFB'
+                              e.currentTarget.style.borderColor = '#D1D5DB'
+                            }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M12 5v14M5 12h14" />
+                            </svg>
+                            Add Bucket
+                          </button>
+
+                          {/* Clear all button */}
+                          {(selections.productBuckets || []).length > 0 && (
+                            <button
+                              onClick={() => {
+                                setSelections({ productBuckets: [], productBucketMode: false })
+                                setAddingProductsToBucketId(null)
+                              }}
+                              style={{
+                                padding: '6px 10px',
+                                fontSize: '11px',
+                                backgroundColor: '#FEF2F2',
+                                border: 'none',
+                                borderRadius: '6px',
+                                color: '#DC2626',
+                                cursor: 'pointer',
+                                fontWeight: 500,
+                                marginTop: '4px'
+                              }}
+                            >
+                              Clear All Buckets
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </section>
+                )}
+
                 <section
                   className="rounded-xl bg-white shadow-sm"
                 >
@@ -4360,6 +4883,9 @@ export default function App() {
                     questionLabels={selections.questionLabels || EMPTY_OBJECT}
                     onSaveQuestionLabel={handleSaveQuestionLabel}
                     productOrder={selections.productOrder?.length ? selections.productOrder : orderedProductValues}
+                    productBuckets={selections.productBuckets || []}
+                    productBucketMode={selections.productBucketMode || false}
+                    productColumn={productColumn}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-sm text-brand-gray/60">

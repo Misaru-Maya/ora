@@ -1,4 +1,4 @@
-import type { ParsedCSV, QuestionDef, SortOrder, SegmentDef, ComparisonSet } from './types'
+import type { ParsedCSV, QuestionDef, SortOrder, SegmentDef, ComparisonSet, ProductBucket } from './types'
 import { stripQuotes } from './utils'
 
 // Performance: Disable console logs in production
@@ -1120,6 +1120,377 @@ export function buildSeriesFromComparisonSets({
     })
 
     // Calculate chi-square significance for each pair of groups
+    const significanceResults: SeriesDataPoint['significance'] = []
+    let hasSignificant = false
+    for (let i = 0; i < groupSummaries.length; i += 1) {
+      for (let j = i + 1; j < groupSummaries.length; j += 1) {
+        const g1 = groupSummaries[i]
+        const g2 = groupSummaries[j]
+        if (!g1.denominator || !g2.denominator) continue
+        const a = g1.count
+        const b = Math.max(g1.denominator - g1.count, 0)
+        const c = g2.count
+        const d = Math.max(g2.denominator - g2.count, 0)
+        const total = a + b + c + d
+        if (total === 0) continue
+        const numerator = (a * d - b * c) ** 2 * total
+        const denominator = (a + b) * (c + d) * (a + c) * (b + d)
+        if (denominator === 0) continue
+        const chiSquare = numerator / denominator
+        const significant = chiSquare >= 3.841
+        if (significant) hasSignificant = true
+        significanceResults.push({
+          pair: [g1.label, g2.label],
+          chiSquare,
+          significant
+        })
+      }
+    }
+    row.significance = significanceResults
+    if (hasSignificant) {
+      row.optionDisplay = `${optionLabel}*`
+    }
+
+    return row
+  }).filter((row): row is SeriesDataPoint & { __index: number } => row !== null)
+
+  // Apply sorting
+  const sortByAverage = (direction: 'asc' | 'desc') => {
+    return dataWithIndex.sort((a, b) => {
+      const getValue = (row: SeriesDataPoint & { __index: number }) => {
+        let total = 0
+        let count = 0
+        groupMeta.forEach(meta => {
+          const value = typeof row[meta.key] === 'number' ? (row[meta.key] as number) : 0
+          total += value
+          count += 1
+        })
+        return count ? total / count : 0
+      }
+      const diff = getValue(a) - getValue(b)
+      return direction === 'asc' ? diff : -diff
+    })
+  }
+
+  if (sortOrder === 'ascending') {
+    sortByAverage('asc')
+  } else if (sortOrder === 'descending') {
+    sortByAverage('desc')
+  } else {
+    dataWithIndex.sort((a, b) => a.__index - b.__index)
+  }
+
+  const data: SeriesDataPoint[] = dataWithIndex
+    .map(({ __index, ...rest }) => rest as SeriesDataPoint)
+
+  return {
+    data,
+    groups: groupMeta
+  }
+}
+
+// Product Bucketing: Build series data from product buckets
+// Each bucket aggregates responses from all products in that bucket
+// Used to compare product groupings (e.g., color themes) side-by-side
+export interface BuildSeriesFromProductBucketsArgs {
+  dataset: ParsedCSV
+  question: QuestionDef
+  productBuckets: ProductBucket[]
+  productColumn: string
+  sortOrder: SortOrder
+  segments?: SegmentDef[]  // Optional segment filter to apply first
+}
+
+export function buildSeriesFromProductBuckets({
+  dataset, question, productBuckets, productColumn, sortOrder, segments
+}: BuildSeriesFromProductBucketsArgs): BuildSeriesResult {
+  if (!productBuckets.length) {
+    return { data: [], groups: [] }
+  }
+
+  const rows = dataset.rows
+  const respIdCol = dataset.summary.columns.find(
+    c => c.toLowerCase() === 'respondent id' || c.toLowerCase() === 'respondent_id'
+  ) || dataset.summary.columns[0]
+
+  const normalizeValue = (value: unknown) => {
+    if (value === null || value === undefined) return ''
+    return stripQuotes(String(value).trim())
+  }
+
+  // Helper: filter rows based on segment filters (AND across columns, OR within same column)
+  const filterRowsBySegments = (inputRows: Record<string, any>[], segmentFilters: SegmentDef[]): Record<string, any>[] => {
+    if (!segmentFilters || segmentFilters.length === 0) return inputRows
+
+    // Group filters by column for proper OR logic within same column
+    const filtersByColumn = new Map<string, string[]>()
+    segmentFilters.forEach(filter => {
+      // Skip "Overall" segments
+      if (filter.column === 'Overall' || filter.value === 'Overall') return
+      const values = filtersByColumn.get(filter.column) || []
+      values.push(filter.value)
+      filtersByColumn.set(filter.column, values)
+    })
+
+    if (filtersByColumn.size === 0) return inputRows
+
+    return inputRows.filter(row => {
+      return Array.from(filtersByColumn.entries()).every(([column, values]) => {
+        const consumerQuestion = dataset.questions.find(q => q.qid === column)
+
+        if (consumerQuestion) {
+          if (consumerQuestion.type === 'single' && consumerQuestion.singleSourceColumn) {
+            const rowValue = stripQuotes(String(row[consumerQuestion.singleSourceColumn]))
+            return values.some(value => stripQuotes(value) === rowValue)
+          } else if (consumerQuestion.type === 'multi') {
+            return values.some(value => {
+              const optionColumn = consumerQuestion.columns.find(col => col.optionLabel === value)
+              if (optionColumn) {
+                const headersToCheck = [optionColumn.header, ...(optionColumn.alternateHeaders || [])]
+                return headersToCheck.some(header => {
+                  const val = row[header]
+                  return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes'
+                })
+              }
+              return false
+            })
+          }
+          return false
+        } else {
+          const rowValue = stripQuotes(String(row[column]))
+          return values.some(value => rowValue === stripQuotes(value))
+        }
+      })
+    })
+  }
+
+  // Apply segment filters first
+  const filteredRows = filterRowsBySegments(rows, segments || [])
+
+  // Build group info for each product bucket
+  // For each bucket, get rows where productColumn matches any product in the bucket
+  const groupInfo = new Map<string, {
+    rows: Record<string, any>[]
+    uniqueRespondents: string[]
+    singleCounts?: Record<string, number>
+    singleDenom?: number
+  }>()
+
+  productBuckets.forEach(bucket => {
+    const bucketProducts = new Set(bucket.products.map(p => normalizeValue(p)))
+    const bucketRows = filteredRows.filter(row => {
+      const productValue = normalizeValue(row[productColumn])
+      return bucketProducts.has(productValue)
+    })
+    const respondentIds = uniq(bucketRows.map(r => stripQuotes(String(r[respIdCol] ?? '').trim())).filter(Boolean))
+    groupInfo.set(bucket.id, {
+      rows: bucketRows,
+      uniqueRespondents: respondentIds
+    })
+  })
+
+  // For single-select questions, pre-calculate counts per bucket
+  if (question.type !== 'multi' && question.singleSourceColumn) {
+    for (const [bucketId, info] of groupInfo.entries()) {
+      const counts: Record<string, number> = {}
+      const isRowLevel = question.level === 'row' || dataset.summary.isProductTest
+
+      if (isRowLevel) {
+        // COUNT AT RESPONDENT LEVEL: Count unique respondents per bucket
+        const seen = new Map<string, string>()
+        for (const r of info.rows) {
+          const respondent = stripQuotes(String(r[respIdCol] ?? '').trim())
+          if (!respondent) continue
+          const value = stripQuotes(String(r[question.singleSourceColumn!] ?? '').trim())
+          if (!value) continue
+          if (!seen.has(respondent)) {
+            seen.set(respondent, value)
+          }
+        }
+        seen.forEach(value => {
+          const normalized = value.toLowerCase()
+          counts[normalized] = (counts[normalized] || 0) + 1
+        })
+        info.singleCounts = counts
+        info.singleDenom = seen.size
+      } else {
+        const seen = new Map<string, string>()
+        for (const r of info.rows) {
+          const respondent = stripQuotes(String(r[respIdCol] ?? '').trim())
+          if (!respondent || seen.has(respondent)) continue
+          const value = stripQuotes(String(r[question.singleSourceColumn!] ?? '').trim())
+          if (!value) continue
+          seen.set(respondent, value)
+        }
+        seen.forEach(value => {
+          const normalized = value.toLowerCase()
+          counts[normalized] = (counts[normalized] || 0) + 1
+        })
+        info.singleCounts = counts
+        info.singleDenom = seen.size
+      }
+    }
+  }
+
+  // Build group metadata for each bucket
+  const groupMeta: GroupSeriesMeta[] = []
+  const usedKeys = new Set<string>()
+  const getKeyForGroup = (label: string, index: number) => {
+    const base = label.toLowerCase().replace(/[^a-z0-9]+/g, '_') || `bucket_${index + 1}`
+    let key = base
+    let counter = 1
+    while (usedKeys.has(key)) {
+      key = `${base}_${counter}`
+      counter += 1
+    }
+    usedKeys.add(key)
+    return key
+  }
+
+  productBuckets.forEach((bucket, index) => {
+    const key = getKeyForGroup(bucket.label, index)
+    groupMeta.push({ label: bucket.label, key })
+  })
+
+  // Build data for each question option
+  const dataWithIndex = question.columns.map((col, originalIndex) => {
+    const optionLabel = normalizeValue(col.optionLabel)
+    if (!optionLabel || optionLabel.trim() === '') {
+      return null
+    }
+
+    const groupSummaries: SeriesDataPoint['groupSummaries'] = []
+    const row: SeriesDataPoint & { __index: number } = {
+      option: optionLabel,
+      optionDisplay: optionLabel,
+      significance: [],
+      groupSummaries,
+      __index: originalIndex,
+    }
+
+    groupMeta.forEach((meta, idx) => {
+      const bucket = productBuckets[idx]
+      const info = groupInfo.get(bucket.id)
+      if (!info) {
+        row[meta.key] = 0
+        return
+      }
+
+      let count = 0
+      let denom = 0
+
+      if (question.type === 'multi') {
+        const seen = new Set<string>()
+        const answeredRespondents = new Set<string>()
+
+        if (question.textSummaryColumn && col.header.startsWith('__TEXT_MULTI__')) {
+          const optionLabelLower = optionLabel.toLowerCase()
+          for (const r of info.rows) {
+            const respondent = normalizeValue(r[respIdCol])
+            if (!respondent) continue
+
+            const textValue = r[question.textSummaryColumn]
+            if (!textValue || textValue === '') continue
+
+            answeredRespondents.add(respondent)
+
+            const cleanedValue = stripQuotes(String(textValue).trim())
+            const options = cleanedValue.includes('|')
+              ? cleanedValue.split('|').map(opt => stripQuotes(opt.trim()).toLowerCase())
+              : [cleanedValue.toLowerCase()]
+
+            if (options.includes(optionLabelLower)) {
+              seen.add(respondent)
+            }
+          }
+        } else {
+          const headersToCheck = [col.header, ...(col.alternateHeaders || [])]
+          const allQuestionHeaders = question.columns.flatMap(qCol =>
+            [qCol.header, ...(qCol.alternateHeaders || [])]
+          )
+
+          for (const r of info.rows) {
+            const respondent = normalizeValue(r[respIdCol])
+            if (!respondent) continue
+
+            let hasAnswerForThisRow = false
+            for (const h of allQuestionHeaders) {
+              const val = r[h]
+              if (val === 1 || val === true || val === '1' || val === 'true' || val === 'Y') {
+                hasAnswerForThisRow = true
+                break
+              }
+            }
+            if (!hasAnswerForThisRow) continue
+
+            answeredRespondents.add(respondent)
+
+            for (const header of headersToCheck) {
+              const v = r[header]
+              if (v === 1 || v === true || v === '1' || v === 'true' || v === 'Y') {
+                seen.add(respondent)
+                break
+              }
+            }
+          }
+        }
+
+        count = seen.size
+        denom = answeredRespondents.size
+      } else if (question.type === 'ranking') {
+        const headersToCheck = [col.header, ...(col.alternateHeaders || [])]
+        const rankingsByRespondent = new Map<string, number>()
+
+        for (const r of info.rows) {
+          const respondent = normalizeValue(r[respIdCol])
+          if (!respondent) continue
+          if (rankingsByRespondent.has(respondent)) continue
+
+          for (const header of headersToCheck) {
+            const value = r[header]
+            if (value !== null && value !== undefined && value !== '') {
+              const numValue = typeof value === 'number' ? value : parseFloat(String(value))
+              if (!isNaN(numValue) && numValue > 0) {
+                rankingsByRespondent.set(respondent, numValue)
+                break
+              }
+            }
+          }
+        }
+
+        const rankings = Array.from(rankingsByRespondent.values())
+        const avgRanking = rankings.length > 0
+          ? rankings.reduce((sum, val) => sum + val, 0) / rankings.length
+          : 0
+
+        row[meta.key] = avgRanking
+        groupSummaries.push({
+          label: meta.label,
+          count: rankings.length,
+          denominator: info.uniqueRespondents.length,
+          percent: avgRanking
+        })
+      } else if (question.singleSourceColumn) {
+        const cleanedLabel = optionLabel.toLowerCase()
+        const counts = info.singleCounts || {}
+        denom = info.singleDenom ?? info.uniqueRespondents.length
+        count = counts[cleanedLabel] || 0
+      }
+
+      // Calculate percentage
+      if (question.type !== 'ranking') {
+        const percent = denom ? Math.round((count / denom) * 100 * 1e10) / 1e10 : 0
+        row[meta.key] = percent
+        groupSummaries.push({
+          label: meta.label,
+          count,
+          denominator: denom,
+          percent
+        })
+      }
+    })
+
+    // Calculate chi-square significance for each pair of buckets
     const significanceResults: SeriesDataPoint['significance'] = []
     let hasSignificant = false
     for (let i = 0; i < groupSummaries.length; i += 1) {
