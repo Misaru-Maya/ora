@@ -1677,21 +1677,21 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Feature pill 3 - Per-product heatmap */}
+              {/* Feature pill 3 - Heatmap color toggle */}
               <div className="feature-pill-wrapper pill-3">
                 <div className="feature-pill">
                   <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="3" y="3" width="8" height="8" rx="1" fill="#3A8518" />
-                    <rect x="13" y="3" width="8" height="8" rx="1" fill="#A5CF8E" />
-                    <rect x="3" y="13" width="8" height="8" rx="1" fill="#CED6DE" />
-                    <rect x="13" y="13" width="8" height="8" rx="1" fill="#E7CB38" />
+                    <rect x="3" y="6" width="8" height="12" rx="2" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5"/>
+                    <rect x="13" y="6" width="8" height="12" rx="2" fill="#FEF3C7" stroke="#E7CB38" strokeWidth="1.5"/>
+                    <rect x="5" y="9" width="4" height="2" rx="0.5" fill="#3A8518"/>
+                    <rect x="15" y="13" width="4" height="2" rx="0.5" fill="#E7CB38"/>
                   </svg>
-                  <span className="pill-label">Per-product heatmap</span>
+                  <span className="pill-label">Heatmap color toggle</span>
                 </div>
                 <div className="pill-card">
                   <div className="pill-card-content">
-                    <div className="pill-card-tagline">Colors calculated per product 🎯</div>
-                    <div className="pill-card-location">No more manual comparisons</div>
+                    <div className="pill-card-tagline">Switch green ↔ yellow 🎨</div>
+                    <div className="pill-card-location">For most/least liked questions</div>
                   </div>
                 </div>
               </div>

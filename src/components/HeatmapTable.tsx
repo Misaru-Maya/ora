@@ -15,6 +15,7 @@ interface HeatmapTableProps {
   groups: GroupSeriesMeta[]
   questionLabel?: string
   sentiment: 'positive' | 'negative'
+  colorSentiment?: 'positive' | 'negative'  // Override for color palette only (doesn't affect filtering)
   questionId?: string
   dataset: ParsedCSV
   productColumn: string
@@ -48,7 +49,9 @@ const getColor = (value: number, sentiment: 'positive' | 'negative', minVal: num
   return { bg: bgColor, text: textColor }
 }
 
-export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, showAsterisks = true, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [], transposed = false, questionTypeBadge, heightOffset = 0, showSegment = true, sentimentType = null, usePrecomputedData = false }) => {
+export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, colorSentiment, questionId, dataset, productColumn, showAsterisks = true, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [], transposed = false, questionTypeBadge, heightOffset = 0, showSegment = true, sentimentType = null, usePrecomputedData = false }) => {
+  // Use colorSentiment for rendering colors if provided, otherwise fall back to sentiment
+  const effectiveColorSentiment = colorSentiment ?? sentiment
   const [editingOption, setEditingOption] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
@@ -1165,7 +1168,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                 {displayGroups.map(group => {
                   const value = typeof row[group.key] === 'number' ? (row[group.key] as number) : 0
                   const productRange = productMinMax.get(group.key) || { min: 0, max: 100 }
-                  const { bg, text } = getColor(value, sentiment, productRange.min, productRange.max)
+                  const { bg, text } = getColor(value, effectiveColorSentiment, productRange.min, productRange.max)
                   return (
                     <td
                       key={group.key}

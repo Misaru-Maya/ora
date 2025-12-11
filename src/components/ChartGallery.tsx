@@ -650,6 +650,16 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   const effectivePieWidth = pieChartWidth ?? measuredPieWidth ?? 700
 
   const [heatmapTransposed, setHeatmapTransposed] = useState(false)
+  // Manual sentiment override for product follow-up heatmaps (green=positive/most liked, yellow=negative/least liked)
+  // null = auto-detect from question label, 'positive' or 'negative' = manual override
+  const [sentimentOverride, setSentimentOverride] = useState<'positive' | 'negative' | null>(null)
+
+  // Effective sentiment type: uses override when set, otherwise falls back to label-based detection
+  // This is used for the Advocates/Detractors badge display
+  const effectiveSentimentType: 'advocates' | 'detractors' | null = sentimentOverride
+    ? (sentimentOverride === 'positive' ? 'advocates' : 'detractors')
+    : sentimentType
+
   const [_heatmapFilters, _setHeatmapFilters] = useState<{ products: string[], attributes: string[] }>({ products: [], attributes: [] })
   const [_showHeatmapProductFilter, _setShowHeatmapProductFilter] = useState(false)
   const [_showHeatmapAttributeFilter, _setShowHeatmapAttributeFilter] = useState(false)
@@ -1735,6 +1745,65 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               }}
             />
           </button>
+          {/* Sentiment Color Toggle - matches toolbar button style */}
+          {chartVariant === 'heatmap' && canUseHeatmap && !isSentimentQuestion && !hasPositiveNegative && question.type !== 'ranking' && (
+            <>
+              {/* Divider before toggle */}
+              <div style={{ width: '1px', height: '20px', backgroundColor: 'rgba(0, 0, 0, 0.1)', margin: '0 6px' }} />
+              <div
+                onClick={() => setSentimentOverride(sentimentOverride === 'negative' ? 'positive' : 'negative')}
+                className="flex items-center shadow-sm transition-all duration-200 hover:border-gray-300 active:scale-95 cursor-pointer"
+                style={{
+                  height: '32px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                  border: '1px solid rgba(0, 0, 0, 0.08)',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+                  backdropFilter: 'blur(8px)',
+                  padding: '4px',
+                  gap: '2px'
+                }}
+                title={sentimentOverride === 'negative' ? 'Least Liked (Yellow) - Click for Green' : 'Most Liked (Green) - Click for Yellow'}
+              >
+                {/* Green side */}
+                <div
+                  style={{
+                    width: '22px',
+                    height: '22px',
+                    backgroundColor: (sentimentOverride === 'positive' || sentimentOverride === null)
+                      ? 'rgba(58, 133, 24, 0.85)'
+                      : 'rgba(58, 133, 24, 0.12)',
+                    border: (sentimentOverride === 'positive' || sentimentOverride === null)
+                      ? '1px solid rgba(58, 133, 24, 0.3)'
+                      : '1px solid rgba(58, 133, 24, 0.15)',
+                    borderRadius: '5px',
+                    transition: 'all 0.2s ease',
+                    boxShadow: (sentimentOverride === 'positive' || sentimentOverride === null)
+                      ? 'inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+                      : 'none'
+                  }}
+                />
+                {/* Yellow side */}
+                <div
+                  style={{
+                    width: '22px',
+                    height: '22px',
+                    backgroundColor: sentimentOverride === 'negative'
+                      ? 'rgba(212, 186, 51, 0.85)'
+                      : 'rgba(212, 186, 51, 0.12)',
+                    border: sentimentOverride === 'negative'
+                      ? '1px solid rgba(212, 186, 51, 0.3)'
+                      : '1px solid rgba(212, 186, 51, 0.15)',
+                    borderRadius: '5px',
+                    transition: 'all 0.2s ease',
+                    boxShadow: sentimentOverride === 'negative'
+                      ? 'inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+                      : 'none'
+                  }}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -1948,7 +2017,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               questionTypeBadge={questionTypeBadge}
               heightOffset={chartHeightOffset}
               showSegment={showSegment}
-              sentimentType={sentimentType}
+              sentimentType={effectiveSentimentType}
             />
           )
         }
@@ -2071,8 +2140,12 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
           // Otherwise, render the regular attribute heatmap
           const labelLower = question.label.toLowerCase()
-          const sentiment = labelLower.includes('(positive)') ? 'positive' :
-                          labelLower.includes('(negative)') ? 'negative' : 'positive'
+          // Auto-detect sentiment from label for filtering behavior (default to 'positive')
+          const sentiment: 'positive' | 'negative' =
+            labelLower.includes('(positive)') ? 'positive' :
+            labelLower.includes('(negative)') ? 'negative' : 'positive'
+          // Color sentiment can be overridden by user toggle (only affects colors, not filtering)
+          const colorSentiment: 'positive' | 'negative' = sentimentOverride ?? sentiment
 
           // Check if we should use bucket mode for heatmap
           const validBucketsForHeatmap = productBuckets.filter(b => b.products.length > 0)
@@ -2126,6 +2199,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               groups={heatmapSeries.groups}
               questionLabel={displayLabel}
               sentiment={sentiment}
+              colorSentiment={colorSentiment}
               questionId={question.qid}
               dataset={dataset}
               productColumn={productColumn}
@@ -2138,7 +2212,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               questionTypeBadge={questionTypeBadge}
               heightOffset={chartHeightOffset}
               showSegment={showSegment}
-              sentimentType={sentimentType}
+              sentimentType={effectiveSentimentType}
               usePrecomputedData={useBucketModeForHeatmap}
             />
           )
@@ -2244,7 +2318,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                   questionTypeBadge={questionTypeBadge}
                   heightOffset={chartHeightOffset}
                   showSegment={showSegment}
-                  sentimentType={sentimentType}
+                  sentimentType={effectiveSentimentType}
                 />
               )
             } else if (!isInCompareMode) {
@@ -2297,7 +2371,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                   questionTypeBadge={questionTypeBadge}
                   heightOffset={chartHeightOffset}
                   showSegment={showSegment}
-                  sentimentType={sentimentType}
+                  sentimentType={effectiveSentimentType}
                 />
               )
             }
@@ -2317,7 +2391,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
             questionTypeBadge={questionTypeBadge}
             heightOffset={chartHeightOffset}
             showSegment={showSegment}
-            sentimentType={sentimentType}
+            sentimentType={effectiveSentimentType}
           />
         )
       })()}
