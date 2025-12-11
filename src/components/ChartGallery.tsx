@@ -1796,11 +1796,11 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         onMouseDown={handleChartResizeStart('right')}
         style={{
           position: 'absolute',
-          // For pie charts: pie container has margin-left: 2.5% of chartContentRef (which is chartWidthPercent% of parent)
-          // So actual left offset = (chartWidthPercent * 0.025)% + pieWidth + 40px gap
+          // For pie charts: position handle right after the container (effectivePieWidth includes content, plus small gap)
           // For bar/heatmap: positioned relative to chart width percentage (95% of chartWidthPercent)
+          // Both use same visual gap from container edge
           left: chartVariant === 'pie'
-            ? `calc(${chartWidthPercent * 0.025}% + ${effectivePieWidth}px + 40px)`
+            ? `calc(${chartWidthPercent * 0.025}% + ${effectivePieWidth}px + 10px)`
             : `calc(${chartWidthPercent * 0.95}% + 40px)`,
           top: '50%',
           transform: 'translateY(-50%)',

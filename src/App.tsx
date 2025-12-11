@@ -1523,123 +1523,44 @@ export default function App() {
               {/* Grid of feature pills */}
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, auto)',
-                  gap: '10px',
-                  justifyContent: 'center'
+                  display: 'flex',
+                  justifyContent: 'center',
+                  gap: '10px'
                 }}
               >
-              {/* Feature pill 1 - Multi-factor comparison */}
+              {/* Feature pill 1 - Bulk chart export */}
               <div className="feature-pill-wrapper pill-1">
                 <div className="feature-pill">
                   <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="2" y="13" width="5" height="8" rx="1" fill="#3A8518" />
-                    <rect x="9.5" y="9" width="5" height="12" rx="1" fill="#A5CF8E" />
-                    <rect x="17" y="5" width="5" height="16" rx="1" fill="#E7CB38" />
-                    <path d="M4.5 10L12 4L19.5 7" stroke="#3A8518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <rect x="3" y="3" width="18" height="18" rx="2" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
+                    <path d="M12 8v6M9 11l3 3 3-3" stroke="#3A8518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M8 17h8" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" />
                   </svg>
-                  <span className="pill-label">Multi-factor comparison</span>
+                  <span className="pill-label">Bulk chart export</span>
                 </div>
                 <div className="pill-card">
                   <div className="pill-card-content">
-                    <div className="pill-card-tagline">Compare segments side-by-side ✨</div>
-                    <div className="pill-card-location">Find it in the sidebar filters</div>
+                    <div className="pill-card-tagline">Export all charts to PDF 📄</div>
+                    <div className="pill-card-location">Feed to NotebookLM for AI analysis</div>
                   </div>
                 </div>
               </div>
 
-              {/* Feature pill 2 - Drag & drop layout */}
+              {/* Feature pill 2 - Per-product heatmap */}
               <div className="feature-pill-wrapper pill-2">
                 <div className="feature-pill">
                   <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="3" y="3" width="7" height="7" rx="1.5" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
-                    <rect x="14" y="3" width="7" height="7" rx="1.5" fill="#E7CB38" stroke="#CED6DE" strokeWidth="1.5" />
-                    <rect x="3" y="14" width="7" height="7" rx="1.5" fill="#CED6DE" stroke="#717F90" strokeWidth="1.5" />
-                    <path d="M17.5 14v7M14 17.5h7" stroke="#3A8518" strokeWidth="2" strokeLinecap="round" />
+                    <rect x="3" y="3" width="8" height="8" rx="1" fill="#3A8518" />
+                    <rect x="13" y="3" width="8" height="8" rx="1" fill="#A5CF8E" />
+                    <rect x="3" y="13" width="8" height="8" rx="1" fill="#CED6DE" />
+                    <rect x="13" y="13" width="8" height="8" rx="1" fill="#E7CB38" />
                   </svg>
-                  <span className="pill-label">Drag & drop layout</span>
+                  <span className="pill-label">Per-product heatmap</span>
                 </div>
                 <div className="pill-card">
                   <div className="pill-card-content">
-                    <div className="pill-card-tagline">Your charts, your way 🎨</div>
-                    <div className="pill-card-location">Just grab any chart and move it</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Feature pill 3 - Regression analysis */}
-              <div className="feature-pill-wrapper pill-3">
-                <div className="feature-pill">
-                  <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="6" cy="18" r="2" fill="#CED6DE" stroke="#717F90" strokeWidth="1.5" />
-                    <circle cx="10" cy="14" r="2" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
-                    <circle cx="14" cy="10" r="2" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
-                    <circle cx="18" cy="6" r="2" fill="#3A8518" />
-                    <path d="M5 19L19 5" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" strokeDasharray="4 2" />
-                  </svg>
-                  <span className="pill-label">Regression analysis</span>
-                </div>
-                <div className="pill-card">
-                  <div className="pill-card-content">
-                    <div className="pill-card-tagline">Apples-to-apples insights 🍎</div>
-                    <div className="pill-card-location">Look for the 📊 button in the header</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Feature pill 4 - Bulk heatmap reorder */}
-              <div className="feature-pill-wrapper pill-4">
-                <div className="feature-pill">
-                  <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="4" y="4" width="16" height="4" rx="1" fill="#3A8518" />
-                    <rect x="4" y="10" width="16" height="4" rx="1" fill="#A5CF8E" />
-                    <rect x="4" y="16" width="16" height="4" rx="1" fill="#CED6DE" />
-                    <path d="M21 7L23 9L21 11" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M21 13L23 15L21 17" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <span className="pill-label">Bulk heatmap reorder</span>
-                </div>
-                <div className="pill-card">
-                  <div className="pill-card-content">
-                    <div className="pill-card-tagline">One drag updates all 🔄</div>
-                    <div className="pill-card-location">Reorder products in the sidebar</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Feature pill 5 - Deck-ready container */}
-              <div className="feature-pill-wrapper pill-5">
-                <div className="feature-pill">
-                  <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="3" y="3" width="18" height="18" rx="3" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
-                    <rect x="6" y="8" width="12" height="2" rx="1" fill="#3A8518" />
-                    <rect x="6" y="12" width="8" height="6" rx="1" fill="#E7CB38" />
-                    <rect x="15" y="12" width="3" height="6" rx="1" fill="#CED6DE" />
-                  </svg>
-                  <span className="pill-label">Deck-ready container</span>
-                </div>
-                <div className="pill-card">
-                  <div className="pill-card-content">
-                    <div className="pill-card-tagline">Presentation-ready charts 📊</div>
-                    <div className="pill-card-location">Toggle in Display settings</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Feature pill 6 - Copy chart button */}
-              <div className="feature-pill-wrapper pill-6">
-                <div className="feature-pill">
-                  <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="8" y="8" width="12" height="12" rx="2" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
-                    <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="#3A8518" strokeWidth="1.5" strokeLinecap="round" />
-                    <path d="M12 12l2 2 4-4" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <span className="pill-label">Copy chart button</span>
-                </div>
-                <div className="pill-card">
-                  <div className="pill-card-content">
-                    <div className="pill-card-tagline">One-click to clipboard 📋</div>
-                    <div className="pill-card-location">Click the copy icon on any chart</div>
+                    <div className="pill-card-tagline">Colors calculated per product 🎯</div>
+                    <div className="pill-card-location">No more manual comparisons</div>
                   </div>
                 </div>
               </div>
@@ -1687,7 +1608,7 @@ export default function App() {
               color: '#6B7280',
               marginBottom: '8px'
             }}>
-              Last updated on December 6, 2024
+              Last updated on December 10, 2025
             </p>
             <p style={{
               fontSize: '13px',
