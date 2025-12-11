@@ -608,16 +608,36 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     chartVariantRef.current = chartVariant
   }, [chartVariant])
 
-  // Measure initial pie chart width after render (for handle positioning)
+  // Measure pie chart width and update on resize (for handle positioning)
+  // Uses ResizeObserver to keep handle positioned correctly when window resizes
   useEffect(() => {
-    if (chartVariant === 'pie' && exportContentRef.current && !pieChartWidth) {
-      // Small delay to ensure layout is complete
-      const timer = setTimeout(() => {
-        if (exportContentRef.current) {
-          setMeasuredPieWidth(exportContentRef.current.offsetWidth)
-        }
-      }, 100)
-      return () => clearTimeout(timer)
+    if (chartVariant !== 'pie' || !exportContentRef.current || pieChartWidth) {
+      return
+    }
+
+    const element = exportContentRef.current
+
+    // Initial measurement with small delay to ensure layout is complete
+    const timer = setTimeout(() => {
+      if (element) {
+        setMeasuredPieWidth(element.offsetWidth)
+      }
+    }, 100)
+
+    // Set up ResizeObserver to track size changes
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const newWidth = entry.contentRect.width +
+          (entry.target as HTMLElement).offsetWidth - entry.contentRect.width // Include padding/border
+        setMeasuredPieWidth(newWidth)
+      }
+    })
+
+    resizeObserver.observe(element)
+
+    return () => {
+      clearTimeout(timer)
+      resizeObserver.disconnect()
     }
   }, [chartVariant, pieChartWidth])
 
@@ -1776,10 +1796,11 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         onMouseDown={handleChartResizeStart('right')}
         style={{
           position: 'absolute',
-          // For pie charts, position based on pixel width; for bar/heatmap, position relative to chart width
-          // Handle moves with chart container to maintain consistent padding
+          // For pie charts: pie container has margin-left: 2.5% of chartContentRef (which is chartWidthPercent% of parent)
+          // So actual left offset = (chartWidthPercent * 0.025)% + pieWidth + 40px gap
+          // For bar/heatmap: positioned relative to chart width percentage (95% of chartWidthPercent)
           left: chartVariant === 'pie'
-            ? `${effectivePieWidth + 40}px`
+            ? `calc(${chartWidthPercent * 0.025}% + ${effectivePieWidth}px + 40px)`
             : `calc(${chartWidthPercent * 0.95}% + 40px)`,
           top: '50%',
           transform: 'translateY(-50%)',

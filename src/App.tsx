@@ -205,6 +205,10 @@ export default function App() {
   // Performance: Use transition for non-urgent updates to keep UI responsive
   const [isPending, startTransition] = useTransition()
 
+  // PDF export state
+  const [isExportingPdf, setIsExportingPdf] = useState(false)
+  const chartGalleryRef = useRef<HTMLDivElement>(null)
+
   // Debug: log when regression panel state changes
   useEffect(() => {
     devLog('[REGRESSION] showRegressionPanel changed to:', showRegressionPanel, 'dataset exists:', !!dataset, 'questions count:', dataset?.questions?.length)
@@ -1262,6 +1266,108 @@ export default function App() {
   const handleSelectAllProducts = () => setSelections({ productGroups: [...productValues] })
   const handleClearProducts = () => setSelections({ productGroups: [] })
 
+  // PDF export handler - exports entire chart gallery as PDF
+  const handleExportPdf = async () => {
+    if (!chartGalleryRef.current || isExportingPdf) return
+
+    setIsExportingPdf(true)
+
+    try {
+      const [html2canvas, { default: jsPDF }] = await Promise.all([
+        import('html2canvas').then(m => m.default),
+        import('jspdf')
+      ])
+
+      const element = chartGalleryRef.current
+      const captureWidth = element.clientWidth
+      // Use 1.5x scale for good quality while keeping file size reasonable
+      const captureScale = 1.5
+
+      const canvas = await html2canvas(element, {
+        backgroundColor: '#ffffff',
+        scale: captureScale,
+        logging: false,
+        useCORS: true,
+        width: captureWidth,
+        height: element.scrollHeight,
+        windowWidth: captureWidth,
+        windowHeight: element.scrollHeight,
+        x: 0,
+        y: 0,
+        // Use onclone to modify the cloned DOM before capture
+        // This is cleaner than modifying the live DOM
+        onclone: (clonedDoc, clonedElement) => {
+          // Set overflow hidden on the cloned container
+          clonedElement.style.overflow = 'hidden'
+          clonedElement.style.width = `${captureWidth}px`
+
+          // Get bounding rect of the cloned element (relative to cloned doc)
+          const clonedRect = clonedElement.getBoundingClientRect()
+
+          // Find and remove/hide elements that overflow
+          const allChildren = clonedElement.querySelectorAll('*')
+          allChildren.forEach((child) => {
+            const htmlEl = child as HTMLElement
+            const computedStyle = clonedDoc.defaultView?.getComputedStyle(htmlEl)
+            if (!computedStyle) return
+
+            const rect = htmlEl.getBoundingClientRect()
+
+            // Hide resize handles (positioned absolutely with resize cursor)
+            if (computedStyle.position === 'absolute' &&
+                (computedStyle.cursor === 'ew-resize' || computedStyle.cursor === 'ns-resize')) {
+              htmlEl.style.display = 'none'
+            }
+
+            // Fix elements with negative margins that cause left overflow
+            const marginLeft = parseFloat(computedStyle.marginLeft)
+            if (marginLeft < 0) {
+              htmlEl.style.marginLeft = '0px'
+            }
+
+            // Hide any elements that extend beyond the right edge
+            if (rect.right > clonedRect.right + 5) {
+              // Check if it's a small element (like resize handle indicator)
+              if (rect.width < 50 && computedStyle.position === 'absolute') {
+                htmlEl.style.display = 'none'
+              }
+            }
+          })
+        }
+      })
+
+      // Use JPEG format with compression for smaller file size
+      // Quality 0.92 provides good balance between quality and size
+      const imgData = canvas.toDataURL('image/jpeg', 0.92)
+
+      // Calculate dimensions based on captured canvas
+      const imgWidth = canvas.width / captureScale
+      const imgHeight = canvas.height / captureScale
+
+      // Create PDF with proper page size matching the content
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [imgWidth + 60, imgHeight + 60],
+        compress: true
+      })
+
+      // Add the image with padding - use JPEG format for smaller file size
+      pdf.addImage(imgData, 'JPEG', 30, 30, imgWidth, imgHeight, undefined, 'FAST')
+
+      // Generate filename from CSV file name
+      const fileName = summary?.fileName
+        ? `${summary.fileName.replace(/\.csv$/i, '')}_charts.pdf`
+        : 'ora_charts.pdf'
+
+      pdf.save(fileName)
+    } catch (error) {
+      console.error('PDF export failed:', error)
+    } finally {
+      setIsExportingPdf(false)
+    }
+  }
+
   const handleResizeMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
     setIsResizing(true)
@@ -1810,6 +1916,49 @@ export default function App() {
                   <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
                 </svg>
                 Apples-to-Apples
+              </button>
+            )}
+            {/* Export PDF Button */}
+            {dataset && (
+              <button
+                onClick={handleExportPdf}
+                disabled={isExportingPdf}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  padding: '12px 24px',
+                  backgroundColor: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: '#3A8518',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  cursor: isExportingPdf ? 'wait' : 'pointer',
+                  fontFamily: 'Space Grotesk, sans-serif',
+                  transition: 'all 0.15s ease-out',
+                  boxShadow: '0 0 0 1px rgba(58,133,24,0.3), 0 2px 8px -2px rgba(58,133,24,0.15)',
+                  opacity: isExportingPdf ? 0.7 : 1
+                }}
+                onMouseEnter={(e) => {
+                  if (!isExportingPdf) {
+                    e.currentTarget.style.backgroundColor = '#F0FDF4'
+                    e.currentTarget.style.boxShadow = '0 0 0 1px rgba(58,133,24,0.5), 0 4px 12px -2px rgba(58,133,24,0.25)'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#FFFFFF'
+                  e.currentTarget.style.boxShadow = '0 0 0 1px rgba(58,133,24,0.3), 0 2px 8px -2px rgba(58,133,24,0.15)'
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="12" y1="18" x2="12" y2="12" />
+                  <line x1="9" y1="15" x2="15" y2="15" />
+                </svg>
+                {isExportingPdf ? 'Exporting...' : 'Export PDF'}
               </button>
             )}
           </div>
@@ -4246,7 +4395,7 @@ export default function App() {
           }}
         >
           <div className="pt-4 pb-4" style={{ paddingLeft: '40px', paddingRight: '40px' }}>
-            <div className="rounded-2xl bg-white p-3 shadow-sm min-h-[460px]">
+            <div ref={chartGalleryRef} className="rounded-2xl bg-white p-3 shadow-sm min-h-[460px]">
               {dataset ? (
                 filteredDataset && ((selections.segments && selections.segments.length > 0) || (selections.segmentColumn && orderedGroups.length > 0)) ? (
                   <ChartGallery
