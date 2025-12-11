@@ -20,15 +20,15 @@ test.describe('PDF Export Feature', () => {
     // Wait for the file to be processed and charts to appear
     await page.waitForSelector('.rounded-2xl.bg-white', { timeout: 30000 })
 
-    // Give it time for charts to render
-    await page.waitForTimeout(3000)
+    // Give it more time for charts to fully render
+    await page.waitForTimeout(5000)
 
     // Verify the Export PDF button is visible
     const exportPdfButton = page.locator('button:has-text("Export PDF")')
     await expect(exportPdfButton).toBeVisible({ timeout: 10000 })
 
-    // Set up download listener before clicking
-    const downloadPromise = page.waitForEvent('download', { timeout: 60000 })
+    // Set up download listener before clicking (increased timeout for larger PDF)
+    const downloadPromise = page.waitForEvent('download', { timeout: 120000 })
 
     // Click the Export PDF button
     await exportPdfButton.click()

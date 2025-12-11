@@ -1282,8 +1282,9 @@ export default function App() {
 
       const element = chartGalleryRef.current
       const captureWidth = element.clientWidth
-      // Use 1.5x scale for good quality while keeping file size reasonable
-      const captureScale = 1.5
+      // Use 2x scale for good quality while avoiding canvas size limits
+      // Very large canvases (>16k pixels) can fail toDataURL in some browsers
+      const captureScale = 2
 
       const canvas = await html2canvas(element, {
         backgroundColor: '#ffffff',
@@ -1338,9 +1339,9 @@ export default function App() {
         }
       })
 
-      // Use JPEG format with compression for smaller file size
-      // Quality 0.92 provides good balance between quality and size
-      const imgData = canvas.toDataURL('image/jpeg', 0.92)
+      // Use JPEG format with high quality for better resolution
+      // Quality 0.95 provides excellent quality while keeping file size reasonable
+      const imgData = canvas.toDataURL('image/jpeg', 0.95)
 
       // Calculate dimensions based on captured canvas
       const imgWidth = canvas.width / captureScale
@@ -1367,8 +1368,11 @@ export default function App() {
         ? selections.segments.map(s => s.value).join('_')
         : selections.segmentColumn || 'Overall'
 
-      // Get mode (Filter or Compare)
-      const modePart = selections.multiFilterCompareMode ? 'Compare' : 'Filter'
+      // Get mode (Filter or Compare) - based on the Compare toggle in sidebar
+      // comparisonMode is the toggle shown when 2+ segments selected
+      // multiFilterCompareMode is for the separate multi-filter comparison feature
+      const isCompareMode = selections.comparisonMode || selections.multiFilterCompareMode
+      const modePart = isCompareMode ? 'Compare' : 'Filter'
 
       const fileName = `${baseFileName}_${segmentPart}_${modePart}.pdf`
         .replace(/\s+/g, '_') // Replace spaces with underscores
