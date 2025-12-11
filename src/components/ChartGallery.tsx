@@ -44,6 +44,8 @@ interface ChartCardProps {
   showAsterisks?: boolean
   comparisonMode?: boolean
   multiFilterCompareMode?: boolean
+  productBucketMode?: boolean
+  productBuckets?: ProductBucket[]
   chartColors: string[]
   optionLabels: Record<string, string>
   onSaveOptionLabel: (option: string, newLabel: string) => void
@@ -86,6 +88,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   showAsterisks = true,
   comparisonMode = true,
   multiFilterCompareMode = false,
+  productBucketMode = false,
+  productBuckets = [],
   chartColors,
   optionLabels,
   onSaveOptionLabel,
@@ -2058,6 +2062,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                   questionTypeBadge={questionTypeBadge}
                   heightOffset={chartHeightOffset}
                   showSegment={showSegment}
+                  productBucketMode={productBucketMode}
+                  productBuckets={productBuckets}
                 />
               </div>
             )
@@ -2068,20 +2074,41 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
           const sentiment = labelLower.includes('(positive)') ? 'positive' :
                           labelLower.includes('(negative)') ? 'negative' : 'positive'
 
-          // Rebuild series with all products using the product column as segmentColumn
-          const heatmapSeries = buildSeries({
-            dataset,
-            question,
-            segmentColumn: productColumn,
-            groups: allProducts,
-            sortOrder
-          })
+          // Check if we should use bucket mode for heatmap
+          const validBucketsForHeatmap = productBuckets.filter(b => b.products.length > 0)
+          const useBucketModeForHeatmap = productBucketMode && validBucketsForHeatmap.length >= 2
+
+          let heatmapSeries: BuildSeriesResult
+
+          if (useBucketModeForHeatmap) {
+            // Use bucket-aggregated series - each column shows averaged data for products in that bucket
+            devLog('📊 Building heatmap with bucket aggregation:', {
+              buckets: validBucketsForHeatmap.map(b => ({ label: b.label, products: b.products }))
+            })
+            heatmapSeries = buildSeriesFromProductBuckets({
+              dataset,
+              question,
+              productBuckets: validBucketsForHeatmap,
+              productColumn,
+              sortOrder
+            })
+          } else {
+            // Rebuild series with all products using the product column as segmentColumn
+            heatmapSeries = buildSeries({
+              dataset,
+              question,
+              segmentColumn: productColumn,
+              groups: allProducts,
+              sortOrder
+            })
+          }
 
           devLog('📊 Heatmap Series Built:', {
             dataLength: heatmapSeries.data.length,
             groupsLength: heatmapSeries.groups.length,
             groups: heatmapSeries.groups,
-            sampleData: heatmapSeries.data[0]
+            sampleData: heatmapSeries.data[0],
+            useBucketMode: useBucketModeForHeatmap
           })
 
           // Apply custom option labels to heatmap data, filter out excluded values, and apply selectedOptions filter
@@ -2106,12 +2133,13 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               optionLabels={optionLabels}
               onSaveOptionLabel={onSaveOptionLabel}
               onSaveQuestionLabel={onSaveQuestionLabel}
-              productOrder={productOrder}
+              productOrder={useBucketModeForHeatmap ? validBucketsForHeatmap.map(b => b.label) : productOrder}
               transposed={heatmapTransposed}
               questionTypeBadge={questionTypeBadge}
               heightOffset={chartHeightOffset}
               showSegment={showSegment}
               sentimentType={sentimentType}
+              usePrecomputedData={useBucketModeForHeatmap}
             />
           )
         }
@@ -2119,10 +2147,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         // For product follow-up questions, we need to recalculate the data
         // by averaging per-product percentages instead of using the aggregated "Overall"
         // Use isProductFollowUpForBarChart which works in compare mode (not dependent on canUseHeatmap)
-        if (isProductFollowUpForBarChart && productColumn) {
-          console.log('📊 Product follow-up bar chart: recalculating with averaged per-product data')
-          console.log('📊 isProductFollowUpForBarChart:', isProductFollowUpForBarChart, 'productColumn:', productColumn)
-
+        // Skip this logic when productBucketMode is on - buildSeriesFromProductBuckets already aggregated by buckets
+        if (isProductFollowUpForBarChart && productColumn && !productBucketMode) {
           // Get all unique products from the dataset
           const allProducts = Array.from(
             new Set(dataset.rows.map(row => normalizeProductValue(row[productColumn])).filter(v => v && v !== 'Unspecified'))
@@ -2134,9 +2160,6 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
             // In compare mode, we still need to calculate per-product averages for each segment
             if (isInCompareMode && segmentsProp && segmentsProp.length > 0) {
-              console.log('📊 Product follow-up in compare mode: calculating per-segment product averages')
-              console.log('📊 Segments prop:', segmentsProp)
-
               // Get all unique options from the question
               const allOptions = question.columns.map(col => col.optionLabel).filter(Boolean)
 
@@ -2539,6 +2562,8 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
                 showAsterisks={showAsterisks}
                 comparisonMode={comparisonMode}
                 multiFilterCompareMode={multiFilterCompareMode}
+                productBucketMode={productBucketMode}
+                productBuckets={productBuckets}
                 chartColors={chartColors}
                 optionLabels={optionLabels[question.qid] || {}}
                 onSaveOptionLabel={(option, newLabel) => onSaveOptionLabel?.(question.qid, option, newLabel)}

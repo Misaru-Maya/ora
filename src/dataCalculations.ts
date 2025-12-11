@@ -1283,6 +1283,7 @@ export function buildSeriesFromProductBuckets({
       return bucketProducts.has(productValue)
     })
     const respondentIds = uniq(bucketRows.map(r => stripQuotes(String(r[respIdCol] ?? '').trim())).filter(Boolean))
+
     groupInfo.set(bucket.id, {
       rows: bucketRows,
       uniqueRespondents: respondentIds

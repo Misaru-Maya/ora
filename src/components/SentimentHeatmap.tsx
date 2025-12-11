@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import type { ParsedCSV } from '../types'
+import type { ParsedCSV, ProductBucket } from '../types'
 import { stripQuotes, getContrastTextColor, GREEN_PALETTE, YELLOW_PALETTE, getContinuousGradientColor } from '../utils'
 
 interface SentimentHeatmapProps {
@@ -15,6 +15,8 @@ interface SentimentHeatmapProps {
   questionTypeBadge?: React.ReactNode
   heightOffset?: number
   showSegment?: boolean
+  productBucketMode?: boolean
+  productBuckets?: ProductBucket[]
 }
 
 interface ProductSentiment {
@@ -50,7 +52,9 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
   transposed = false,
   questionTypeBadge,
   heightOffset = 0,
-  showSegment = true
+  showSegment = true,
+  productBucketMode = false,
+  productBuckets = []
 }) => {
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
   const [questionLabelInput, setQuestionLabelInput] = useState('')
@@ -84,47 +88,84 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
     )
   }, [dataset])
 
-  // Calculate sentiment data for all products
+  // Check if bucket mode should be used - memoize to prevent infinite re-renders
+  const validBuckets = useMemo(() =>
+    productBuckets.filter(b => b.products.length > 0),
+    [productBuckets]
+  )
+  const useBucketMode = productBucketMode && validBuckets.length >= 2
+
+  // Helper function to calculate sentiment for a set of rows
+  const calculateSentiment = (rows: Record<string, unknown>[], sentimentCol: string) => {
+    let advocates = 0
+    let detractors = 0
+    let validResponses = 0
+
+    rows.forEach(row => {
+      const rating = row[sentimentCol]
+      let numericRating: number
+
+      if (typeof rating === 'number') {
+        numericRating = rating
+      } else {
+        // Extract numeric value from strings like "4 - Probably" or "5"
+        const stringRating = String(rating).trim()
+        const match = stringRating.match(/^(\d+)/)
+        numericRating = match ? Number(match[1]) : Number(stringRating)
+      }
+
+      if (Number.isFinite(numericRating)) {
+        validResponses++
+        if (numericRating >= 4) {
+          advocates++
+        } else if (numericRating <= 3) {
+          detractors++
+        }
+      }
+    })
+
+    return {
+      advocates,
+      detractors,
+      validResponses,
+      advocatePercent: validResponses > 0 ? (advocates / validResponses) * 100 : 0,
+      detractorPercent: validResponses > 0 ? (detractors / validResponses) * 100 : 0
+    }
+  }
+
+  // Calculate sentiment data for all products or buckets
   const productSentiments = useMemo((): ProductSentiment[] => {
     if (!sentimentColumn) return []
 
-    // Get all unique products and strip quotes
+    // If in bucket mode, aggregate by bucket
+    if (useBucketMode) {
+      return validBuckets.map(bucket => {
+        // Get all rows for products in this bucket
+        const bucketProducts = new Set(bucket.products.map(p => stripQuotes(p)))
+        const bucketRows = dataset.rows.filter(row => {
+          const productValue = stripQuotes(String(row[productColumn] ?? ''))
+          return bucketProducts.has(productValue)
+        })
+
+        const { advocatePercent, detractorPercent, validResponses } = calculateSentiment(bucketRows, sentimentColumn)
+
+        return {
+          productName: bucket.label, // Use bucket label instead of product name
+          advocatePercent,
+          detractorPercent,
+          totalResponses: validResponses
+        }
+      })
+    }
+
+    // Regular mode: calculate per product
     const allProducts = Array.from(
       new Set(dataset.rows.map(row => stripQuotes(String(row[productColumn] ?? ''))).filter(Boolean))
     )
 
     return allProducts.map(productName => {
       const productRows = dataset.rows.filter(row => stripQuotes(String(row[productColumn])) === productName)
-
-      let advocates = 0
-      let detractors = 0
-      let validResponses = 0
-
-      productRows.forEach(row => {
-        const rating = row[sentimentColumn]
-        let numericRating: number
-
-        if (typeof rating === 'number') {
-          numericRating = rating
-        } else {
-          // Extract numeric value from strings like "4 - Probably" or "5"
-          const stringRating = String(rating).trim()
-          const match = stringRating.match(/^(\d+)/)
-          numericRating = match ? Number(match[1]) : Number(stringRating)
-        }
-
-        if (Number.isFinite(numericRating)) {
-          validResponses++
-          if (numericRating >= 4) {
-            advocates++
-          } else if (numericRating <= 3) {
-            detractors++
-          }
-        }
-      })
-
-      const advocatePercent = validResponses > 0 ? (advocates / validResponses) * 100 : 0
-      const detractorPercent = validResponses > 0 ? (detractors / validResponses) * 100 : 0
+      const { advocatePercent, detractorPercent, validResponses } = calculateSentiment(productRows, sentimentColumn)
 
       return {
         productName,
@@ -133,7 +174,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
         totalResponses: validResponses
       }
     })
-  }, [dataset, productColumn, sentimentColumn])
+  }, [dataset, productColumn, sentimentColumn, useBucketMode, validBuckets])
 
   // Sort products by sentiment score (for default order)
   const sortedProducts = useMemo(() => {
@@ -147,12 +188,20 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
   // Note: top50Products and bottom50Products are now derived from orderedProducts
   // (defined later) to ensure they always match the displayed dropdown order.
 
-  // Initialize selected products - exclude products with 0% for both advocates and detractors
+  // Initialize selected products
+  // When fewer than 9 products, select ALL products
+  // When 9+ products, exclude products with 0% for both advocates and detractors
   useEffect(() => {
-    const nonZeroProducts = sortedProducts
-      .filter(p => p.advocatePercent > 0 || p.detractorPercent > 0)
-      .map(p => p.productName)
-    setSelectedProducts(nonZeroProducts)
+    if (sortedProducts.length < 9) {
+      // Select all products when fewer than 9 columns
+      setSelectedProducts(sortedProducts.map(p => p.productName))
+    } else {
+      // Only exclude zero-value products when 9+ columns
+      const nonZeroProducts = sortedProducts
+        .filter(p => p.advocatePercent > 0 || p.detractorPercent > 0)
+        .map(p => p.productName)
+      setSelectedProducts(nonZeroProducts)
+    }
   }, [sortedProducts])
 
   // Check for portal target availability

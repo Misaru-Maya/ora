@@ -1098,6 +1098,10 @@ export default function App() {
   }, [selections.productBuckets, setSelections])
 
   const addProductToBucket = useCallback((bucketId: string, product: string) => {
+    // Always ensure the bucket is marked as being edited BEFORE the transition
+    // This prevents the selection from closing when the first product is added
+    setAddingProductsToBucketId(bucketId)
+
     startTransition(() => {
       let currentBuckets = selections.productBuckets || []
 
@@ -1110,7 +1114,6 @@ export default function App() {
           products: []
         }
         currentBuckets = [newBucket]
-        setAddingProductsToBucketId(bucketId)
       }
 
       const newBuckets = currentBuckets.map(b => {
@@ -1634,8 +1637,30 @@ export default function App() {
                   gap: '10px'
                 }}
               >
-              {/* Feature pill 1 - Bulk chart export */}
+              {/* Feature pill 1 - Product buckets */}
               <div className="feature-pill-wrapper pill-1">
+                <div className="feature-pill">
+                  <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="2" y="4" width="8" height="16" rx="2" fill="#FEF3C7" stroke="#E7CB38" strokeWidth="1.5"/>
+                    <rect x="14" y="4" width="8" height="16" rx="2" fill="#FEF3C7" stroke="#E7CB38" strokeWidth="1.5"/>
+                    <rect x="4" y="7" width="4" height="2" rx="0.5" fill="#3A8518"/>
+                    <rect x="4" y="11" width="4" height="2" rx="0.5" fill="#3A8518"/>
+                    <rect x="4" y="15" width="4" height="2" rx="0.5" fill="#3A8518"/>
+                    <rect x="16" y="7" width="4" height="2" rx="0.5" fill="#E7CB38"/>
+                    <rect x="16" y="11" width="4" height="2" rx="0.5" fill="#E7CB38"/>
+                  </svg>
+                  <span className="pill-label">Product buckets</span>
+                </div>
+                <div className="pill-card">
+                  <div className="pill-card-content">
+                    <div className="pill-card-tagline">Group products into buckets 🪣</div>
+                    <div className="pill-card-location">Compare aggregated bucket data</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Feature pill 2 - Bulk chart export */}
+              <div className="feature-pill-wrapper pill-2">
                 <div className="feature-pill">
                   <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <rect x="3" y="3" width="18" height="18" rx="2" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
@@ -1652,8 +1677,8 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Feature pill 2 - Per-product heatmap */}
-              <div className="feature-pill-wrapper pill-2">
+              {/* Feature pill 3 - Per-product heatmap */}
+              <div className="feature-pill-wrapper pill-3">
                 <div className="feature-pill">
                   <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <rect x="3" y="3" width="8" height="8" rx="1" fill="#3A8518" />
@@ -1714,7 +1739,7 @@ export default function App() {
               color: '#6B7280',
               marginBottom: '8px'
             }}>
-              Last updated on December 10, 2025
+              Last updated on December 11, 2025
             </p>
             <p style={{
               fontSize: '13px',
@@ -2349,659 +2374,10 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Multi-Filter Comparison Section - Always visible */}
-              <div
-                className="shadow-sm"
-                style={{
-                  marginBottom: '10px',
-                  width: '100%',
-                  overflow: 'hidden',
-                  borderRadius: '12px',
-                  backgroundColor: 'white'
-                }}
-              >
-                <div
-                  className="flex items-center justify-between cursor-pointer"
-                  onClick={() => toggleSection('multiFilterComparison')}
-                  style={{
-                    padding: '14px 16px',
-                    backgroundColor: 'white',
-                    borderRadius: '12px',
-                    transition: 'background-color 0.15s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#FEF3C7'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'white'
-                  }}
-                >
-                  <div className="flex items-center" style={{ gap: '10px' }}>
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#3A8518"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="3" y="3" width="7" height="7" rx="1" />
-                      <rect x="14" y="3" width="7" height="7" rx="1" />
-                      <rect x="3" y="14" width="7" height="7" rx="1" />
-                      <rect x="14" y="14" width="7" height="7" rx="1" />
-                    </svg>
-                    <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#374151', letterSpacing: '0.025em' }}>Multi-Filter Comparison</h4>
-                    {/* Status indicator */}
-                    {(() => {
-                      const validSets = (selections.comparisonSets || []).filter(s => s.filters.length > 0)
-                      if (validSets.length >= 2) {
-                        return (
-                          <span style={{ fontSize: '10px', padding: '2px 6px', backgroundColor: '#E8F5E0', color: '#3A8518', borderRadius: '4px', fontWeight: 500 }}>
-                            Active
-                          </span>
-                        )
-                      } else if (validSets.length === 1) {
-                        return (
-                          <span style={{ fontSize: '10px', padding: '2px 6px', backgroundColor: '#FEF3C7', color: '#92400E', borderRadius: '4px', fontWeight: 500 }}>
-                            Need 1 more
-                          </span>
-                        )
-                      }
-                      return null
-                    })()}
-                  </div>
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#3A8518"
-                    strokeWidth="2"
-                    className="flex-shrink-0 transition-transform"
-                    style={{ transform: expandedSections.has('multiFilterComparison') ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                  >
-                    <path d="M6 9l6 6 6-6" />
-                  </svg>
-                </div>
-                {expandedSections.has('multiFilterComparison') && (
-                  <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '0 0 12px 12px' }}>
-                    {/* Comparison Sets List - Always show at least one set */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {(() => {
-                        // Ensure there's always at least one set displayed
-                        const currentSets = selections.comparisonSets || []
-                        const displaySets = currentSets.length > 0 ? currentSets : [{
-                          id: 'default_set_1',
-                          label: 'Set 1',
-                          filters: []
-                        }]
-                        // If showing the default set and no addingFiltersToSetId, auto-open it
-                        const effectiveAddingId = currentSets.length === 0 ? 'default_set_1' : addingFiltersToSetId
-
-                        return displaySets.map((compSet, idx) => {
-                        const isEditing = effectiveAddingId === compSet.id || (currentSets.length === 0 && idx === 0)
-                        return (
-                        <div
-                          key={compSet.id}
-                          onClick={(e) => {
-                            // Only activate editing if clicking on the card itself, not on buttons
-                            if ((e.target as HTMLElement).closest('button')) return
-                            if (!isEditing) {
-                              setAddingFiltersToSetId(compSet.id)
-                            }
-                          }}
-                          style={{
-                            padding: '12px',
-                            backgroundColor: isEditing ? '#FFFBEB' : '#F9FAFB',
-                            borderRadius: '8px',
-                            border: isEditing ? '2px solid #E7CB38' : '1px solid #E5E7EB',
-                            cursor: isEditing ? 'default' : 'pointer',
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          {/* Set Header */}
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              {editingComparisonSetId === compSet.id ? (
-                                <input
-                                  type="text"
-                                  value={comparisonSetLabelInput}
-                                  onChange={(e) => setComparisonSetLabelInput(e.target.value)}
-                                  onBlur={() => {
-                                    if (comparisonSetLabelInput.trim()) {
-                                      updateComparisonSetLabel(compSet.id, comparisonSetLabelInput.trim())
-                                    }
-                                    setEditingComparisonSetId(null)
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      if (comparisonSetLabelInput.trim()) {
-                                        updateComparisonSetLabel(compSet.id, comparisonSetLabelInput.trim())
-                                      }
-                                      setEditingComparisonSetId(null)
-                                    } else if (e.key === 'Escape') {
-                                      setEditingComparisonSetId(null)
-                                    }
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                  autoFocus
-                                  style={{
-                                    fontSize: '13px',
-                                    fontWeight: 600,
-                                    color: '#374151',
-                                    border: '1px solid #D1D5DB',
-                                    borderRadius: '4px',
-                                    padding: '2px 6px',
-                                    width: '120px'
-                                  }}
-                                />
-                              ) : (
-                                <span
-                                  style={{ fontSize: '13px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setEditingComparisonSetId(compSet.id)
-                                    setComparisonSetLabelInput(compSet.label)
-                                  }}
-                                  title="Click to edit label"
-                                >
-                                  {compSet.label}
-                                </span>
-                              )}
-                              {/* Respondent count badge */}
-                              {compSet.filters.length > 0 && (
-                                <span style={{ fontSize: '10px', padding: '1px 5px', backgroundColor: '#E8F5E0', color: '#3A8518', borderRadius: '10px' }}>
-                                  {comparisonSetRespondentCounts[compSet.id] ?? 0}
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                              {/* Remove set button */}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  removeComparisonSet(compSet.id)
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.color = '#DC2626'
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.color = '#9CA3AF'
-                                }}
-                                style={{
-                                  padding: '4px',
-                                  backgroundColor: 'transparent',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  color: '#9CA3AF',
-                                  transition: 'color 0.15s ease'
-                                }}
-                                title="Remove set"
-                              >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M18 6L6 18M6 6l12 12" />
-                                </svg>
-                              </button>
-                              {/* Done editing button - only show when editing */}
-                              {isEditing && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setAddingFiltersToSetId(null)
-                                  }}
-                                  style={{
-                                    padding: '4px',
-                                    backgroundColor: 'transparent',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    color: '#3A8518'
-                                  }}
-                                  title="Done editing"
-                                >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <path d="M20 6L9 17l-5-5" />
-                                  </svg>
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Filters in this set */}
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                            {compSet.filters.length === 0 ? (
-                              <span style={{ fontSize: '11px', color: '#9CA3AF', fontStyle: 'italic' }}>
-                                {isEditing ? 'Select filters below' : 'Click to add filters'}
-                              </span>
-                            ) : (
-                              compSet.filters.map((filter) => (
-                                <div
-                                  key={`${filter.column}-${filter.value}`}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    padding: '4px 8px',
-                                    backgroundColor: '#E8F5E0',
-                                    borderRadius: '4px',
-                                    fontSize: '11px',
-                                    color: '#3A8518'
-                                  }}
-                                >
-                                  <span>{filter.value}</span>
-                                  {isEditing && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      removeFilterFromComparisonSet(compSet.id, filter)
-                                    }}
-                                    style={{
-                                      background: 'none',
-                                      border: 'none',
-                                      cursor: 'pointer',
-                                      padding: '0',
-                                      display: 'flex',
-                                      color: '#3A8518'
-                                    }}
-                                  >
-                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                                      <path d="M18 6L6 18M6 6l12 12" />
-                                    </svg>
-                                  </button>
-                                  )}
-                                </div>
-                              ))
-                            )}
-                          </div>
-
-                          {/* Filter selection panel when editing */}
-                          {isEditing && (
-                            <div style={{ marginTop: '12px', padding: '10px', backgroundColor: 'white', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
-                              <div style={{ marginBottom: '8px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: 600, color: '#374151' }}>Select filters:</span>
-                              </div>
-                              <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
-                                {/* Segment columns - using memoized data */}
-                                {Object.entries(segmentFilterData).map(([column, values]) => (
-                                  <div key={column} style={{ marginBottom: '8px' }}>
-                                    <div style={{ fontSize: '11px', fontWeight: 500, color: '#6B7280', marginBottom: '4px' }}>{column}</div>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                      {values.map(value => {
-                                        const isInSet = compSet.filters.some(f => f.column === column && f.value === value)
-                                        return (
-                                          <button
-                                            key={value}
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              if (isInSet) {
-                                                removeFilterFromComparisonSet(compSet.id, { column, value })
-                                              } else {
-                                                addFilterToComparisonSet(compSet.id, { column, value })
-                                              }
-                                            }}
-                                            style={{
-                                              padding: '3px 8px',
-                                              fontSize: '11px',
-                                              backgroundColor: isInSet ? '#3A8518' : '#F3F4F6',
-                                              color: isInSet ? 'white' : '#374151',
-                                              border: 'none',
-                                              borderRadius: '4px',
-                                              cursor: 'pointer'
-                                            }}
-                                          >
-                                            {value}
-                                          </button>
-                                        )
-                                      })}
-                                    </div>
-                                  </div>
-                                ))}
-
-                                {/* Consumer Questions section */}
-                                {availableConsumerQuestions.length > 0 && (() => {
-                                  const searchTerm = consumerQuestionSearch[compSet.id] || ''
-                                  const searchLower = searchTerm.trim().toLowerCase()
-                                  const filteredQuestions = searchLower
-                                    ? availableConsumerQuestions.filter(q =>
-                                        q.label.toLowerCase().includes(searchLower) ||
-                                        q.columns.some(col => col.optionLabel.toLowerCase().includes(searchLower))
-                                      )
-                                    : availableConsumerQuestions
-                                  const isDropdownOpen = consumerQuestionDropdownOpen[compSet.id] || false
-                                  const selectedQids = selectedConsumerQuestions[compSet.id] || new Set<string>()
-                                  const selectedQuestionsList = availableConsumerQuestions.filter(q => selectedQids.has(q.qid))
-
-                                  return (
-                                    <>
-                                      <div style={{
-                                        fontSize: '10px',
-                                        fontWeight: 600,
-                                        color: '#9CA3AF',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px',
-                                        marginTop: '12px',
-                                        marginBottom: '8px',
-                                        paddingTop: '8px',
-                                        borderTop: '1px solid #E5E7EB'
-                                      }}>
-                                        Consumer Questions
-                                      </div>
-
-                                      {/* Question Dropdown */}
-                                      <div id={`consumer-questions-${compSet.id}`} style={{ position: 'relative', marginBottom: '8px' }}>
-                                        <div
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            const willOpen = !isDropdownOpen
-                                            setConsumerQuestionDropdownOpen(prev => ({ ...prev, [compSet.id]: willOpen }))
-                                            // Auto-scroll to show the dropdown when opening
-                                            if (willOpen) {
-                                              setTimeout(() => {
-                                                const element = document.getElementById(`consumer-questions-${compSet.id}`)
-                                                element?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                                              }, 50)
-                                            }
-                                          }}
-                                          style={{
-                                            padding: '8px 12px',
-                                            border: '1px solid #E5E7EB',
-                                            borderRadius: '6px',
-                                            cursor: 'pointer',
-                                            fontSize: '11px',
-                                            backgroundColor: 'white',
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                            color: '#374151',
-                                            transition: 'border-color 0.15s ease',
-                                            boxShadow: isDropdownOpen ? '0 0 0 2px rgba(58, 133, 24, 0.2)' : 'none'
-                                          }}
-                                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#3A8518' }}
-                                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E5E7EB' }}
-                                        >
-                                          <span style={{ fontWeight: 500 }}>
-                                            {selectedQids.size > 0 ? `${selectedQids.size} question${selectedQids.size > 1 ? 's' : ''} selected` : 'Select questions...'}
-                                          </span>
-                                          <svg
-                                            width="12"
-                                            height="12"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="#6B7280"
-                                            strokeWidth="2"
-                                            style={{
-                                              transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                                              transition: 'transform 0.2s ease',
-                                              flexShrink: 0
-                                            }}
-                                          >
-                                            <path d="M6 9l6 6 6-6" />
-                                          </svg>
-                                        </div>
-
-                                        {isDropdownOpen && (
-                                          <div
-                                            onClick={(e) => e.stopPropagation()}
-                                            style={{
-                                              position: 'absolute',
-                                              top: '100%',
-                                              left: 0,
-                                              right: 0,
-                                              marginTop: '4px',
-                                              backgroundColor: 'white',
-                                              border: '1px solid #E5E7EB',
-                                              borderRadius: '6px',
-                                              zIndex: 1000,
-                                              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                              overflow: 'hidden'
-                                            }}
-                                          >
-                                            {/* Search Input */}
-                                            <div style={{ padding: '8px', borderBottom: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}>
-                                              <input
-                                                type="text"
-                                                placeholder="Search questions..."
-                                                value={searchTerm}
-                                                onChange={(e) => {
-                                                  setConsumerQuestionSearch(prev => ({ ...prev, [compSet.id]: e.target.value }))
-                                                }}
-                                                onClick={(e) => e.stopPropagation()}
-                                                style={{
-                                                  width: '100%',
-                                                  padding: '6px 10px',
-                                                  fontSize: '11px',
-                                                  border: '1px solid #E5E7EB',
-                                                  borderRadius: '4px',
-                                                  outline: 'none'
-                                                }}
-                                                onFocus={(e) => {
-                                                  e.target.style.borderColor = '#3A8518'
-                                                  e.target.style.boxShadow = '0 0 0 2px rgba(58, 133, 24, 0.1)'
-                                                }}
-                                                onBlur={(e) => {
-                                                  e.target.style.borderColor = '#E5E7EB'
-                                                  e.target.style.boxShadow = 'none'
-                                                }}
-                                              />
-                                            </div>
-
-                                            {/* Questions List with Checkboxes */}
-                                            <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                                              {filteredQuestions.length === 0 ? (
-                                                <div style={{ padding: '10px', fontSize: '11px', color: '#6B7280', textAlign: 'center' }}>
-                                                  No questions found
-                                                </div>
-                                              ) : (
-                                                filteredQuestions.map(q => {
-                                                  const isSelected = selectedQids.has(q.qid)
-                                                  return (
-                                                    <label
-                                                      key={q.qid}
-                                                      style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        padding: '8px 10px',
-                                                        fontSize: '11px',
-                                                        cursor: 'pointer',
-                                                        gap: '8px',
-                                                        backgroundColor: isSelected ? '#F0FDF4' : 'white'
-                                                      }}
-                                                      onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = '#F9FAFB' }}
-                                                      onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = isSelected ? '#F0FDF4' : 'white' }}
-                                                    >
-                                                      <input
-                                                        type="checkbox"
-                                                        checked={isSelected}
-                                                        onChange={() => {
-                                                          setSelectedConsumerQuestions(prev => {
-                                                            const currentSet = prev[compSet.id] || new Set<string>()
-                                                            const newSet = new Set(currentSet)
-                                                            if (newSet.has(q.qid)) {
-                                                              newSet.delete(q.qid)
-                                                            } else {
-                                                              newSet.add(q.qid)
-                                                            }
-                                                            return { ...prev, [compSet.id]: newSet }
-                                                          })
-                                                        }}
-                                                        style={{ cursor: 'pointer', accentColor: '#3A8518' }}
-                                                      />
-                                                      <span style={{ color: '#374151' }}>{q.label}</span>
-                                                    </label>
-                                                  )
-                                                })
-                                              )}
-                                            </div>
-
-                                            {/* Done Button */}
-                                            <div style={{ padding: '8px', borderTop: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}>
-                                              <button
-                                                onClick={() => setConsumerQuestionDropdownOpen(prev => ({ ...prev, [compSet.id]: false }))}
-                                                style={{
-                                                  width: '100%',
-                                                  padding: '6px 12px',
-                                                  fontSize: '11px',
-                                                  fontWeight: 500,
-                                                  backgroundColor: '#3A8518',
-                                                  color: 'white',
-                                                  border: 'none',
-                                                  borderRadius: '4px',
-                                                  cursor: 'pointer'
-                                                }}
-                                              >
-                                                Done
-                                              </button>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-
-                                      {/* Answer Options for Selected Questions */}
-                                      {selectedQuestionsList.map(question => (
-                                        <div key={question.qid} style={{ marginBottom: '20px' }}>
-                                          <div style={{
-                                            fontSize: '11px',
-                                            fontWeight: 500,
-                                            color: '#374151',
-                                            marginBottom: '4px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px'
-                                          }}>
-                                            <span>{question.label}</span>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                setSelectedConsumerQuestions(prev => {
-                                                  const currentSet = prev[compSet.id] || new Set<string>()
-                                                  const newSet = new Set(currentSet)
-                                                  newSet.delete(question.qid)
-                                                  return { ...prev, [compSet.id]: newSet }
-                                                })
-                                              }}
-                                              style={{
-                                                padding: '0 4px',
-                                                fontSize: '10px',
-                                                color: '#9CA3AF',
-                                                backgroundColor: 'transparent',
-                                                border: 'none',
-                                                cursor: 'pointer',
-                                                lineHeight: 1
-                                              }}
-                                              title="Remove question"
-                                            >
-                                              ✕
-                                            </button>
-                                          </div>
-                                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                            {question.columns.map(col => {
-                                              const value = col.optionLabel
-                                              const isInSet = compSet.filters.some(f => f.column === question.qid && f.value === value)
-                                              return (
-                                                <button
-                                                  key={value}
-                                                  onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    if (isInSet) {
-                                                      removeFilterFromComparisonSet(compSet.id, { column: question.qid, value })
-                                                    } else {
-                                                      addFilterToComparisonSet(compSet.id, { column: question.qid, value })
-                                                    }
-                                                  }}
-                                                  style={{
-                                                    padding: '3px 8px',
-                                                    fontSize: '11px',
-                                                    backgroundColor: isInSet ? '#3A8518' : '#F3F4F6',
-                                                    color: isInSet ? 'white' : '#374151',
-                                                    border: 'none',
-                                                    borderRadius: '4px',
-                                                    cursor: 'pointer'
-                                                  }}
-                                                >
-                                                  {value}
-                                                </button>
-                                              )
-                                            })}
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </>
-                                  )
-                                })()}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )})
-                      })()}
-
-                      {/* Add New Set Button */}
-                      <button
-                        onClick={addComparisonSet}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                          padding: '10px',
-                          backgroundColor: '#F9FAFB',
-                          border: '2px dashed #D1D5DB',
-                          borderRadius: '8px',
-                          color: '#6B7280',
-                          fontSize: '13px',
-                          fontWeight: 500,
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = '#F3F4F6'
-                          e.currentTarget.style.borderColor = '#9CA3AF'
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = '#F9FAFB'
-                          e.currentTarget.style.borderColor = '#D1D5DB'
-                        }}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M12 5v14M5 12h14" />
-                        </svg>
-                        Add Comparison Set
-                      </button>
-
-                      {/* Clear all button */}
-                      {(selections.comparisonSets || []).length > 0 && (
-                        <button
-                          onClick={() => {
-                            setSelections({ comparisonSets: [], multiFilterCompareMode: false })
-                            // Also clear consumer question selections
-                            setSelectedConsumerQuestions({})
-                            setConsumerQuestionDropdownOpen({})
-                            setConsumerQuestionSearch({})
-                          }}
-                          style={{
-                            padding: '6px 10px',
-                            fontSize: '11px',
-                            backgroundColor: '#FEF2F2',
-                            border: 'none',
-                            borderRadius: '6px',
-                            color: '#DC2626',
-                            cursor: 'pointer',
-                            fontWeight: 500,
-                            marginTop: '4px'
-                          }}
-                        >
-                          Clear All
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-col" style={{ gap: '10px' }}>
+              {/* Segmentation Section */}
                 <section
                   className="rounded-xl bg-white shadow-sm"
+                  style={{ marginBottom: '10px' }}
                 >
                   <div
                     className="flex items-center justify-between cursor-pointer"
@@ -3825,6 +3201,657 @@ export default function App() {
                   )}
                 </section>
 
+              {/* Segment Buckets Section - Always visible */}
+              <div
+                className="shadow-sm"
+                style={{
+                  marginBottom: '10px',
+                  width: '100%',
+                  overflow: 'hidden',
+                  borderRadius: '12px',
+                  backgroundColor: 'white'
+                }}
+              >
+                <div
+                  className="flex items-center justify-between cursor-pointer"
+                  onClick={() => toggleSection('multiFilterComparison')}
+                  style={{
+                    padding: '14px 16px',
+                    backgroundColor: 'white',
+                    borderRadius: '12px',
+                    transition: 'background-color 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#FEF3C7'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'white'
+                  }}
+                >
+                  <div className="flex items-center" style={{ gap: '10px' }}>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#3A8518"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="3" y="3" width="7" height="7" rx="1" />
+                      <rect x="14" y="3" width="7" height="7" rx="1" />
+                      <rect x="3" y="14" width="7" height="7" rx="1" />
+                      <rect x="14" y="14" width="7" height="7" rx="1" />
+                    </svg>
+                    <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#374151', letterSpacing: '0.025em' }}>Segment Buckets</h4>
+                    {/* Status indicator */}
+                    {(() => {
+                      const validSets = (selections.comparisonSets || []).filter(s => s.filters.length > 0)
+                      if (validSets.length >= 2) {
+                        return (
+                          <span style={{ fontSize: '10px', padding: '2px 6px', backgroundColor: '#E8F5E0', color: '#3A8518', borderRadius: '4px', fontWeight: 500 }}>
+                            Active
+                          </span>
+                        )
+                      } else if (validSets.length === 1) {
+                        return (
+                          <span style={{ fontSize: '10px', padding: '2px 6px', backgroundColor: '#FEF3C7', color: '#92400E', borderRadius: '4px', fontWeight: 500 }}>
+                            Need 1 more
+                          </span>
+                        )
+                      }
+                      return null
+                    })()}
+                  </div>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#3A8518"
+                    strokeWidth="2"
+                    className="flex-shrink-0 transition-transform"
+                    style={{ transform: expandedSections.has('multiFilterComparison') ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </div>
+                {expandedSections.has('multiFilterComparison') && (
+                  <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '0 0 12px 12px' }}>
+                    {/* Comparison Sets List - Always show at least one set */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {(() => {
+                        // Ensure there's always at least one set displayed
+                        const currentSets = selections.comparisonSets || []
+                        const displaySets = currentSets.length > 0 ? currentSets : [{
+                          id: 'default_set_1',
+                          label: 'Set 1',
+                          filters: []
+                        }]
+                        // If showing the default set and no addingFiltersToSetId, auto-open it
+                        const effectiveAddingId = currentSets.length === 0 ? 'default_set_1' : addingFiltersToSetId
+
+                        return displaySets.map((compSet, idx) => {
+                        const isEditing = effectiveAddingId === compSet.id || (currentSets.length === 0 && idx === 0)
+                        return (
+                        <div
+                          key={compSet.id}
+                          onClick={(e) => {
+                            // Only activate editing if clicking on the card itself, not on buttons
+                            if ((e.target as HTMLElement).closest('button')) return
+                            if (!isEditing) {
+                              setAddingFiltersToSetId(compSet.id)
+                            }
+                          }}
+                          style={{
+                            padding: '12px',
+                            backgroundColor: isEditing ? '#FFFBEB' : '#F9FAFB',
+                            borderRadius: '8px',
+                            border: isEditing ? '2px solid #E7CB38' : '1px solid #E5E7EB',
+                            cursor: isEditing ? 'default' : 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          {/* Set Header */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              {editingComparisonSetId === compSet.id ? (
+                                <input
+                                  type="text"
+                                  value={comparisonSetLabelInput}
+                                  onChange={(e) => setComparisonSetLabelInput(e.target.value)}
+                                  onBlur={() => {
+                                    if (comparisonSetLabelInput.trim()) {
+                                      updateComparisonSetLabel(compSet.id, comparisonSetLabelInput.trim())
+                                    }
+                                    setEditingComparisonSetId(null)
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      if (comparisonSetLabelInput.trim()) {
+                                        updateComparisonSetLabel(compSet.id, comparisonSetLabelInput.trim())
+                                      }
+                                      setEditingComparisonSetId(null)
+                                    } else if (e.key === 'Escape') {
+                                      setEditingComparisonSetId(null)
+                                    }
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  autoFocus
+                                  style={{
+                                    fontSize: '13px',
+                                    fontWeight: 600,
+                                    color: '#374151',
+                                    border: '1px solid #D1D5DB',
+                                    borderRadius: '4px',
+                                    padding: '2px 6px',
+                                    width: '120px'
+                                  }}
+                                />
+                              ) : (
+                                <span
+                                  style={{ fontSize: '13px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setEditingComparisonSetId(compSet.id)
+                                    setComparisonSetLabelInput(compSet.label)
+                                  }}
+                                  title="Click to edit label"
+                                >
+                                  {compSet.label}
+                                </span>
+                              )}
+                              {/* Respondent count badge */}
+                              {compSet.filters.length > 0 && (
+                                <span style={{ fontSize: '10px', padding: '1px 5px', backgroundColor: '#E8F5E0', color: '#3A8518', borderRadius: '10px' }}>
+                                  {comparisonSetRespondentCounts[compSet.id] ?? 0}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              {/* Remove set button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  removeComparisonSet(compSet.id)
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = '#DC2626'
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = '#9CA3AF'
+                                }}
+                                style={{
+                                  padding: '4px',
+                                  backgroundColor: 'transparent',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: '#9CA3AF',
+                                  transition: 'color 0.15s ease'
+                                }}
+                                title="Remove set"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M18 6L6 18M6 6l12 12" />
+                                </svg>
+                              </button>
+                              {/* Done editing button - only show when editing */}
+                              {isEditing && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setAddingFiltersToSetId(null)
+                                  }}
+                                  style={{
+                                    padding: '4px',
+                                    backgroundColor: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: '#3A8518'
+                                  }}
+                                  title="Done editing"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <path d="M20 6L9 17l-5-5" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Filters in this set */}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {compSet.filters.length === 0 ? (
+                              <span style={{ fontSize: '11px', color: '#9CA3AF', fontStyle: 'italic' }}>
+                                {isEditing ? 'Select filters below' : 'Click to add filters'}
+                              </span>
+                            ) : (
+                              compSet.filters.map((filter) => (
+                                <div
+                                  key={`${filter.column}-${filter.value}`}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '4px 8px',
+                                    backgroundColor: '#E8F5E0',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    color: '#3A8518'
+                                  }}
+                                >
+                                  <span>{filter.value}</span>
+                                  {isEditing && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      removeFilterFromComparisonSet(compSet.id, filter)
+                                    }}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      padding: '0',
+                                      display: 'flex',
+                                      color: '#3A8518'
+                                    }}
+                                  >
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                      <path d="M18 6L6 18M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                  )}
+                                </div>
+                              ))
+                            )}
+                          </div>
+
+                          {/* Filter selection panel when editing */}
+                          {isEditing && (
+                            <div style={{ marginTop: '12px', padding: '10px', backgroundColor: 'white', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
+                              <div style={{ marginBottom: '8px' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 600, color: '#374151' }}>Select filters:</span>
+                              </div>
+                              <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                                {/* Segment columns - using memoized data */}
+                                {Object.entries(segmentFilterData).map(([column, values]) => (
+                                  <div key={column} style={{ marginBottom: '8px' }}>
+                                    <div style={{ fontSize: '11px', fontWeight: 500, color: '#6B7280', marginBottom: '4px' }}>{column}</div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                      {values.map(value => {
+                                        const isInSet = compSet.filters.some(f => f.column === column && f.value === value)
+                                        return (
+                                          <button
+                                            key={value}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              if (isInSet) {
+                                                removeFilterFromComparisonSet(compSet.id, { column, value })
+                                              } else {
+                                                addFilterToComparisonSet(compSet.id, { column, value })
+                                              }
+                                            }}
+                                            style={{
+                                              padding: '3px 8px',
+                                              fontSize: '11px',
+                                              backgroundColor: isInSet ? '#3A8518' : '#F3F4F6',
+                                              color: isInSet ? 'white' : '#374151',
+                                              border: 'none',
+                                              borderRadius: '4px',
+                                              cursor: 'pointer'
+                                            }}
+                                          >
+                                            {value}
+                                          </button>
+                                        )
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {/* Consumer Questions section */}
+                                {availableConsumerQuestions.length > 0 && (() => {
+                                  const searchTerm = consumerQuestionSearch[compSet.id] || ''
+                                  const searchLower = searchTerm.trim().toLowerCase()
+                                  const filteredQuestions = searchLower
+                                    ? availableConsumerQuestions.filter(q =>
+                                        q.label.toLowerCase().includes(searchLower) ||
+                                        q.columns.some(col => col.optionLabel.toLowerCase().includes(searchLower))
+                                      )
+                                    : availableConsumerQuestions
+                                  const isDropdownOpen = consumerQuestionDropdownOpen[compSet.id] || false
+                                  const selectedQids = selectedConsumerQuestions[compSet.id] || new Set<string>()
+                                  const selectedQuestionsList = availableConsumerQuestions.filter(q => selectedQids.has(q.qid))
+
+                                  return (
+                                    <>
+                                      <div style={{
+                                        fontSize: '10px',
+                                        fontWeight: 600,
+                                        color: '#9CA3AF',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.5px',
+                                        marginTop: '12px',
+                                        marginBottom: '8px',
+                                        paddingTop: '8px',
+                                        borderTop: '1px solid #E5E7EB'
+                                      }}>
+                                        Consumer Questions
+                                      </div>
+
+                                      {/* Question Dropdown */}
+                                      <div id={`consumer-questions-${compSet.id}`} style={{ position: 'relative', marginBottom: '8px' }}>
+                                        <div
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            const willOpen = !isDropdownOpen
+                                            setConsumerQuestionDropdownOpen(prev => ({ ...prev, [compSet.id]: willOpen }))
+                                            // Auto-scroll to show the dropdown when opening
+                                            if (willOpen) {
+                                              setTimeout(() => {
+                                                const element = document.getElementById(`consumer-questions-${compSet.id}`)
+                                                element?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                                              }, 50)
+                                            }
+                                          }}
+                                          style={{
+                                            padding: '8px 12px',
+                                            border: '1px solid #E5E7EB',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            fontSize: '11px',
+                                            backgroundColor: 'white',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            color: '#374151',
+                                            transition: 'border-color 0.15s ease',
+                                            boxShadow: isDropdownOpen ? '0 0 0 2px rgba(58, 133, 24, 0.2)' : 'none'
+                                          }}
+                                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#3A8518' }}
+                                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E5E7EB' }}
+                                        >
+                                          <span style={{ fontWeight: 500 }}>
+                                            {selectedQids.size > 0 ? `${selectedQids.size} question${selectedQids.size > 1 ? 's' : ''} selected` : 'Select questions...'}
+                                          </span>
+                                          <svg
+                                            width="12"
+                                            height="12"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="#6B7280"
+                                            strokeWidth="2"
+                                            style={{
+                                              transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                                              transition: 'transform 0.2s ease',
+                                              flexShrink: 0
+                                            }}
+                                          >
+                                            <path d="M6 9l6 6 6-6" />
+                                          </svg>
+                                        </div>
+
+                                        {isDropdownOpen && (
+                                          <div
+                                            onClick={(e) => e.stopPropagation()}
+                                            style={{
+                                              position: 'absolute',
+                                              top: '100%',
+                                              left: 0,
+                                              right: 0,
+                                              marginTop: '4px',
+                                              backgroundColor: 'white',
+                                              border: '1px solid #E5E7EB',
+                                              borderRadius: '6px',
+                                              zIndex: 1000,
+                                              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                              overflow: 'hidden'
+                                            }}
+                                          >
+                                            {/* Search Input */}
+                                            <div style={{ padding: '8px', borderBottom: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}>
+                                              <input
+                                                type="text"
+                                                placeholder="Search questions..."
+                                                value={searchTerm}
+                                                onChange={(e) => {
+                                                  setConsumerQuestionSearch(prev => ({ ...prev, [compSet.id]: e.target.value }))
+                                                }}
+                                                onClick={(e) => e.stopPropagation()}
+                                                style={{
+                                                  width: '100%',
+                                                  padding: '6px 10px',
+                                                  fontSize: '11px',
+                                                  border: '1px solid #E5E7EB',
+                                                  borderRadius: '4px',
+                                                  outline: 'none'
+                                                }}
+                                                onFocus={(e) => {
+                                                  e.target.style.borderColor = '#3A8518'
+                                                  e.target.style.boxShadow = '0 0 0 2px rgba(58, 133, 24, 0.1)'
+                                                }}
+                                                onBlur={(e) => {
+                                                  e.target.style.borderColor = '#E5E7EB'
+                                                  e.target.style.boxShadow = 'none'
+                                                }}
+                                              />
+                                            </div>
+
+                                            {/* Questions List with Checkboxes */}
+                                            <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                                              {filteredQuestions.length === 0 ? (
+                                                <div style={{ padding: '10px', fontSize: '11px', color: '#6B7280', textAlign: 'center' }}>
+                                                  No questions found
+                                                </div>
+                                              ) : (
+                                                filteredQuestions.map(q => {
+                                                  const isSelected = selectedQids.has(q.qid)
+                                                  return (
+                                                    <label
+                                                      key={q.qid}
+                                                      style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        padding: '8px 10px',
+                                                        fontSize: '11px',
+                                                        cursor: 'pointer',
+                                                        gap: '8px',
+                                                        backgroundColor: isSelected ? '#F0FDF4' : 'white'
+                                                      }}
+                                                      onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = '#F9FAFB' }}
+                                                      onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = isSelected ? '#F0FDF4' : 'white' }}
+                                                    >
+                                                      <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => {
+                                                          setSelectedConsumerQuestions(prev => {
+                                                            const currentSet = prev[compSet.id] || new Set<string>()
+                                                            const newSet = new Set(currentSet)
+                                                            if (newSet.has(q.qid)) {
+                                                              newSet.delete(q.qid)
+                                                            } else {
+                                                              newSet.add(q.qid)
+                                                            }
+                                                            return { ...prev, [compSet.id]: newSet }
+                                                          })
+                                                        }}
+                                                        style={{ cursor: 'pointer', accentColor: '#3A8518' }}
+                                                      />
+                                                      <span style={{ color: '#374151' }}>{q.label}</span>
+                                                    </label>
+                                                  )
+                                                })
+                                              )}
+                                            </div>
+
+                                            {/* Done Button */}
+                                            <div style={{ padding: '8px', borderTop: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}>
+                                              <button
+                                                onClick={() => setConsumerQuestionDropdownOpen(prev => ({ ...prev, [compSet.id]: false }))}
+                                                style={{
+                                                  width: '100%',
+                                                  padding: '6px 12px',
+                                                  fontSize: '11px',
+                                                  fontWeight: 500,
+                                                  backgroundColor: '#3A8518',
+                                                  color: 'white',
+                                                  border: 'none',
+                                                  borderRadius: '4px',
+                                                  cursor: 'pointer'
+                                                }}
+                                              >
+                                                Done
+                                              </button>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Answer Options for Selected Questions */}
+                                      {selectedQuestionsList.map(question => (
+                                        <div key={question.qid} style={{ marginBottom: '20px' }}>
+                                          <div style={{
+                                            fontSize: '11px',
+                                            fontWeight: 500,
+                                            color: '#374151',
+                                            marginBottom: '4px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px'
+                                          }}>
+                                            <span>{question.label}</span>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                setSelectedConsumerQuestions(prev => {
+                                                  const currentSet = prev[compSet.id] || new Set<string>()
+                                                  const newSet = new Set(currentSet)
+                                                  newSet.delete(question.qid)
+                                                  return { ...prev, [compSet.id]: newSet }
+                                                })
+                                              }}
+                                              style={{
+                                                padding: '0 4px',
+                                                fontSize: '10px',
+                                                color: '#9CA3AF',
+                                                backgroundColor: 'transparent',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                lineHeight: 1
+                                              }}
+                                              title="Remove question"
+                                            >
+                                              ✕
+                                            </button>
+                                          </div>
+                                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                            {question.columns.map(col => {
+                                              const value = col.optionLabel
+                                              const isInSet = compSet.filters.some(f => f.column === question.qid && f.value === value)
+                                              return (
+                                                <button
+                                                  key={value}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    if (isInSet) {
+                                                      removeFilterFromComparisonSet(compSet.id, { column: question.qid, value })
+                                                    } else {
+                                                      addFilterToComparisonSet(compSet.id, { column: question.qid, value })
+                                                    }
+                                                  }}
+                                                  style={{
+                                                    padding: '3px 8px',
+                                                    fontSize: '11px',
+                                                    backgroundColor: isInSet ? '#3A8518' : '#F3F4F6',
+                                                    color: isInSet ? 'white' : '#374151',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer'
+                                                  }}
+                                                >
+                                                  {value}
+                                                </button>
+                                              )
+                                            })}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </>
+                                  )
+                                })()}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )})
+                      })()}
+
+                      {/* Add New Set Button */}
+                      <button
+                        onClick={addComparisonSet}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          padding: '10px',
+                          backgroundColor: '#F9FAFB',
+                          border: '2px dashed #D1D5DB',
+                          borderRadius: '8px',
+                          color: '#6B7280',
+                          fontSize: '13px',
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#F3F4F6'
+                          e.currentTarget.style.borderColor = '#9CA3AF'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#F9FAFB'
+                          e.currentTarget.style.borderColor = '#D1D5DB'
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 5v14M5 12h14" />
+                        </svg>
+                        Add Comparison Set
+                      </button>
+
+                      {/* Clear all button */}
+                      {(selections.comparisonSets || []).length > 0 && (
+                        <button
+                          onClick={() => {
+                            setSelections({ comparisonSets: [], multiFilterCompareMode: false })
+                            // Also clear consumer question selections
+                            setSelectedConsumerQuestions({})
+                            setConsumerQuestionDropdownOpen({})
+                            setConsumerQuestionSearch({})
+                          }}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '11px',
+                            backgroundColor: '#FEF2F2',
+                            border: 'none',
+                            borderRadius: '6px',
+                            color: '#DC2626',
+                            cursor: 'pointer',
+                            fontWeight: 500,
+                            marginTop: '4px'
+                          }}
+                        >
+                          Clear All
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col" style={{ gap: '10px' }}>
                 {productColumn && productValues.length > 0 && (
                   <section
                     className="rounded-xl bg-white shadow-sm"
@@ -4014,7 +4041,13 @@ export default function App() {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                         >
-                          <path d="M2 12h6l2-6 4 12 2-6h6" />
+                          <rect x="3" y="3" width="7" height="18" rx="1" />
+                          <rect x="14" y="3" width="7" height="18" rx="1" />
+                          <line x1="5" y1="8" x2="8" y2="8" />
+                          <line x1="5" y1="12" x2="8" y2="12" />
+                          <line x1="5" y1="16" x2="8" y2="16" />
+                          <line x1="16" y1="8" x2="19" y2="8" />
+                          <line x1="16" y1="12" x2="19" y2="12" />
                         </svg>
                         <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#374151', letterSpacing: '0.025em' }}>Product Buckets</h4>
                         {/* Status indicator */}

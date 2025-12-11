@@ -28,6 +28,7 @@ interface HeatmapTableProps {
   heightOffset?: number
   showSegment?: boolean
   sentimentType?: 'advocates' | 'detractors' | null  // For product follow-up questions
+  usePrecomputedData?: boolean  // When true, skip product lookups and use data as-is (for bucket mode)
 }
 
 // Get color based on value and sentiment using continuous gradient
@@ -47,7 +48,7 @@ const getColor = (value: number, sentiment: 'positive' | 'negative', minVal: num
   return { bg: bgColor, text: textColor }
 }
 
-export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, showAsterisks = true, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [], transposed = false, questionTypeBadge, heightOffset = 0, showSegment = true, sentimentType = null }) => {
+export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, questionLabel, sentiment, questionId, dataset, productColumn, showAsterisks = true, optionLabels: _optionLabels = {}, onSaveOptionLabel, onSaveQuestionLabel, productOrder = [], transposed = false, questionTypeBadge, heightOffset = 0, showSegment = true, sentimentType = null, usePrecomputedData = false }) => {
   const [editingOption, setEditingOption] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
   const [editingQuestionLabel, setEditingQuestionLabel] = useState(false)
@@ -91,6 +92,13 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
   // Sentiment Score = (% Advocates - % Detractors + 100) / 2
   // Advocates = 4s and 5s, Detractors = 1s and 2s, Neutrals = 3s
   const sentimentScores = useMemo(() => {
+    // Skip sentiment score calculation when using precomputed data (bucket mode)
+    // In bucket mode, the data is already aggregated and we don't need to look up products
+    if (usePrecomputedData) {
+      devLog('📊 Using precomputed data, skipping sentiment score calculation')
+      return null
+    }
+
     // Find sentiment column (column with "(sentiment)" in header)
     const sentimentColumn = dataset.summary.columns.find(col =>
       col.toLowerCase().includes('(sentiment)') && col.toLowerCase().includes('would you consider buying')
@@ -164,7 +172,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
     }
 
     return scores
-  }, [dataset, productColumn, groups])
+  }, [dataset, productColumn, groups, usePrecomputedData])
 
   // Note: top50Products, bottom50Products, and defaultProductSelection are now derived
   // from allGroupsOrdered (defined later) to ensure they always match the displayed dropdown order.
@@ -452,8 +460,13 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
     }
   }, [allGroupsOrdered])
 
-  // Default product selection based on sentiment type
+  // Default product selection based on sentiment type and column count
   const defaultProductSelection = useMemo(() => {
+    // When fewer than 9 columns, select ALL products
+    if (allGroupsOrdered.length < 9) {
+      return allGroupsOrdered.map(g => g.key)
+    }
+    // For 9+ columns:
     // For positive questions (advocates): show top 50%
     // For negative questions (detractors): show bottom 50%
     if (sentiment === 'positive') {
