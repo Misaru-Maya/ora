@@ -170,8 +170,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     try {
       const html2canvas = (await import('html2canvas')).default
 
-      // Step 1: Capture the content at 3x scale for very high resolution
-      const captureScale = 3 // Higher = sharper image (2 = standard, 3 = high, 4 = very high)
+      // Step 1: Capture the content at 6x scale for maximum resolution
+      const captureScale = 6 // Higher = sharper image (must be >= desiredOutputScale for best quality)
       const contentCanvas = await html2canvas(exportContentRef.current, {
         backgroundColor: showContainer ? '#ffffff' : null,
         scale: captureScale,
@@ -181,18 +181,30 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
       let finalCanvas: HTMLCanvasElement
 
+      // Output at 6x original size (matches previous behavior) with higher capture quality
+      // Captures at 4x then scales up to 6x for maximum sharpness at large size
+      const desiredOutputScale = 6 // 6x = large size (original behavior), 2x = retina, 1x = screen size
+      const scaleRatio = desiredOutputScale / captureScale // e.g., 6/4 = 1.5
+
       if (!showContainer) {
-        // When container is hidden, just copy the content directly without container styling
-        finalCanvas = contentCanvas
+        // When container is hidden, scale down the content to desired output size
+        const scaledWidth = contentCanvas.width * scaleRatio
+        const scaledHeight = contentCanvas.height * scaleRatio
+        finalCanvas = document.createElement('canvas')
+        finalCanvas.width = scaledWidth
+        finalCanvas.height = scaledHeight
+        const ctx = finalCanvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(contentCanvas, 0, 0, scaledWidth, scaledHeight)
+        }
       } else {
         // Step 2: Create final canvas with room for shadow
         // Match ORA's CSS shadow: 0 4px 20px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)
         const borderRadius = 20 * captureScale // 20px scaled
         const padding = 15 * captureScale // Extra space for shadow spread
-        const outputScale = 2 // Final output size (200% of 2x = 4x original)
 
-        const finalWidth = (contentCanvas.width + padding * 2) * outputScale
-        const finalHeight = (contentCanvas.height + padding * 2) * outputScale
+        const finalWidth = (contentCanvas.width + padding * 2) * scaleRatio
+        const finalHeight = (contentCanvas.height + padding * 2) * scaleRatio
 
         finalCanvas = document.createElement('canvas')
         finalCanvas.width = finalWidth
@@ -200,7 +212,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         const ctx = finalCanvas.getContext('2d')
 
         if (ctx) {
-          ctx.scale(outputScale, outputScale)
+          ctx.scale(scaleRatio, scaleRatio)
 
           // Draw rounded rectangle path
           const x = padding
