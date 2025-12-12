@@ -1123,8 +1123,9 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
 
     if (stacked) {
       // Stacked chart legend
+      // Note: Using marginRight instead of columnGap for better html2canvas compatibility
       return (
-        <div className="flex flex-wrap items-center gap-y-2" style={{ columnGap: '16px', justifyContent: 'flex-start' }}>
+        <div className="flex flex-wrap items-center" style={{ justifyContent: 'flex-start' }}>
           {groups.map((group, index) => {
             const isEditing = editingLegend === group.key
             const hasAsterisk = group.label.endsWith('*')
@@ -1141,14 +1142,15 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
             }
 
             return (
-              <span key={group.key} className="inline-flex items-center text-xs font-semibold text-brand-gray" style={{ gap: '5px' }}>
+              <span key={group.key} className="inline-flex items-center text-xs font-semibold text-brand-gray" style={{ marginRight: '16px', marginBottom: '8px' }}>
                 <span
                   className="inline-block h-3 w-6"
                   style={{
                     backgroundColor: colors[index % colors.length],
                     minWidth: '16px',
                     minHeight: '12px',
-                    borderRadius: '3px'
+                    borderRadius: '3px',
+                    marginRight: '5px'
                   }}
                 />
                 {isEditing ? (
@@ -1205,8 +1207,9 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
       )
     } else {
       // Regular bar chart legend
+      // Note: Using marginRight instead of columnGap for better html2canvas compatibility
       return (
-        <div className="flex flex-wrap items-center gap-y-2" style={{ columnGap: '16px', justifyContent: 'flex-start' }}>
+        <div className="flex flex-wrap items-center" style={{ justifyContent: 'flex-start' }}>
           {groups.map((group, index) => {
             const isEditing = editingLegend === group.key
             const hasAsterisk = group.label.endsWith('*')
@@ -1223,14 +1226,15 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
             }
 
             return (
-              <span key={group.key} className="inline-flex items-center text-xs font-semibold text-brand-gray" style={{ gap: '5px' }}>
+              <span key={group.key} className="inline-flex items-center text-xs font-semibold text-brand-gray" style={{ marginRight: '16px', marginBottom: '8px' }}>
                 <span
                   className="inline-block h-3 w-6"
                   style={{
                     backgroundColor: colors[index % colors.length],
                     minWidth: '16px',
                     minHeight: '12px',
-                    borderRadius: '3px'
+                    borderRadius: '3px',
+                    marginRight: '5px'
                   }}
                 />
                 {isEditing ? (
