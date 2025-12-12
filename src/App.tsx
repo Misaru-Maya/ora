@@ -188,6 +188,10 @@ export default function App() {
   const [editingSegment, setEditingSegment] = useState<string | null>(null)
   const [segmentInput, setSegmentInput] = useState('')
   const segmentInputRef = useRef<HTMLInputElement>(null)
+  // Consumer question option editing state
+  const [editingConsumerOption, setEditingConsumerOption] = useState<{ qid: string, option: string } | null>(null)
+  const [consumerOptionInput, setConsumerOptionInput] = useState('')
+  const consumerOptionInputRef = useRef<HTMLTextAreaElement>(null)
   const questionDropdownRef = useRef<HTMLDivElement>(null)
   const csvUploadRef = useRef<CSVUploadHandle>(null)
   const [expandedSegmentGroups, setExpandedSegmentGroups] = useState<Set<string>>(new Set())
@@ -246,6 +250,14 @@ export default function App() {
       segmentInputRef.current.select()
     }
   }, [editingSegment])
+
+  useEffect(() => {
+    if (editingConsumerOption && consumerOptionInputRef.current) {
+      consumerOptionInputRef.current.focus()
+      consumerOptionInputRef.current.select()
+    }
+  }, [editingConsumerOption])
+
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(['display'])
   )
@@ -1391,6 +1403,17 @@ export default function App() {
     })
   }
 
+  const getOptionDisplayLabel = (qid: string, option: string) => {
+    return selections.optionLabels?.[qid]?.[option] || option
+  }
+
+  const handleSaveConsumerOptionLabel = () => {
+    if (editingConsumerOption && consumerOptionInput.trim()) {
+      handleSaveOptionLabel(editingConsumerOption.qid, editingConsumerOption.option, consumerOptionInput.trim())
+    }
+    setEditingConsumerOption(null)
+  }
+
   const handleSaveQuestionLabel = (qid: string, newLabel: string) => {
     if (!newLabel.trim()) return
     devLog('Saving question label:', { qid, newLabel: newLabel.trim(), currentLabels: selections.questionLabels })
@@ -2269,11 +2292,16 @@ export default function App() {
                       if (segment.value === 'Overall' && (!isCompareMode || !hasOtherSegments)) {
                         return // Skip Overall in Filter mode or when it's the only segment
                       }
+                      // Check if this is a consumer question segment (column is a qid)
+                      const isConsumerQuestion = dataset?.questions.some(q => q.qid === segment.column)
+                      const label = isConsumerQuestion
+                        ? getOptionDisplayLabel(segment.column, segment.value)
+                        : getGroupDisplayLabel(segment.value)
                       activeFilters.push({
                         type: 'segment',
                         column: segment.column,
                         value: segment.value,
-                        label: getGroupDisplayLabel(segment.value),
+                        label,
                         originalIndex: index
                       })
                     })
@@ -3344,6 +3372,9 @@ export default function App() {
                                           s => s.column === qid && s.value === col.optionLabel
                                         )
 
+                                        const isEditing = editingConsumerOption?.qid === qid && editingConsumerOption?.option === col.optionLabel
+                                        const displayLabel = getOptionDisplayLabel(qid, col.optionLabel)
+
                                         return (
                                           <div key={segmentKey} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <input
@@ -3360,16 +3391,56 @@ export default function App() {
                                               }}
                                               style={{ cursor: 'pointer' }}
                                             />
-                                            <label
-                                              htmlFor={segmentKey}
-                                              style={{
-                                                fontSize: '11px',
-                                                cursor: 'pointer',
-                                                color: '#6B7280'
-                                              }}
-                                            >
-                                              {col.optionLabel}
-                                            </label>
+                                            {isEditing ? (
+                                              <textarea
+                                                ref={consumerOptionInputRef}
+                                                value={consumerOptionInput}
+                                                onChange={(e) => setConsumerOptionInput(e.target.value)}
+                                                onBlur={handleSaveConsumerOptionLabel}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Enter' || e.key === 'Escape') {
+                                                    e.preventDefault()
+                                                    handleSaveConsumerOptionLabel()
+                                                    e.currentTarget.blur()
+                                                  }
+                                                }}
+                                                style={{
+                                                  fontSize: '11px',
+                                                  fontFamily: 'Space Grotesk, sans-serif',
+                                                  padding: '2px 6px',
+                                                  border: '1px solid #3A8518',
+                                                  borderRadius: '4px',
+                                                  outline: 'none',
+                                                  resize: 'none',
+                                                  lineHeight: '1.2',
+                                                  height: '22px',
+                                                  overflow: 'hidden',
+                                                  width: '120px'
+                                                }}
+                                              />
+                                            ) : (
+                                              <span
+                                                onClick={(e) => {
+                                                  e.preventDefault()
+                                                  e.stopPropagation()
+                                                  setEditingConsumerOption({ qid, option: col.optionLabel })
+                                                  setConsumerOptionInput(displayLabel)
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                  e.currentTarget.style.color = '#3A8518'
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                  e.currentTarget.style.color = '#6B7280'
+                                                }}
+                                                style={{
+                                                  fontSize: '11px',
+                                                  cursor: 'pointer',
+                                                  color: '#6B7280'
+                                                }}
+                                              >
+                                                {displayLabel}
+                                              </span>
+                                            )}
                                           </div>
                                         )
                                       })}
