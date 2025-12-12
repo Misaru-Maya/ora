@@ -170,8 +170,11 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     try {
       const html2canvas = (await import('html2canvas')).default
 
-      // Step 1: Capture the content at 6x scale for maximum resolution
-      const captureScale = 6 // Higher = sharper image (must be >= desiredOutputScale for best quality)
+      // Use devicePixelRatio-aware capture scale for consistent quality across displays
+      const dpr = window.devicePixelRatio || 1
+      const baseScale = 4 // Base capture scale
+      const captureScale = Math.min(8, Math.ceil(baseScale * dpr)) // Cap at 8x to avoid canvas limits
+
       const contentCanvas = await html2canvas(exportContentRef.current, {
         backgroundColor: showContainer ? '#ffffff' : null,
         scale: captureScale,
@@ -181,10 +184,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
       let finalCanvas: HTMLCanvasElement
 
-      // Output at 6x original size (matches previous behavior) with higher capture quality
-      // Captures at 4x then scales up to 6x for maximum sharpness at large size
-      const desiredOutputScale = 6 // 6x = large size (original behavior), 2x = retina, 1x = screen size
-      const scaleRatio = desiredOutputScale / captureScale // e.g., 6/4 = 1.5
+      // Output at native captured resolution
+      const scaleRatio = 1
 
       if (!showContainer) {
         // When container is hidden, scale down the content to desired output size
