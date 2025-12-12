@@ -1110,7 +1110,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
     if (stacked) {
       // Stacked chart legend
       return (
-        <div className="flex flex-wrap items-center justify-center gap-y-2" style={{ columnGap: '16px' }}>
+        <div className="flex flex-wrap items-center gap-y-2" style={{ columnGap: '16px', justifyContent: 'flex-start' }}>
           {groups.map((group, index) => {
             const isEditing = editingLegend === group.key
             const hasAsterisk = group.label.endsWith('*')
@@ -1192,7 +1192,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
     } else {
       // Regular bar chart legend
       return (
-        <div className="flex flex-wrap items-center gap-y-2" style={{ columnGap: '16px' }}>
+        <div className="flex flex-wrap items-center gap-y-2" style={{ columnGap: '16px', justifyContent: 'flex-start' }}>
           {groups.map((group, index) => {
             const isEditing = editingLegend === group.key
             const hasAsterisk = group.label.endsWith('*')
@@ -1274,211 +1274,37 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
     }
   }
 
-  // Calculate estimated legend width to determine layout
-  const estimatedLegendWidth = groups.reduce((total, group) => {
-    // Estimate: 24px for color box + 5px gap + ~7px per character + 16px gap between items
-    return total + 24 + 5 + group.label.length * 7 + 16
-  }, 0)
-  // Stack legend below title if: legend is too long OR chart is stacked
-  const isLegendTooLong = estimatedLegendWidth > 500 || stacked
-
   return (
     <div ref={chartContainerRef} className="w-full bg-white" style={{ paddingBottom: 0, position: 'relative' }}>
-      {/* Header: Legend and Title - stacked if legend is too long or stacked chart */}
-      {isLegendTooLong ? (
-        // Stacked layout: Title on top, Legend below - aligned with chart area
-        <div
-          onMouseDown={handleTitleMouseDown}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'stretch',
-            marginTop: '15px',
-            marginBottom: '20px',
-            marginLeft: '48px',
-            marginRight: '48px',
-            gap: '12px',
-            transform: `translate(${titleOffset.x}px, ${titleOffset.y}px)`,
-            cursor: isDraggingTitle ? 'grabbing' : 'grab',
-            userSelect: 'none',
-            transition: isDraggingTitle ? 'none' : 'transform 0.1s ease-out',
-            position: 'relative',
-            zIndex: 20
-          }}
-        >
-          {/* Title Row with Badge */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', width: '100%', gap: '16px' }}>
-            {/* Center: Title - takes full width, badges positioned at end */}
-            <div
-              style={{
-                flex: '1 1 auto',
-                textAlign: 'center',
-                minWidth: 0
-              }}
-            >
-              {questionLabel && (
-                editingQuestionLabel ? (
-                  <textarea
-                    autoFocus
-                    value={questionLabelInput}
-                    onChange={(e) => setQuestionLabelInput(e.target.value)}
-                    onBlur={() => {
-                      if (questionLabelInput.trim() && onSaveQuestionLabel) {
-                        onSaveQuestionLabel(questionLabelInput.trim())
-                      }
-                      setEditingQuestionLabel(false)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault()
-                        if (questionLabelInput.trim() && onSaveQuestionLabel) {
-                          onSaveQuestionLabel(questionLabelInput.trim())
-                        }
-                        setEditingQuestionLabel(false)
-                      }
-                      if (e.key === 'Escape') setEditingQuestionLabel(false)
-                    }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={(e) => e.stopPropagation()}
-                    className="text-sm font-semibold text-brand-gray"
-                    style={{
-                      width: '100%',
-                      fontSize: '14px',
-                      padding: '4px 8px',
-                      border: '2px solid #3A8518',
-                      borderRadius: '4px',
-                      outline: 'none',
-                      backgroundColor: 'white',
-                      fontFamily: 'Space Grotesk, sans-serif',
-                      fontWeight: 600,
-                      textAlign: 'center',
-                      resize: 'vertical',
-                      minHeight: '40px',
-                      lineHeight: '1.4',
-                      cursor: 'text',
-                      userSelect: 'text'
-                    }}
-                    rows={Math.max(2, questionLabelInput.split('\n').length)}
-                  />
-                ) : (
-                  <h3
-                    className="text-sm font-semibold text-brand-gray"
-                    style={{
-                      whiteSpace: 'pre-wrap',
-                      margin: 0,
-                      cursor: onSaveQuestionLabel ? 'pointer' : 'default'
-                    }}
-                    onDoubleClick={(e) => {
-                      e.stopPropagation()
-                      if (onSaveQuestionLabel) {
-                        setEditingQuestionLabel(true)
-                        setQuestionLabelInput(questionLabel)
-                      }
-                    }}
-                    onMouseEnter={(e) => {
-                      if (onSaveQuestionLabel) {
-                        e.currentTarget.style.color = '#3A8518'
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = ''
-                    }}
-                  >
-                    {questionLabel}
-                  </h3>
-                )
-              )}
-            </div>
-
-            {/* Right: Segment Card + Question Type Badge */}
-            <div style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
-              {showSegment && sentimentType === 'advocates' && (
-                <div
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '5px 10px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                    backdropFilter: 'blur(12px)',
-                    WebkitBackdropFilter: 'blur(12px)',
-                    border: '1px solid rgba(58, 133, 24, 0.15)',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    textTransform: 'uppercase' as const,
-                    letterSpacing: '0.5px'
-                  }}
-                >
-                  <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#3A8518' }} />
-                  <span style={{ color: '#3A8518' }}>Advocates</span>
-                </div>
-              )}
-              {showSegment && sentimentType === 'detractors' && (
-                <div
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '5px 10px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                    backdropFilter: 'blur(12px)',
-                    WebkitBackdropFilter: 'blur(12px)',
-                    border: '1px solid rgba(212, 186, 51, 0.15)',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 8px rgba(180, 150, 20, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    textTransform: 'uppercase' as const,
-                    letterSpacing: '0.5px'
-                  }}
-                >
-                  <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#D4BA33' }} />
-                  <span style={{ color: '#D4BA33' }}>Detractors</span>
-                </div>
-              )}
-              {questionTypeBadge}
-            </div>
-          </div>
-          {/* Legend below title - centered */}
-          <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-            {renderLegendContent()}
-          </div>
-        </div>
-      ) : (
-        // Horizontal layout: Legend (left) | Title (center) | Badge (right)
-        <div
-          onMouseDown={handleTitleMouseDown}
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            marginTop: '15px',
-            marginBottom: '20px',
-            marginLeft: '48px',
-            marginRight: '48px',
-            gap: '16px',
-            transform: `translate(${titleOffset.x}px, ${titleOffset.y}px)`,
-            cursor: isDraggingTitle ? 'grabbing' : 'grab',
-            userSelect: 'none',
-            transition: isDraggingTitle ? 'none' : 'transform 0.1s ease-out',
-            position: 'relative',
-            zIndex: 20
-          }}
-        >
-          {/* Left: Legend */}
-          <div style={{ flex: '0 0 auto', minWidth: '80px' }}>
-            {renderLegendContent()}
-          </div>
-
-          {/* Center: Title */}
+      {/* Header: Title on top, Legend below - both left-aligned from Y-axis */}
+      <div
+        onMouseDown={handleTitleMouseDown}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'stretch',
+          marginTop: '15px',
+          marginBottom: '20px',
+          // Left margin aligns with Y-axis (horizontalAxisWidth for horizontal charts)
+          marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
+          marginRight: '48px',
+          gap: '8px',
+          transform: `translate(${titleOffset.x}px, ${titleOffset.y}px)`,
+          cursor: isDraggingTitle ? 'grabbing' : 'grab',
+          userSelect: 'none',
+          transition: isDraggingTitle ? 'none' : 'transform 0.1s ease-out',
+          position: 'relative',
+          zIndex: 20
+        }}
+      >
+        {/* Title Row with Badge on the right */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%', gap: '16px' }}>
+          {/* Left: Title - left-aligned, can grow */}
           <div
             style={{
               flex: '1 1 auto',
-              textAlign: 'center',
-              minWidth: 0,
-              paddingRight: '10px'
+              textAlign: 'left',
+              minWidth: 0
             }}
           >
             {questionLabel && (
@@ -1516,7 +1342,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                     backgroundColor: 'white',
                     fontFamily: 'Space Grotesk, sans-serif',
                     fontWeight: 600,
-                    textAlign: 'center',
+                    textAlign: 'left',
                     resize: 'vertical',
                     minHeight: '40px',
                     lineHeight: '1.4',
@@ -1556,7 +1382,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           </div>
 
           {/* Right: Segment Card + Question Type Badge */}
-          <div style={{ flex: '0 0 auto', minWidth: '80px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
+          <div style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
             {showSegment && sentimentType === 'advocates' && (
               <div
                 style={{
@@ -1606,7 +1432,11 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
             {questionTypeBadge}
           </div>
         </div>
-      )}
+        {/* Legend below title - left-aligned */}
+        <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
+          {renderLegendContent()}
+        </div>
+      </div>
 
       {/* Legacy legend section - now handled in header row, keeping for stacked charts that need below-title legend */}
       {false && showLegend && (
