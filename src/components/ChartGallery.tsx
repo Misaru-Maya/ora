@@ -2288,8 +2288,10 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
                   if (segmentRows.length === 0) {
                     devLog(`📊 No rows found for segment ${segment.column}=${segment.value}`)
+                    devLog(`📊 Was consumer question:`, !!dataset.questions.find(q => q.qid === segment.column))
                     return
                   }
+                  devLog(`📊 Found ${segmentRows.length} rows for segment ${segment.column}=${segment.value}`)
 
                   // Create filtered dataset for this segment
                   const filteredDataset: ParsedCSV = {
@@ -2319,11 +2321,15 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                       : 0
 
                     // Find the matching group key from series.groups
-                    const groupMeta = series.groups.find(g => g.label === segment.value)
+                    // Use originalValue for lookup (handles custom labels where label differs from segment.value)
+                    devLog(`📊 Looking for segment.value="${segment.value}" in series.groups:`,
+                      series.groups.map(g => ({ label: g.label, key: g.key, originalValue: g.originalValue })))
+                    const groupMeta = series.groups.find(g => (g.originalValue || g.label) === segment.value)
+                    devLog(`📊 Found groupMeta:`, groupMeta)
                     if (groupMeta) {
                       newDataPoint[groupMeta.key] = avgValue
                       newDataPoint.groupSummaries.push({
-                        label: segment.value,
+                        label: groupMeta.label, // Use display label, not original value
                         count: 0,
                         denominator: 0,
                         percent: avgValue
