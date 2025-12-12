@@ -1600,7 +1600,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           barCategoryGap={barCategoryGap}
           barGap={1}
           margin={isHorizontal
-            ? { top: 25, right: 60, bottom: 0, left: 0 }
+            ? { top: 0, right: 60, bottom: 0, left: 0 }
             : { top: 0, right: 48, bottom: 0, left: 0 }
           }
         >
