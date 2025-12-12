@@ -2252,28 +2252,36 @@ export default function App() {
 
                   {/* Active Filters */}
                   {(() => {
-                    const activeFilters: Array<{type: 'segment' | 'product', column?: string, value: string, label: string}> = []
+                    const activeFilters: Array<{type: 'segment' | 'product', column?: string, value: string, label: string, originalIndex: number}> = []
 
-                    // Add segment filters (excluding Overall for chip display)
+                    // Add segment filters
+                    // In Compare mode: show Overall chip alongside other segments
+                    // In Filter mode: exclude Overall from chip display (it's the default state)
+                    const isCompareMode = selections.comparisonMode ?? false
                     const selectedSegments = selections.segments || []
-                    selectedSegments.forEach(segment => {
-                      if (segment.value !== 'Overall') {
-                        activeFilters.push({
-                          type: 'segment',
-                          column: segment.column,
-                          value: segment.value,
-                          label: getGroupDisplayLabel(segment.value)
-                        })
+                    selectedSegments.forEach((segment, index) => {
+                      // Show Overall chip only in Compare mode when other segments are also selected
+                      const hasOtherSegments = selectedSegments.some(s => s.value !== 'Overall')
+                      if (segment.value === 'Overall' && (!isCompareMode || !hasOtherSegments)) {
+                        return // Skip Overall in Filter mode or when it's the only segment
                       }
+                      activeFilters.push({
+                        type: 'segment',
+                        column: segment.column,
+                        value: segment.value,
+                        label: getGroupDisplayLabel(segment.value),
+                        originalIndex: index
+                      })
                     })
 
                     // Add product filters
                     if (productColumn && selections.productGroups.length > 0 && selections.productGroups.length < productValues.length) {
-                      selections.productGroups.forEach(product => {
+                      selections.productGroups.forEach((product, index) => {
                         activeFilters.push({
                           type: 'product',
                           value: product,
-                          label: product
+                          label: product,
+                          originalIndex: index
                         })
                       })
                     }
@@ -2284,13 +2292,75 @@ export default function App() {
 
                     if (activeFilters.length === 0) return null
 
+                    // Drag and drop handlers for reordering segments
+                    const handleDragStart = (e: React.DragEvent, index: number, filterType: 'segment' | 'product') => {
+                      e.dataTransfer.setData('text/plain', JSON.stringify({ index, filterType }))
+                      e.dataTransfer.effectAllowed = 'move'
+                      // Add visual feedback
+                      const target = e.currentTarget as HTMLElement
+                      target.style.opacity = '0.5'
+                    }
+
+                    const handleDragEnd = (e: React.DragEvent) => {
+                      const target = e.currentTarget as HTMLElement
+                      target.style.opacity = '1'
+                    }
+
+                    const handleDragOver = (e: React.DragEvent) => {
+                      e.preventDefault()
+                      e.dataTransfer.dropEffect = 'move'
+                    }
+
+                    const handleDrop = (e: React.DragEvent, dropIndex: number, dropFilterType: 'segment' | 'product') => {
+                      e.preventDefault()
+                      const data = JSON.parse(e.dataTransfer.getData('text/plain'))
+                      const dragIndex = data.index
+                      const dragFilterType = data.filterType
+
+                      // Only allow reordering within same type
+                      if (dragFilterType !== dropFilterType || dragIndex === dropIndex) return
+
+                      if (dropFilterType === 'segment') {
+                        // Reorder segments
+                        const currentSegments = [...(selections.segments || [])]
+                        // Find actual indices (accounting for Overall which might be at index 0)
+                        const segmentFilters = activeFilters.filter(f => f.type === 'segment')
+                        const dragOriginalIndex = segmentFilters[dragIndex]?.originalIndex
+                        const dropOriginalIndex = segmentFilters[dropIndex]?.originalIndex
+
+                        if (dragOriginalIndex !== undefined && dropOriginalIndex !== undefined) {
+                          const [removed] = currentSegments.splice(dragOriginalIndex, 1)
+                          // Adjust drop index if drag was before drop
+                          const adjustedDropIndex = dragOriginalIndex < dropOriginalIndex ? dropOriginalIndex - 1 : dropOriginalIndex
+                          currentSegments.splice(adjustedDropIndex, 0, removed)
+                          setSelections({ segments: currentSegments })
+                        }
+                      } else if (dropFilterType === 'product') {
+                        // Reorder product groups
+                        const currentProducts = [...selections.productGroups]
+                        const [removed] = currentProducts.splice(dragIndex, 1)
+                        currentProducts.splice(dropIndex, 0, removed)
+                        setSelections({ productGroups: currentProducts })
+                      }
+                    }
+
+                    // Split filters by type for drag-drop grouping
+                    const segmentFilters = activeFilters.filter(f => f.type === 'segment')
+                    const productFilters = activeFilters.filter(f => f.type === 'product')
+
                     return (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', width: '100%' }}>
                         {/* Filter Chips */}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', width: '100%' }}>
-                          {activeFilters.map((filter, idx) => (
+                          {/* Segment chips - draggable */}
+                          {segmentFilters.map((filter, idx) => (
                             <div
-                              key={idx}
+                              key={`segment-${filter.value}`}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, idx, 'segment')}
+                              onDragEnd={handleDragEnd}
+                              onDragOver={handleDragOver}
+                              onDrop={(e) => handleDrop(e, idx, 'segment')}
                               style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
@@ -2299,17 +2369,92 @@ export default function App() {
                                 backgroundColor: '#F0FDF4',
                                 borderRadius: '8px',
                                 fontSize: '12px',
-                                color: '#374151'
+                                color: '#374151',
+                                cursor: 'grab',
+                                userSelect: 'none',
+                                transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.boxShadow = 'none'
                               }}
                             >
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" style={{ flexShrink: 0 }}>
+                                <circle cx="9" cy="5" r="1.5" fill="#9CA3AF" />
+                                <circle cx="15" cy="5" r="1.5" fill="#9CA3AF" />
+                                <circle cx="9" cy="12" r="1.5" fill="#9CA3AF" />
+                                <circle cx="15" cy="12" r="1.5" fill="#9CA3AF" />
+                                <circle cx="9" cy="19" r="1.5" fill="#9CA3AF" />
+                                <circle cx="15" cy="19" r="1.5" fill="#9CA3AF" />
+                              </svg>
                               <span>{filter.label}</span>
                               <button
-                                onClick={() => {
-                                  if (filter.type === 'segment' && filter.column) {
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (filter.column) {
                                     toggleSegment(filter.column, filter.value)
-                                  } else if (filter.type === 'product') {
-                                    toggleProductGroup(filter.value)
                                   }
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  padding: '0',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  color: '#6b7280'
+                                }}
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M18 6L6 18M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                          {/* Product chips - draggable */}
+                          {productFilters.map((filter, idx) => (
+                            <div
+                              key={`product-${filter.value}`}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, idx, 'product')}
+                              onDragEnd={handleDragEnd}
+                              onDragOver={handleDragOver}
+                              onDrop={(e) => handleDrop(e, idx, 'product')}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 12px',
+                                backgroundColor: '#F0FDF4',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                color: '#374151',
+                                cursor: 'grab',
+                                userSelect: 'none',
+                                transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.boxShadow = 'none'
+                              }}
+                            >
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" style={{ flexShrink: 0 }}>
+                                <circle cx="9" cy="5" r="1.5" fill="#9CA3AF" />
+                                <circle cx="15" cy="5" r="1.5" fill="#9CA3AF" />
+                                <circle cx="9" cy="12" r="1.5" fill="#9CA3AF" />
+                                <circle cx="15" cy="12" r="1.5" fill="#9CA3AF" />
+                                <circle cx="9" cy="19" r="1.5" fill="#9CA3AF" />
+                                <circle cx="15" cy="19" r="1.5" fill="#9CA3AF" />
+                              </svg>
+                              <span>{filter.label}</span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  toggleProductGroup(filter.value)
                                 }}
                                 style={{
                                   background: 'none',
