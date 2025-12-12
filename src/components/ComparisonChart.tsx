@@ -1284,7 +1284,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           flexDirection: 'column',
           alignItems: 'stretch',
           marginTop: '15px',
-          marginBottom: '20px',
+          marginBottom: '30px',
           // Left margin aligns with Y-axis (horizontalAxisWidth for horizontal charts)
           marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
           marginRight: '48px',
