@@ -13,6 +13,7 @@ export function customRound(value: number): number {
 export interface GroupSeriesMeta {
   label: string
   key: string
+  originalValue?: string  // Original segment value for lookups (may differ from label due to custom labels)
 }
 
 export interface SeriesDataPoint {
@@ -346,7 +347,8 @@ export function buildSeries({
     const key = getKeyForGroup(segment.value, index)
     // Use custom display label if provided, otherwise use segment value
     const displayLabel = groupLabels?.[segment.value] || segment.value
-    groupMeta.push({ label: displayLabel, key })
+    // Store originalValue for lookups when display label differs from segment value
+    groupMeta.push({ label: displayLabel, key, originalValue: segment.value })
   })
 
   const dataWithIndex = question.columns.map((col, originalIndex) => {
@@ -365,7 +367,9 @@ export function buildSeries({
     }
 
     groupMeta.forEach(meta => {
-      const info = groupInfo.get(meta.label)
+      // Use originalValue for lookup (groupInfo is keyed by segment.value, not display label)
+      const lookupKey = meta.originalValue || meta.label
+      const info = groupInfo.get(lookupKey)
       if (!info) {
         row[meta.key] = 0
         return
