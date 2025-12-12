@@ -983,19 +983,33 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   }, [isDragging, dragOffset])
 
   // Dynamic chart dimensions based on number of answer options
+  // Calculate dynamic barCategoryGap: gap between answer option groups should be at least 50% of total bar cluster width
+  const calculateBarCategoryGap = (baseBarSize: number, numGroups: number, isStackedChart: boolean) => {
+    if (isStackedChart) {
+      // Stacked charts have single bars, use larger fixed gap
+      return 48
+    }
+    // For grouped charts: total cluster width = numGroups * barSize + (numGroups - 1) * barGap
+    const barGap = 1 // Gap between bars within same group
+    const totalClusterWidth = numGroups * baseBarSize + (numGroups - 1) * barGap
+    // Gap should be at least 50% of cluster width, with minimum of 24px
+    const minGap = Math.max(24, Math.ceil(totalClusterWidth * 0.5))
+    return minGap
+  }
+
   const { chartHeight, barCategoryGap, barSize } = isHorizontal
     ? {
         // For horizontal charts: calculate height to maintain same bar size per answer option
         // Stacked charts have one bar per option, grouped charts have multiple bars per option
-        chartHeight: Math.max(200, data.length * (HORIZONTAL_BAR_SIZE * (stacked ? 1 : groups.length) + 32)) + heightOffset,
-        barCategoryGap: 32,
+        chartHeight: Math.max(200, data.length * (HORIZONTAL_BAR_SIZE * (stacked ? 1 : groups.length) + calculateBarCategoryGap(HORIZONTAL_BAR_SIZE, groups.length, stacked))) + heightOffset,
+        barCategoryGap: calculateBarCategoryGap(HORIZONTAL_BAR_SIZE, groups.length, stacked),
         barSize: HORIZONTAL_BAR_SIZE,
       }
     : {
         // For vertical charts: adjust height and bar size dynamically
         // Stacked charts should have same bar width as regular charts
         chartHeight: 320 + heightOffset,
-        barCategoryGap: stacked ? 48 : 24,
+        barCategoryGap: calculateBarCategoryGap(VERTICAL_BAR_SIZE, groups.length, stacked),
         barSize: VERTICAL_BAR_SIZE,
       }
 
