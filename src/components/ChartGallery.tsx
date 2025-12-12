@@ -2335,11 +2335,35 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                 return newDataPoint
               }).filter(d => !isExcludedValue(d.optionDisplay))
 
-              devLog('📊 Averaged data for compare mode:', averagedData)
+              // Apply sorting based on sortOrder
+              // Sort by average value across all groups
+              const sortedAveragedData = [...averagedData]
+              if (sortOrder === 'descending' || sortOrder === 'ascending') {
+                sortedAveragedData.sort((a, b) => {
+                  // Calculate average value across all segment groups
+                  const getAvgValue = (item: any) => {
+                    let total = 0
+                    let count = 0
+                    series.groups.forEach(g => {
+                      const val = item[g.key]
+                      if (typeof val === 'number') {
+                        total += val
+                        count += 1
+                      }
+                    })
+                    return count > 0 ? total / count : 0
+                  }
+                  const aVal = getAvgValue(a)
+                  const bVal = getAvgValue(b)
+                  return sortOrder === 'descending' ? bVal - aVal : aVal - bVal
+                })
+              }
+
+              devLog('📊 Averaged data for compare mode:', sortedAveragedData)
 
               return (
                 <ComparisonChart
-                  data={averagedData}
+                  data={sortedAveragedData}
                   groups={series.groups}
                   orientation={chartOrientation}
                   questionLabel={displayLabel}
