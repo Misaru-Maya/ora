@@ -1289,7 +1289,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   }
 
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-md transition-shadow hover:shadow-lg space-y-4" style={{ paddingRight: '30px' }}>
+    <div className="rounded-2xl bg-white p-5 shadow-md transition-shadow hover:shadow-lg space-y-4" style={{ paddingRight: '30px', position: 'relative', zIndex: showFilter || showSortMenu ? 1000 : 'auto' }}>
       <div className="flex items-center gap-2 pb-2" style={{ width: '95%', margin: '0 auto', marginBottom: '20px', marginLeft: 'calc(2.5% - 30px)', position: 'relative', zIndex: 100 }}>
         <div className="flex items-center gap-2">
           {/* 1. Filter Icon Button */}
@@ -1316,12 +1316,13 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
             </button>
             {showFilter && (
               <div
-                className="absolute left-0 top-10 z-50 w-[22rem] animate-in fade-in slide-in-from-top-2 duration-200"
+                className="absolute left-0 top-10 w-[22rem] animate-in fade-in slide-in-from-top-2 duration-200"
                 style={{
                   backgroundColor: '#ffffff',
                   borderRadius: '12px',
                   boxShadow: '0 4px 24px -4px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.08)',
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  zIndex: 9999
                 }}
               >
                 {/* Header */}
@@ -1474,13 +1475,14 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
             </button>
             {showSortMenu && (
               <div
-                className="absolute left-0 top-10 z-10 animate-in fade-in slide-in-from-top-2 duration-200"
+                className="absolute left-0 top-10 animate-in fade-in slide-in-from-top-2 duration-200"
                 style={{
                   backgroundColor: '#ffffff',
                   borderRadius: '12px',
                   boxShadow: '0 4px 24px -4px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.08)',
                   overflow: 'hidden',
-                  minWidth: '160px'
+                  minWidth: '160px',
+                  zIndex: 9999
                 }}
               >
                 {/* Header */}
