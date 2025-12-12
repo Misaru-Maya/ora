@@ -506,10 +506,13 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
         optionLabel: displayLabel
       }))
 
-      // Prefer text summary data if it exists and has options
-      if (textOptions.length > 0) {
+      // Only use text summary options when binary columns don't exist
+      // Binary columns (0/1 values) are more reliable for filtering
+      if (textOptions.length > 0 && q.columns.length === 0) {
         q.columns = textOptions
         devLog(`[DEBUG] Using ${textOptions.length} options from text summary for ${q.qid}:`, textOptions.map(c => c.optionLabel))
+      } else if (q.columns.length > 0) {
+        devLog(`[DEBUG] Keeping ${q.columns.length} binary columns for ${q.qid}, ignoring text summary`)
       }
     }
   }
