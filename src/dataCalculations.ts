@@ -48,6 +48,7 @@ export interface BuildSeriesArgs {
   groups?: string[]
   segments?: SegmentDef[]  // New: supports multiple columns
   sortOrder: SortOrder
+  groupLabels?: Record<string, string>  // Custom display labels for segments
 }
 
 export interface BuildSeriesResult {
@@ -100,14 +101,21 @@ function parseMoneyValue(text: string): number {
 }
 
 export function buildSeries({
-  dataset, question, segmentColumn, groups, segments, sortOrder
+  dataset, question, segmentColumn, groups, segments, sortOrder, groupLabels
 }: BuildSeriesArgs): BuildSeriesResult {
   // Support both old API (segmentColumn + groups) and new API (segments)
-  const effectiveSegments: SegmentDef[] = segments || (
+  const rawSegments: SegmentDef[] = segments || (
     segmentColumn && groups
       ? groups.map(value => ({ column: segmentColumn, value }))
       : []
   )
+
+  // Sort segments to ensure Overall is always first when present
+  const effectiveSegments = [...rawSegments].sort((a, b) => {
+    if (a.value === 'Overall') return -1
+    if (b.value === 'Overall') return 1
+    return 0
+  })
 
   if (!effectiveSegments.length) {
     return { data: [], groups: [] }
@@ -336,7 +344,9 @@ export function buildSeries({
 
   effectiveSegments.forEach((segment, index) => {
     const key = getKeyForGroup(segment.value, index)
-    groupMeta.push({ label: segment.value, key })
+    // Use custom display label if provided, otherwise use segment value
+    const displayLabel = groupLabels?.[segment.value] || segment.value
+    groupMeta.push({ label: displayLabel, key })
   })
 
   const dataWithIndex = question.columns.map((col, originalIndex) => {

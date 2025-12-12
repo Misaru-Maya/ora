@@ -2596,6 +2596,19 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
 
     if (!hasSegments && !hasOldStyle) return []
 
+    // Build combined labels map that includes both groupLabels (standard segments)
+    // and optionLabels (consumer question segments)
+    const combinedLabels: Record<string, string> = { ...groupLabels }
+    if (segments) {
+      segments.forEach(seg => {
+        // Check if this segment is a consumer question (column is a qid)
+        const isConsumerQuestion = dataset.questions.some(q => q.qid === seg.column)
+        if (isConsumerQuestion && optionLabels[seg.column]?.[seg.value]) {
+          combinedLabels[seg.value] = optionLabels[seg.column][seg.value]
+        }
+      })
+    }
+
     // When segments are selected in filter mode (not comparison), the dataset is already filtered
     // So we pass "Overall" segment to buildSeries to show the filtered data as a single bar
     // We then customize the label to show the combined filter text
@@ -2612,19 +2625,20 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
             ? (useFilterMode ? { segments: [{ column: 'Overall', value: 'Overall' }] } : { segments })
             : { segmentColumn, groups }
           ),
-          sortOrder
+          sortOrder,
+          groupLabels: combinedLabels
         })
 
-        // Apply custom labels to series groups
+        // Apply custom labels to series groups (fallback for any missed labels)
         series.groups = series.groups.map(group => ({
           ...group,
-          label: groupLabels[group.key] || group.label
+          label: combinedLabels[group.key] || group.label
         }))
 
         // In filter mode with multiple segments, create a combined label showing all filters
         if (useFilterMode && series.groups.length > 0) {
           const filterLabels = actualSegments.map(seg => {
-            const customLabel = groupLabels[seg.value]
+            const customLabel = combinedLabels[seg.value]
             return customLabel || seg.value
           })
           series.groups = series.groups.map(group => ({

@@ -2286,7 +2286,13 @@ export default function App() {
                     // In Filter mode: exclude Overall from chip display (it's the default state)
                     const isCompareMode = selections.comparisonMode ?? false
                     const selectedSegments = selections.segments || []
-                    selectedSegments.forEach((segment, index) => {
+                    // Sort segments to ensure Overall is always first
+                    const sortedSegments = [...selectedSegments].sort((a, b) => {
+                      if (a.value === 'Overall') return -1
+                      if (b.value === 'Overall') return 1
+                      return 0
+                    })
+                    sortedSegments.forEach((segment, index) => {
                       // Show Overall chip only in Compare mode when other segments are also selected
                       const hasOtherSegments = selectedSegments.some(s => s.value !== 'Overall')
                       if (segment.value === 'Overall' && (!isCompareMode || !hasOtherSegments)) {
