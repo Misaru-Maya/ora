@@ -562,11 +562,21 @@ export default function App() {
 
     const uniq = <T,>(arr: T[]): T[] => Array.from(new Set(arr))
 
-    // In Compare mode: rows doesn't have segment filtering, so count includes all compared segments
-    // In Filter mode: rows has segment filtering applied, so just count those rows
-    // But we still need to apply segment filtering here for Compare mode to show union of selected segments
+    // In Compare mode: show total respondents when Overall is selected, or union of segments
+    // In Filter mode: apply intersection filtering (AND across columns, OR within column)
+    const isCompareMode = selections.comparisonMode ?? false
     let filteredRows = rows
     const selectedSegments = selections.segments || []
+    const hasOverall = selectedSegments.some(seg => seg.column === 'Overall')
+
+    // In Compare mode with Overall selected, show total respondents
+    if (isCompareMode && hasOverall) {
+      devLog('[RESPONDENT COUNT] Compare mode with Overall - showing total respondents')
+      const uniqueRespondents = uniq(
+        rows.map(r => stripQuotes(String(r[respIdCol] ?? '').trim())).filter(Boolean)
+      )
+      return uniqueRespondents.length
+    }
 
     if (selectedSegments.length > 0) {
       devLog('[RESPONDENT COUNT] Selected segments:', selectedSegments)
@@ -582,48 +592,76 @@ export default function App() {
 
       devLog('[RESPONDENT COUNT] Segments by column:', Array.from(segmentsByColumn.entries()))
 
-      // Filter rows where they match at least one value from EACH column group (AND across columns, OR within column)
-      filteredRows = rows.filter(row => {
-        // If Overall is selected alone, include all rows
-        const hasOverall = selectedSegments.some(seg => seg.column === 'Overall')
-        if (hasOverall && segmentsByColumn.size === 0) return true
+      // In Compare mode without Overall: show union of all selected segments
+      // In Filter mode: show intersection (AND across columns, OR within column)
+      if (isCompareMode) {
+        // Union: include rows that match ANY segment
+        filteredRows = rows.filter(row => {
+          return Array.from(segmentsByColumn.entries()).some(([column, values]) => {
+            const consumerQuestion = dataset.questions.find(q => q.qid === column)
 
-        // If no segments (only Overall), include all rows
-        if (segmentsByColumn.size === 0) return true
-
-        // Check if row matches criteria for each column group
-        return Array.from(segmentsByColumn.entries()).every(([column, values]) => {
-          // Check if this column is a consumer question
-          const consumerQuestion = dataset.questions.find(q => q.qid === column)
-
-          if (consumerQuestion) {
-            // Consumer question - use appropriate filtering logic
-            if (consumerQuestion.type === 'single' && consumerQuestion.singleSourceColumn) {
-              // Single-select: check if row's value matches any of the selected values
-              const rowValue = stripQuotes(String(row[consumerQuestion.singleSourceColumn]))
+            if (consumerQuestion) {
+              if (consumerQuestion.type === 'single' && consumerQuestion.singleSourceColumn) {
+                const rowValue = stripQuotes(String(row[consumerQuestion.singleSourceColumn]))
+                return values.some(value => stripQuotes(value) === rowValue)
+              } else if (consumerQuestion.type === 'multi') {
+                return values.some(value => {
+                  const optionColumn = consumerQuestion.columns.find(col => col.optionLabel === value)
+                  if (optionColumn) {
+                    const headersToCheck = [optionColumn.header, ...(optionColumn.alternateHeaders || [])]
+                    return headersToCheck.some(header => {
+                      const val = row[header]
+                      return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes'
+                    })
+                  }
+                  return false
+                })
+              }
+              return false
+            } else {
+              const rowValue = stripQuotes(String(row[column]))
               return values.some(value => stripQuotes(value) === rowValue)
-            } else if (consumerQuestion.type === 'multi') {
-              // Multi-select: check if any of the selected options' columns are truthy
-              return values.some(value => {
-                const optionColumn = consumerQuestion.columns.find(col => col.optionLabel === value)
-                if (optionColumn) {
-                  const headersToCheck = [optionColumn.header, ...(optionColumn.alternateHeaders || [])]
-                  return headersToCheck.some(header => {
-                    const val = row[header]
-                    return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes'
-                  })
-                }
-                return false
-              })
             }
-            return false
-          } else {
-            // Regular segment column: check if row's value matches any of the selected values
-            const rowValue = stripQuotes(String(row[column]))
-            return values.some(value => stripQuotes(value) === rowValue)
-          }
+          })
         })
-      })
+      } else {
+        // Filter mode: intersection (AND across columns, OR within column)
+        filteredRows = rows.filter(row => {
+          // If Overall is selected alone, include all rows
+          if (hasOverall && segmentsByColumn.size === 0) return true
+
+          // If no segments (only Overall), include all rows
+          if (segmentsByColumn.size === 0) return true
+
+          // Check if row matches criteria for each column group
+          return Array.from(segmentsByColumn.entries()).every(([column, values]) => {
+            const consumerQuestion = dataset.questions.find(q => q.qid === column)
+
+            if (consumerQuestion) {
+              if (consumerQuestion.type === 'single' && consumerQuestion.singleSourceColumn) {
+                const rowValue = stripQuotes(String(row[consumerQuestion.singleSourceColumn]))
+                return values.some(value => stripQuotes(value) === rowValue)
+              } else if (consumerQuestion.type === 'multi') {
+                return values.some(value => {
+                  const optionColumn = consumerQuestion.columns.find(col => col.optionLabel === value)
+                  if (optionColumn) {
+                    const headersToCheck = [optionColumn.header, ...(optionColumn.alternateHeaders || [])]
+                    return headersToCheck.some(header => {
+                      const val = row[header]
+                      return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes'
+                    })
+                  }
+                  return false
+                })
+              }
+              return false
+            } else {
+              const rowValue = stripQuotes(String(row[column]))
+              return values.some(value => stripQuotes(value) === rowValue)
+            }
+          })
+        })
+      }
 
       devLog('[RESPONDENT COUNT] Filtered rows:', filteredRows.length, 'out of', rows.length)
     }
@@ -633,7 +671,7 @@ export default function App() {
     )
     devLog('[RESPONDENT COUNT] Unique respondents:', uniqueRespondents.length)
     return uniqueRespondents.length
-  }, [dataset, rows, selections.segments])
+  }, [dataset, rows, selections.segments, selections.comparisonMode])
 
   // Memoize respondent counts for each comparison set
   const comparisonSetRespondentCounts = useMemo(() => {
@@ -891,9 +929,14 @@ export default function App() {
         // Add segment
         let newSegments = [...currentSegments, { column, value }]
 
-        // If selecting Overall, remove all other segments
         if (value === 'Overall') {
-          setSelections({ segments: [{ column: 'Overall', value: 'Overall' }] })
+          if (isFilterMode) {
+            // In Filter mode: selecting Overall resets all other segments
+            setSelections({ segments: [{ column: 'Overall', value: 'Overall' }] })
+          } else {
+            // In Compare mode: add Overall alongside other segments
+            setSelections({ segments: newSegments })
+          }
         } else if (isFilterMode) {
           // In Filter mode only: remove Overall when selecting other segments
           newSegments = newSegments.filter(s => s.value !== 'Overall')

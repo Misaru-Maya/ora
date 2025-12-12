@@ -2249,9 +2249,33 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                 // For each segment, filter dataset and calculate per-product averages
                 segmentsProp.filter(seg => seg.value !== 'Overall').forEach(segment => {
                   // Filter dataset rows to this segment
+                  // Check if segment.column is a consumer question
+                  const consumerQuestion = dataset.questions.find(q => q.qid === segment.column)
+
                   const segmentRows = dataset.rows.filter(row => {
-                    const rowValue = stripQuotes(String(row[segment.column] ?? '').trim())
-                    return rowValue === segment.value
+                    if (consumerQuestion) {
+                      // Consumer question filtering
+                      if (consumerQuestion.type === 'single' && consumerQuestion.singleSourceColumn) {
+                        const rowValue = stripQuotes(String(row[consumerQuestion.singleSourceColumn] ?? '').trim())
+                        return rowValue === segment.value
+                      } else if (consumerQuestion.type === 'multi') {
+                        // Multi-select: check binary columns
+                        const optionColumn = consumerQuestion.columns.find(col => col.optionLabel === segment.value)
+                        if (optionColumn) {
+                          const headersToCheck = [optionColumn.header, ...(optionColumn.alternateHeaders || [])]
+                          return headersToCheck.some(header => {
+                            const val = row[header]
+                            return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes'
+                          })
+                        }
+                        return false
+                      }
+                      return false
+                    } else {
+                      // Regular segment column
+                      const rowValue = stripQuotes(String(row[segment.column] ?? '').trim())
+                      return rowValue === segment.value
+                    }
                   })
 
                   if (segmentRows.length === 0) {
