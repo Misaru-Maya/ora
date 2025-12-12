@@ -1069,7 +1069,8 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
     : 3 // Default for horizontal
 
   // Calculate height with extra padding for better spacing - increased minimum and per-line height
-  const xAxisHeight = !isHorizontal ? Math.max(90, 12 + maxLinesNeeded * 16 + 20) : 70
+  // Reduced bottom padding for vertical charts (from +20 to +10)
+  const xAxisHeight = !isHorizontal ? Math.max(80, 12 + maxLinesNeeded * 16 + 10) : 70
 
   // Always show legend when there are groups to display
   const showLegend = groups.length > 0
@@ -1600,7 +1601,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           barCategoryGap={barCategoryGap}
           barGap={1}
           margin={isHorizontal
-            ? { top: 0, right: 60, bottom: 0, left: 0 }
+            ? { top: -10, right: 60, bottom: 15, left: 0 }
             : { top: 0, right: 48, bottom: 0, left: 0 }
           }
         >
