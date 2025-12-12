@@ -216,6 +216,10 @@ export default function App() {
   const [isExportingPdf, setIsExportingPdf] = useState(false)
   const chartGalleryRef = useRef<HTMLDivElement>(null)
 
+  // Chip drag-and-drop state
+  const [draggedChipInfo, setDraggedChipInfo] = useState<{ index: number, type: 'segment' | 'product' } | null>(null)
+  const [dropIndicator, setDropIndicator] = useState<{ index: number, position: 'before' | 'after' } | null>(null)
+
   // Debug: log when regression panel state changes
   useEffect(() => {
     devLog('[REGRESSION] showRegressionPanel changed to:', showRegressionPanel, 'dataset exists:', !!dataset, 'questions count:', dataset?.questions?.length)
@@ -2293,55 +2297,103 @@ export default function App() {
                     if (activeFilters.length === 0) return null
 
                     // Drag and drop handlers for reordering segments
-                    const handleDragStart = (e: React.DragEvent, index: number, filterType: 'segment' | 'product') => {
+                    const handleChipDragStart = (e: React.DragEvent, index: number, filterType: 'segment' | 'product') => {
                       e.dataTransfer.setData('text/plain', JSON.stringify({ index, filterType }))
                       e.dataTransfer.effectAllowed = 'move'
-                      // Add visual feedback
+                      // Set custom drag image for cleaner preview
                       const target = e.currentTarget as HTMLElement
-                      target.style.opacity = '0.5'
+                      e.dataTransfer.setDragImage(target, target.offsetWidth / 2, target.offsetHeight / 2)
+                      // Use requestAnimationFrame to ensure drag image is captured before state change
+                      requestAnimationFrame(() => {
+                        setDraggedChipInfo({ index, type: filterType })
+                      })
                     }
 
-                    const handleDragEnd = (e: React.DragEvent) => {
-                      const target = e.currentTarget as HTMLElement
-                      target.style.opacity = '1'
+                    const handleChipDragEnd = () => {
+                      setDraggedChipInfo(null)
+                      setDropIndicator(null)
                     }
 
-                    const handleDragOver = (e: React.DragEvent) => {
+                    const handleChipDragOver = (e: React.DragEvent, index: number, filterType: 'segment' | 'product') => {
                       e.preventDefault()
                       e.dataTransfer.dropEffect = 'move'
+
+                      // Only show indicator if same type and different index
+                      if (draggedChipInfo && draggedChipInfo.type === filterType && draggedChipInfo.index !== index) {
+                        // Determine if dropping before or after based on mouse position
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        const midpoint = rect.left + rect.width / 2
+                        const position = e.clientX < midpoint ? 'before' : 'after'
+
+                        // Only update if changed (prevents excessive re-renders)
+                        if (!dropIndicator || dropIndicator.index !== index || dropIndicator.position !== position) {
+                          setDropIndicator({ index, position })
+                        }
+                      }
                     }
 
-                    const handleDrop = (e: React.DragEvent, dropIndex: number, dropFilterType: 'segment' | 'product') => {
+                    const handleChipDragLeave = (e: React.DragEvent) => {
+                      // Only clear if leaving the chip entirely (not entering a child)
+                      const relatedTarget = e.relatedTarget as Node
+                      if (!e.currentTarget.contains(relatedTarget)) {
+                        setDropIndicator(null)
+                      }
+                    }
+
+                    const handleChipDrop = (e: React.DragEvent, dropIndex: number, dropFilterType: 'segment' | 'product') => {
                       e.preventDefault()
-                      const data = JSON.parse(e.dataTransfer.getData('text/plain'))
-                      const dragIndex = data.index
-                      const dragFilterType = data.filterType
+
+                      if (!draggedChipInfo || !dropIndicator) {
+                        setDraggedChipInfo(null)
+                        setDropIndicator(null)
+                        return
+                      }
+
+                      const dragIndex = draggedChipInfo.index
+                      const dragFilterType = draggedChipInfo.type
 
                       // Only allow reordering within same type
-                      if (dragFilterType !== dropFilterType || dragIndex === dropIndex) return
+                      if (dragFilterType !== dropFilterType || dragIndex === dropIndex) {
+                        setDraggedChipInfo(null)
+                        setDropIndicator(null)
+                        return
+                      }
 
                       if (dropFilterType === 'segment') {
                         // Reorder segments
                         const currentSegments = [...(selections.segments || [])]
-                        // Find actual indices (accounting for Overall which might be at index 0)
                         const segmentFilters = activeFilters.filter(f => f.type === 'segment')
                         const dragOriginalIndex = segmentFilters[dragIndex]?.originalIndex
                         const dropOriginalIndex = segmentFilters[dropIndex]?.originalIndex
 
                         if (dragOriginalIndex !== undefined && dropOriginalIndex !== undefined) {
                           const [removed] = currentSegments.splice(dragOriginalIndex, 1)
-                          // Adjust drop index if drag was before drop
-                          const adjustedDropIndex = dragOriginalIndex < dropOriginalIndex ? dropOriginalIndex - 1 : dropOriginalIndex
-                          currentSegments.splice(adjustedDropIndex, 0, removed)
+                          // Calculate insert position based on before/after indicator
+                          let insertIndex = dropOriginalIndex
+                          if (dragOriginalIndex < dropOriginalIndex) {
+                            insertIndex = dropIndicator.position === 'before' ? dropOriginalIndex - 1 : dropOriginalIndex
+                          } else {
+                            insertIndex = dropIndicator.position === 'before' ? dropOriginalIndex : dropOriginalIndex + 1
+                          }
+                          currentSegments.splice(Math.max(0, insertIndex), 0, removed)
                           setSelections({ segments: currentSegments })
                         }
                       } else if (dropFilterType === 'product') {
                         // Reorder product groups
                         const currentProducts = [...selections.productGroups]
                         const [removed] = currentProducts.splice(dragIndex, 1)
-                        currentProducts.splice(dropIndex, 0, removed)
+                        let insertIndex = dropIndex
+                        if (dragIndex < dropIndex) {
+                          insertIndex = dropIndicator.position === 'before' ? dropIndex - 1 : dropIndex
+                        } else {
+                          insertIndex = dropIndicator.position === 'before' ? dropIndex : dropIndex + 1
+                        }
+                        currentProducts.splice(Math.max(0, insertIndex), 0, removed)
                         setSelections({ productGroups: currentProducts })
                       }
+
+                      setDraggedChipInfo(null)
+                      setDropIndicator(null)
                     }
 
                     // Split filters by type for drag-drop grouping
@@ -2353,125 +2405,237 @@ export default function App() {
                         {/* Filter Chips */}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', width: '100%' }}>
                           {/* Segment chips - draggable */}
-                          {segmentFilters.map((filter, idx) => (
-                            <div
-                              key={`segment-${filter.value}`}
-                              draggable
-                              onDragStart={(e) => handleDragStart(e, idx, 'segment')}
-                              onDragEnd={handleDragEnd}
-                              onDragOver={handleDragOver}
-                              onDrop={(e) => handleDrop(e, idx, 'segment')}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                padding: '6px 12px',
-                                backgroundColor: '#F0FDF4',
-                                borderRadius: '8px',
-                                fontSize: '12px',
-                                color: '#374151',
-                                cursor: 'grab',
-                                userSelect: 'none',
-                                transition: 'transform 0.15s ease, box-shadow 0.15s ease'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)'
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.boxShadow = 'none'
-                              }}
-                            >
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" style={{ flexShrink: 0 }}>
-                                <circle cx="9" cy="5" r="1.5" fill="#9CA3AF" />
-                                <circle cx="15" cy="5" r="1.5" fill="#9CA3AF" />
-                                <circle cx="9" cy="12" r="1.5" fill="#9CA3AF" />
-                                <circle cx="15" cy="12" r="1.5" fill="#9CA3AF" />
-                                <circle cx="9" cy="19" r="1.5" fill="#9CA3AF" />
-                                <circle cx="15" cy="19" r="1.5" fill="#9CA3AF" />
-                              </svg>
-                              <span>{filter.label}</span>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  if (filter.column) {
-                                    toggleSegment(filter.column, filter.value)
-                                  }
-                                }}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  padding: '0',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  color: '#6b7280'
-                                }}
+                          {segmentFilters.map((filter, idx) => {
+                            const isDragging = draggedChipInfo?.type === 'segment' && draggedChipInfo?.index === idx
+                            const showIndicatorBefore = dropIndicator?.index === idx && dropIndicator?.position === 'before' && draggedChipInfo?.type === 'segment'
+                            const showIndicatorAfter = dropIndicator?.index === idx && dropIndicator?.position === 'after' && draggedChipInfo?.type === 'segment'
+                            return (
+                              <div
+                                key={`segment-${filter.value}`}
+                                style={{ display: 'flex', alignItems: 'center', position: 'relative' }}
                               >
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M18 6L6 18M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </div>
-                          ))}
+                                {/* Drop indicator line - before */}
+                                <div style={{
+                                  width: '2px',
+                                  height: '18px',
+                                  backgroundColor: '#3A8518',
+                                  borderRadius: '1px',
+                                  marginRight: showIndicatorBefore ? '4px' : '0',
+                                  opacity: showIndicatorBefore ? 1 : 0,
+                                  transform: showIndicatorBefore ? 'scaleY(1)' : 'scaleY(0)',
+                                  transition: 'all 0.08s ease-out',
+                                  boxShadow: showIndicatorBefore ? '0 0 6px rgba(58, 133, 24, 0.5)' : 'none'
+                                }} />
+                                <div
+                                  draggable={true}
+                                  onDragStart={(e) => handleChipDragStart(e, idx, 'segment')}
+                                  onDragEnd={handleChipDragEnd}
+                                  onDragOver={(e) => handleChipDragOver(e, idx, 'segment')}
+                                  onDragLeave={handleChipDragLeave}
+                                  onDrop={(e) => handleChipDrop(e, idx, 'segment')}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '3px 8px',
+                                    backgroundColor: 'white',
+                                    borderRadius: '8px',
+                                    fontSize: '11px',
+                                    color: '#374151',
+                                    cursor: isDragging ? 'grabbing' : 'grab',
+                                    userSelect: 'none',
+                                    opacity: isDragging ? 0.4 : 1,
+                                    transform: isDragging ? 'scale(1.02) translateY(-2px)' : 'scale(1) translateY(0)',
+                                    boxShadow: isDragging ? '0 8px 16px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.08)',
+                                    transition: 'transform 0.08s ease-out, box-shadow 0.08s ease-out, opacity 0.08s ease-out, background-color 0.15s ease',
+                                    willChange: 'transform, opacity',
+                                    border: '1px solid #E5E7EB'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if (!isDragging && !draggedChipInfo) {
+                                      e.currentTarget.style.backgroundColor = '#E8F5E9'
+                                      e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.1)'
+                                    }
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    if (!isDragging) {
+                                      e.currentTarget.style.backgroundColor = 'white'
+                                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)'
+                                    }
+                                  }}
+                                >
+                                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, opacity: 0.5 }}>
+                                    <circle cx="9" cy="5" r="2" fill="#9CA3AF" />
+                                    <circle cx="15" cy="5" r="2" fill="#9CA3AF" />
+                                    <circle cx="9" cy="12" r="2" fill="#9CA3AF" />
+                                    <circle cx="15" cy="12" r="2" fill="#9CA3AF" />
+                                    <circle cx="9" cy="19" r="2" fill="#9CA3AF" />
+                                    <circle cx="15" cy="19" r="2" fill="#9CA3AF" />
+                                  </svg>
+                                  <span style={{ fontWeight: 500 }}>{filter.label}</span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (filter.column) {
+                                        toggleSegment(filter.column, filter.value)
+                                      }
+                                    }}
+                                    draggable={false}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      padding: '2px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      color: '#9CA3AF',
+                                      borderRadius: '4px',
+                                      transition: 'color 0.1s ease, background 0.1s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.color = '#EF4444'
+                                      e.currentTarget.style.background = '#FEE2E2'
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.color = '#9CA3AF'
+                                      e.currentTarget.style.background = 'none'
+                                    }}
+                                  >
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                      <path d="M18 6L6 18M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </div>
+                                {/* Drop indicator line - after */}
+                                <div style={{
+                                  width: '2px',
+                                  height: '18px',
+                                  backgroundColor: '#3A8518',
+                                  borderRadius: '1px',
+                                  marginLeft: showIndicatorAfter ? '4px' : '0',
+                                  opacity: showIndicatorAfter ? 1 : 0,
+                                  transform: showIndicatorAfter ? 'scaleY(1)' : 'scaleY(0)',
+                                  transition: 'all 0.08s ease-out',
+                                  boxShadow: showIndicatorAfter ? '0 0 6px rgba(58, 133, 24, 0.5)' : 'none'
+                                }} />
+                              </div>
+                            )
+                          })}
                           {/* Product chips - draggable */}
-                          {productFilters.map((filter, idx) => (
-                            <div
-                              key={`product-${filter.value}`}
-                              draggable
-                              onDragStart={(e) => handleDragStart(e, idx, 'product')}
-                              onDragEnd={handleDragEnd}
-                              onDragOver={handleDragOver}
-                              onDrop={(e) => handleDrop(e, idx, 'product')}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                padding: '6px 12px',
-                                backgroundColor: '#F0FDF4',
-                                borderRadius: '8px',
-                                fontSize: '12px',
-                                color: '#374151',
-                                cursor: 'grab',
-                                userSelect: 'none',
-                                transition: 'transform 0.15s ease, box-shadow 0.15s ease'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)'
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.boxShadow = 'none'
-                              }}
-                            >
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" style={{ flexShrink: 0 }}>
-                                <circle cx="9" cy="5" r="1.5" fill="#9CA3AF" />
-                                <circle cx="15" cy="5" r="1.5" fill="#9CA3AF" />
-                                <circle cx="9" cy="12" r="1.5" fill="#9CA3AF" />
-                                <circle cx="15" cy="12" r="1.5" fill="#9CA3AF" />
-                                <circle cx="9" cy="19" r="1.5" fill="#9CA3AF" />
-                                <circle cx="15" cy="19" r="1.5" fill="#9CA3AF" />
-                              </svg>
-                              <span>{filter.label}</span>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  toggleProductGroup(filter.value)
-                                }}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  padding: '0',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  color: '#6b7280'
-                                }}
+                          {productFilters.map((filter, idx) => {
+                            const isDragging = draggedChipInfo?.type === 'product' && draggedChipInfo?.index === idx
+                            const showIndicatorBefore = dropIndicator?.index === idx && dropIndicator?.position === 'before' && draggedChipInfo?.type === 'product'
+                            const showIndicatorAfter = dropIndicator?.index === idx && dropIndicator?.position === 'after' && draggedChipInfo?.type === 'product'
+                            return (
+                              <div
+                                key={`product-${filter.value}`}
+                                style={{ display: 'flex', alignItems: 'center', position: 'relative' }}
                               >
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M18 6L6 18M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </div>
-                          ))}
+                                {/* Drop indicator line - before */}
+                                <div style={{
+                                  width: '2px',
+                                  height: '18px',
+                                  backgroundColor: '#3A8518',
+                                  borderRadius: '1px',
+                                  marginRight: showIndicatorBefore ? '4px' : '0',
+                                  opacity: showIndicatorBefore ? 1 : 0,
+                                  transform: showIndicatorBefore ? 'scaleY(1)' : 'scaleY(0)',
+                                  transition: 'all 0.08s ease-out',
+                                  boxShadow: showIndicatorBefore ? '0 0 6px rgba(58, 133, 24, 0.5)' : 'none'
+                                }} />
+                                <div
+                                  draggable={true}
+                                  onDragStart={(e) => handleChipDragStart(e, idx, 'product')}
+                                  onDragEnd={handleChipDragEnd}
+                                  onDragOver={(e) => handleChipDragOver(e, idx, 'product')}
+                                  onDragLeave={handleChipDragLeave}
+                                  onDrop={(e) => handleChipDrop(e, idx, 'product')}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '3px 8px',
+                                    backgroundColor: 'white',
+                                    borderRadius: '8px',
+                                    fontSize: '11px',
+                                    color: '#374151',
+                                    cursor: isDragging ? 'grabbing' : 'grab',
+                                    userSelect: 'none',
+                                    opacity: isDragging ? 0.4 : 1,
+                                    transform: isDragging ? 'scale(1.02) translateY(-2px)' : 'scale(1) translateY(0)',
+                                    boxShadow: isDragging ? '0 8px 16px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.08)',
+                                    transition: 'transform 0.08s ease-out, box-shadow 0.08s ease-out, opacity 0.08s ease-out, background-color 0.15s ease',
+                                    willChange: 'transform, opacity',
+                                    border: '1px solid #E5E7EB'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if (!isDragging && !draggedChipInfo) {
+                                      e.currentTarget.style.backgroundColor = '#E8F5E9'
+                                      e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.1)'
+                                    }
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    if (!isDragging) {
+                                      e.currentTarget.style.backgroundColor = 'white'
+                                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)'
+                                    }
+                                  }}
+                                >
+                                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, opacity: 0.5 }}>
+                                    <circle cx="9" cy="5" r="2" fill="#9CA3AF" />
+                                    <circle cx="15" cy="5" r="2" fill="#9CA3AF" />
+                                    <circle cx="9" cy="12" r="2" fill="#9CA3AF" />
+                                    <circle cx="15" cy="12" r="2" fill="#9CA3AF" />
+                                    <circle cx="9" cy="19" r="2" fill="#9CA3AF" />
+                                    <circle cx="15" cy="19" r="2" fill="#9CA3AF" />
+                                  </svg>
+                                  <span style={{ fontWeight: 500 }}>{filter.label}</span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      toggleProductGroup(filter.value)
+                                    }}
+                                    draggable={false}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      padding: '2px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      color: '#9CA3AF',
+                                      borderRadius: '4px',
+                                      transition: 'color 0.1s ease, background 0.1s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.color = '#EF4444'
+                                      e.currentTarget.style.background = '#FEE2E2'
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.color = '#9CA3AF'
+                                      e.currentTarget.style.background = 'none'
+                                    }}
+                                  >
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                      <path d="M18 6L6 18M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </div>
+                                {/* Drop indicator line - after */}
+                                <div style={{
+                                  width: '2px',
+                                  height: '18px',
+                                  backgroundColor: '#3A8518',
+                                  borderRadius: '1px',
+                                  marginLeft: showIndicatorAfter ? '4px' : '0',
+                                  opacity: showIndicatorAfter ? 1 : 0,
+                                  transform: showIndicatorAfter ? 'scaleY(1)' : 'scaleY(0)',
+                                  transition: 'all 0.08s ease-out',
+                                  boxShadow: showIndicatorAfter ? '0 0 6px rgba(58, 133, 24, 0.5)' : 'none'
+                                }} />
+                              </div>
+                            )
+                          })}
                         </div>
 
                         {/* Clear All + Compare Toggle Row - Show Compare toggle when 2+ segments selected */}
