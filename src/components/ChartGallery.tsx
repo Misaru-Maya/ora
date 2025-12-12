@@ -2369,6 +2369,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
               return (
                 <ComparisonChart
+                  key={series.groups.map(g => g.key).join('|')}
                   data={sortedAveragedData}
                   groups={series.groups}
                   orientation={chartOrientation}
@@ -2422,6 +2423,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
               return (
                 <ComparisonChart
+                  key={averagedGroups.map(g => g.key).join('|')}
                   data={averagedData}
                   groups={averagedGroups}
                   orientation={chartOrientation}
@@ -2442,6 +2444,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
         return (
           <ComparisonChart
+            key={transposedGroups.map(g => g.key).join('|')}
             data={transposedData}
             groups={transposedGroups}
             orientation={chartOrientation}

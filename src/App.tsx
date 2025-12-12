@@ -2286,13 +2286,9 @@ export default function App() {
                     // In Filter mode: exclude Overall from chip display (it's the default state)
                     const isCompareMode = selections.comparisonMode ?? false
                     const selectedSegments = selections.segments || []
-                    // Sort segments to ensure Overall is always first
-                    const sortedSegments = [...selectedSegments].sort((a, b) => {
-                      if (a.value === 'Overall') return -1
-                      if (b.value === 'Overall') return 1
-                      return 0
-                    })
-                    sortedSegments.forEach((segment, index) => {
+                    // Use segments in their actual order (selections.segments order)
+                    // This matches the order used in charts for consistency
+                    selectedSegments.forEach((segment, index) => {
                       // Show Overall chip only in Compare mode when other segments are also selected
                       const hasOtherSegments = selectedSegments.some(s => s.value !== 'Overall')
                       if (segment.value === 'Overall' && (!isCompareMode || !hasOtherSegments)) {
@@ -2394,23 +2390,37 @@ export default function App() {
                       }
 
                       if (dropFilterType === 'segment') {
-                        // Reorder segments
+                        // Reorder segments - find actual indices in selections.segments
                         const currentSegments = [...(selections.segments || [])]
                         const segmentFilters = activeFilters.filter(f => f.type === 'segment')
-                        const dragOriginalIndex = segmentFilters[dragIndex]?.originalIndex
-                        const dropOriginalIndex = segmentFilters[dropIndex]?.originalIndex
 
-                        if (dragOriginalIndex !== undefined && dropOriginalIndex !== undefined) {
-                          const [removed] = currentSegments.splice(dragOriginalIndex, 1)
-                          // Calculate insert position based on before/after indicator
-                          let insertIndex = dropOriginalIndex
-                          if (dragOriginalIndex < dropOriginalIndex) {
-                            insertIndex = dropIndicator.position === 'before' ? dropOriginalIndex - 1 : dropOriginalIndex
-                          } else {
-                            insertIndex = dropIndicator.position === 'before' ? dropOriginalIndex : dropOriginalIndex + 1
+                        // Get the segment values being dragged and dropped
+                        const dragSegment = segmentFilters[dragIndex]
+                        const dropSegment = segmentFilters[dropIndex]
+
+                        if (dragSegment && dropSegment) {
+                          // Find actual indices in selections.segments (not sortedSegments)
+                          const dragActualIndex = currentSegments.findIndex(
+                            s => s.column === dragSegment.column && s.value === dragSegment.value
+                          )
+                          const dropActualIndex = currentSegments.findIndex(
+                            s => s.column === dropSegment.column && s.value === dropSegment.value
+                          )
+
+                          if (dragActualIndex !== -1 && dropActualIndex !== -1) {
+                            const [removed] = currentSegments.splice(dragActualIndex, 1)
+                            // Calculate insert position based on before/after indicator
+                            // After removing, indices shift if drag was before drop
+                            const adjustedDropIndex = dragActualIndex < dropActualIndex
+                              ? dropActualIndex - 1
+                              : dropActualIndex
+                            let insertIndex = adjustedDropIndex
+                            if (dropIndicator.position === 'after') {
+                              insertIndex = adjustedDropIndex + 1
+                            }
+                            currentSegments.splice(Math.max(0, insertIndex), 0, removed)
+                            setSelections({ segments: currentSegments })
                           }
-                          currentSegments.splice(Math.max(0, insertIndex), 0, removed)
-                          setSelections({ segments: currentSegments })
                         }
                       } else if (dropFilterType === 'product') {
                         // Reorder product groups

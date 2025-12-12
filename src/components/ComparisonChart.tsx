@@ -1303,7 +1303,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           flexDirection: 'column',
           alignItems: 'stretch',
           marginTop: '15px',
-          marginBottom: '30px',
+          marginBottom: isHorizontal ? '20px' : '30px',
           // Left margin aligns with Y-axis (horizontalAxisWidth for horizontal charts)
           marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
           marginRight: '48px',
@@ -1601,7 +1601,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           barCategoryGap={barCategoryGap}
           barGap={1}
           margin={isHorizontal
-            ? { top: -10, right: 60, bottom: 15, left: 0 }
+            ? { top: 0, right: 60, bottom: 15, left: 0 }
             : { top: 0, right: 48, bottom: 0, left: 0 }
           }
         >
