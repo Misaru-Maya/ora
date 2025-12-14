@@ -1022,7 +1022,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       finalSorted = [...ordered, ...remaining]
     }
 
-    return finalSorted.map(item => {
+    const processed = finalSorted.map(item => {
       const data = { ...item.data }
       // Strip asterisk from optionDisplay if showAsterisks is disabled
       if (!showAsterisks && data.optionDisplay.endsWith('*')) {
@@ -1030,6 +1030,11 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
       }
       return data
     })
+
+    // Move excluded values (like "Not Specified") to the bottom of the list, regardless of sort order
+    const nonExcluded = processed.filter(d => !isExcludedValue(d.optionDisplay))
+    const excluded = processed.filter(d => isExcludedValue(d.optionDisplay))
+    return [...nonExcluded, ...excluded]
   }, [series, selectedOptions, cardSort, statSigFilteredData, chartVariant, canUsePie, canUseStacked, showAsterisks, customOptionOrder])
 
   // Sorted options for filter dropdown - respects current cardSort (but doesn't filter by selection)
