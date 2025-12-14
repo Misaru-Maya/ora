@@ -472,10 +472,11 @@ const EditableXAxisTick: React.FC<any & {
   onSave: (option: string, newLabel: string) => void
   data: SeriesDataPoint[]
   maxWidth?: number
+  fontSize?: number
 }> = (props) => {
-  const { x, y, payload, editingOption, setEditingOption, editInput, setEditInput, onSave, data, maxWidth = 100 } = props
+  const { x, y, payload, editingOption, setEditingOption, editInput, setEditInput, onSave, data, maxWidth = 100, fontSize = 14 } = props
   const text = payload.value || ''
-  const lineHeight = 14
+  const lineHeight = fontSize + 2 // Line height scales with font size
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Find the original option key for this label
@@ -549,7 +550,8 @@ const EditableXAxisTick: React.FC<any & {
 
   // Word wrapping - only break after specific characters: /, ), -
   const lines: string[] = []
-  const charWidth = 8 // Conservative estimate: 8px per character
+  // Character width scales with font size (roughly 0.57 * fontSize for average char)
+  const charWidth = Math.ceil(fontSize * 0.6)
 
   // Helper to break a word only at acceptable break points: /, ), -, :, ;, _, ー
   // Never break mid-word
@@ -647,7 +649,7 @@ const EditableXAxisTick: React.FC<any & {
           x={x}
           y={y + 8 + i * lineHeight}
           textAnchor="middle"
-          fontSize={14}
+          fontSize={fontSize}
           fill="#1f2833"
         >
           {line}
@@ -1079,13 +1081,19 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
         const numBarsPerOption = stacked ? 1 : groups.length
 
         // Calculate base height with proper spacing
-        // For stacked: use 28px min bar + 20px min gap (for labels above) = 48px per row
-        // For grouped: use standard bar size + 50% gap
-        const baseBarSize = stacked ? 28 : HORIZONTAL_BAR_SIZE
-        const baseGapPerBar = stacked ? 20 : baseBarSize * 0.5
+        // For stacked: use 28px min bar + 16px min gap = 44px per row
+        // For grouped: use 24px min bar + 16px min gap per row
+        const minBarHeight = stacked ? 28 : 24
+        const maxBarHeight = 36
+        const minGapBetweenOptions = 16 // Same for both stacked and grouped
+
+        const baseBarSize = minBarHeight
+        const baseGapPerBar = minGapBetweenOptions
         const baseRowHeight = (baseBarSize * numBarsPerOption) + baseGapPerBar
-        // For stacked, ensure minimum height per row is enforced strictly
-        const minChartHeight = stacked ? Math.max(200, data.length * 60) : 200
+
+        // Ensure minimum height per row is enforced strictly
+        const minHeightPerRow = minBarHeight * numBarsPerOption + minGapBetweenOptions
+        const minChartHeight = Math.max(200, data.length * minHeightPerRow)
         const baseHeight = Math.max(minChartHeight, data.length * baseRowHeight)
         // Never let heightOffset reduce below minimum
         const totalHeight = Math.max(baseHeight, baseHeight + heightOffset)
@@ -1093,30 +1101,28 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
         // Calculate space per option row
         const spacePerOption = totalHeight / data.length
 
-        // Calculate bar size to maintain 50% gap ratio
-        // rowSpace = (barSize * numBars) + gap, where gap = 0.5 * barSize (for stacked) or 0.5 * cluster
-        // For stacked: rowSpace = barSize + 0.5*barSize = 1.5*barSize → barSize = rowSpace/1.5
-        // For grouped: rowSpace = cluster + 0.5*cluster = 1.5*cluster → cluster = rowSpace/1.5
-        const clusterHeight = spacePerOption / 1.5
-        // Stacked horizontal charts need minimum 28px bar height for readability
-        const minBarSize = stacked ? 28 : 16
-        const dynamicBarSize = Math.min(36, Math.max(minBarSize, clusterHeight / numBarsPerOption))
+        // Calculate bar size dynamically
+        // Available space per row = spacePerOption
+        // Need to fit: (barSize * numBars) + gap, where gap >= minGapBetweenOptions
+        // So: barSize = (spacePerOption - minGapBetweenOptions) / numBarsPerOption
+        const availableForBars = spacePerOption - minGapBetweenOptions
+        const calculatedBarSize = availableForBars / numBarsPerOption
 
-        // Gap between different answer options
-        // For stacked horizontal charts, need extra space for small value labels that appear above bars
-        // Use percentage for stacked to ensure Recharts respects the gap
+        // Clamp bar size between min (24px for grouped, 28px for stacked) and max (36px)
+        const dynamicBarSize = Math.min(maxBarHeight, Math.max(minBarHeight, calculatedBarSize))
+
+        // Gap between different answer options - at least 16px for grouped, 20px for stacked
         const actualClusterHeight = dynamicBarSize * numBarsPerOption
 
         // For stacked: use percentage gap (more reliable), for grouped: use pixel gap
         let finalGap: number | string
         if (stacked) {
-          // Calculate percentage that gives at least 20px gap
-          // With 2 rows in 200px, 20px gap = 10% of total
-          // Use 15% to ensure adequate spacing
+          // Use 15% to ensure adequate spacing for labels above bars
           finalGap = '15%'
         } else {
-          const baseMinGap = 16
-          finalGap = Math.max(baseMinGap, Math.ceil(actualClusterHeight * 0.5))
+          // Gap is remaining space after bars, but at least minGapBetweenOptions
+          const remainingSpace = spacePerOption - actualClusterHeight
+          finalGap = Math.max(minGapBetweenOptions, remainingSpace)
         }
 
         return {
@@ -1142,14 +1148,11 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
       const scaleFactor = Math.max(1, Math.min(1.8, 1 + (gapValue - 20) / 40))
       return Math.floor(baseWidth * scaleFactor)
     } else {
-      // For vertical charts, calculate maximum label width while maintaining minimum 5px gap
-      // Use conservative estimate: container is ~850px wide after margins and padding
-      // (accounting for right: 48px, left: 48px, plus some buffer for chart internals)
-      const estimatedChartWidth = 850 - 48 - 48 // = 754px usable for labels
-      const minGapBetweenLabels = 5 // minimum 5px gap between labels (enforced)
-      // Scale preferred gap based on number of options - more options need tighter spacing
-      const preferredGap = data.length <= 4 ? 30 : data.length <= 6 ? 20 : 10
-      const gapBetweenLabels = Math.max(minGapBetweenLabels, preferredGap)
+      // For vertical charts, maximize label width while maintaining 10px gap between labels
+      // Chart container is typically ~95% of viewport, minus margins
+      // Use generous estimate to allow labels to be as wide as possible
+      const estimatedChartWidth = 1000 - 48 - 48 // = 904px usable for labels
+      const gapBetweenLabels = 10 // Fixed 10px gap between labels
 
       // Total gaps = (number of options - 1) * gap
       const totalGaps = (data.length - 1) * gapBetweenLabels
@@ -1157,19 +1160,56 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
       // Available width for all labels = chart width - total gaps
       const availableWidthForLabels = estimatedChartWidth - totalGaps
 
-      // Max width per label
+      // Max width per label - no upper cap, let labels be as wide as needed
       const maxWidthPerLabel = availableWidthForLabels / data.length
 
-      // Ensure labels don't get too narrow (min 50px) or too wide (max 250px)
-      return Math.floor(Math.max(50, Math.min(250, maxWidthPerLabel)))
+      // Only enforce minimum (50px), no maximum - labels can be as wide as space allows
+      return Math.floor(Math.max(50, maxWidthPerLabel))
     }
   }
 
   const maxLabelWidth = calculateMaxLabelWidth()
 
+  // Calculate dynamic font size for X-axis labels to prevent overlap
+  const calculateXAxisFontSize = (): number => {
+    if (isHorizontal) return 14 // Horizontal charts use standard size
+
+    const baseFontSize = 14
+    const minFontSize = 6
+    const charWidthAt14px = 8 // Approximate character width at 14px font
+
+    // Find the longest label
+    const longestLabel = Math.max(...data.map(d => d.optionDisplay.length))
+
+    // Calculate how many characters can fit per label at base font size
+    const maxCharsAtBaseSize = Math.floor(maxLabelWidth / charWidthAt14px)
+
+    // If longest label fits comfortably with wrapping, use base size
+    // Consider that labels can wrap, so check average chars per line needed
+    const avgCharsPerLine = Math.min(longestLabel, maxCharsAtBaseSize)
+
+    // Calculate scale factor based on how cramped the labels are
+    // More options = need smaller font to prevent overlap
+    const optionDensityFactor = Math.min(1, 6 / data.length) // Scale down if >6 options
+
+    // Longer labels need smaller font
+    const labelLengthFactor = Math.min(1, maxCharsAtBaseSize / Math.max(avgCharsPerLine, 10))
+
+    // Combined scale factor
+    const scaleFactor = Math.min(optionDensityFactor, labelLengthFactor)
+
+    // Calculate final font size, clamped between min and base
+    const fontSize = Math.max(minFontSize, Math.floor(baseFontSize * scaleFactor))
+
+    return fontSize
+  }
+
+  const xAxisFontSize = calculateXAxisFontSize()
+
   // Calculate dynamic height for X-axis based on maximum lines needed
   const calculateMaxLines = (text: string, maxWidth: number): number => {
-    const charWidth = 8 // Match the charWidth used in EditableXAxisTick
+    // Character width scales with font size (matches EditableXAxisTick)
+    const charWidth = Math.ceil(xAxisFontSize * 0.6)
     const maxCharsPerLine = Math.floor(maxWidth / charWidth)
     const words = text.split(' ')
     let lines = 0
@@ -1204,8 +1244,10 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
     : 3 // Default for horizontal
 
   // Calculate height for X-axis based on number of wrapped lines needed
+  // Line height scales with font size
+  const xAxisLineHeight = xAxisFontSize + 2
   const xAxisHeight = !isHorizontal
-    ? Math.max(80, 12 + maxLinesNeeded * 16 + 10)
+    ? Math.max(80, 12 + maxLinesNeeded * xAxisLineHeight + 10)
     : 70
 
   // Always show legend when there are groups to display
@@ -1788,6 +1830,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                     onSave={onSaveOptionLabel || (() => {})}
                     data={data}
                     maxWidth={maxLabelWidth}
+                    fontSize={xAxisFontSize}
                   />
                 )}
                 axisLine={AXIS_LINE_STYLE}
