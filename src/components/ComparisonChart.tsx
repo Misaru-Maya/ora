@@ -136,8 +136,11 @@ const StackedHorizontalValueLabel: React.FC<LabelProps & { fill?: string }> = ({
 
   const text = `${Math.round(numericValue)}%`
   const isSmall = numericValue < 3
-  // For stacked horizontal, use bar width (segment width) for font size scaling
-  const fontSize = getDynamicFontSize(barWidth, true)
+  // For stacked horizontal, use BOTH segment width and bar height to determine font size
+  // Bar height is the constraining dimension for vertical text fitting
+  const widthBasedFontSize = getDynamicFontSize(barWidth, true)
+  const heightBasedFontSize = getDynamicFontSize(barHeight * 1.5, true) // Scale height since it's more constraining
+  const fontSize = Math.min(widthBasedFontSize, heightBasedFontSize)
 
   // For small values shown outside, always use black
   // For values shown inside, calculate optimal contrast color based on background
@@ -311,10 +314,35 @@ const EditableYAxisTick: React.FC<any & {
     setEditingOption(null)
   }
 
-  // Word wrapping for long labels, respecting manual line breaks
+  // Word wrapping for long labels - only break after /, ), -
   const lineHeight = 14
   const lines: string[] = []
   const charWidth = 7 // Rough estimate: 7 pixels per character
+
+  // Helper to break a word only at acceptable break points: /, ), -, :, ;, _, ー
+  const breakLongWordY = (word: string): string[] => {
+    const maxCharsPerLine = Math.floor(maxWidth / charWidth)
+    if (word.length <= maxCharsPerLine) return [word]
+
+    const parts: string[] = []
+    let remaining = word
+    const breakChars = ['/', ')', '-', ':', ';', '_', 'ー']
+    while (remaining.length > maxCharsPerLine) {
+      let breakPoint = -1
+      for (let i = Math.min(maxCharsPerLine, remaining.length - 1); i > 0; i--) {
+        const char = remaining[i - 1]
+        if (breakChars.includes(char)) {
+          breakPoint = i
+          break
+        }
+      }
+      if (breakPoint === -1) break // No acceptable break point, keep intact
+      parts.push(remaining.slice(0, breakPoint))
+      remaining = remaining.slice(breakPoint)
+    }
+    if (remaining) parts.push(remaining)
+    return parts
+  }
 
   // First split by newlines to preserve user's manual line breaks
   const manualLines = text.split('\n')
@@ -333,27 +361,15 @@ const EditableYAxisTick: React.FC<any & {
           lines.push(currentLine)
           currentLine = ''
         }
-        // Force break the long word/phrase - break at natural points like commas or opening parens
-        let remaining = word
-        while (remaining.length * charWidth > maxWidth) {
-          // Try to find a good break point (comma, opening paren, or just mid-word)
-          const targetChars = Math.floor(maxWidth / charWidth)
-          let breakPoint = targetChars
-
-          // Look for comma or paren within the target range
-          for (let i = targetChars; i > targetChars / 2; i--) {
-            if (remaining[i] === ',' || remaining[i] === '(' || remaining[i] === ')') {
-              breakPoint = i + 1
-              break
-            }
+        // Break at acceptable points only (/, ), -)
+        const wordParts = breakLongWordY(word)
+        wordParts.forEach((part, i) => {
+          if (i < wordParts.length - 1) {
+            lines.push(part)
+          } else {
+            currentLine = part
           }
-
-          lines.push(remaining.slice(0, breakPoint))
-          remaining = remaining.slice(breakPoint)
-        }
-        if (remaining) {
-          currentLine = remaining
-        }
+        })
       } else if (testLine.length * charWidth > maxWidth && currentLine) {
         lines.push(currentLine)
         currentLine = word
@@ -531,26 +547,35 @@ const EditableXAxisTick: React.FC<any & {
     )
   }
 
-  // Word wrapping with mid-word breaking for very long words
+  // Word wrapping - only break after specific characters: /, ), -
   const lines: string[] = []
   const charWidth = 8 // Conservative estimate: 8px per character
 
-  // Helper to break a word if it's too long for maxWidth
+  // Helper to break a word only at acceptable break points: /, ), -, :, ;, _, ー
+  // Never break mid-word
   const breakLongWord = (word: string): string[] => {
     const maxCharsPerLine = Math.floor(maxWidth / charWidth)
     if (word.length <= maxCharsPerLine) return [word]
 
     const parts: string[] = []
     let remaining = word
+    const breakChars = ['/', ')', '-', ':', ';', '_', 'ー']
     while (remaining.length > maxCharsPerLine) {
-      // Try to find a good break point (hyphen, underscore, or just force break)
-      let breakPoint = maxCharsPerLine
-      for (let i = maxCharsPerLine - 1; i > maxCharsPerLine / 2; i--) {
-        if (remaining[i] === '-' || remaining[i] === '_') {
-          breakPoint = i + 1
+      // Only break after acceptable break characters
+      let breakPoint = -1
+      for (let i = Math.min(maxCharsPerLine, remaining.length - 1); i > 0; i--) {
+        const char = remaining[i - 1] // Check char before position i
+        if (breakChars.includes(char)) {
+          breakPoint = i
           break
         }
       }
+
+      // If no acceptable break point found, don't break - keep word intact
+      if (breakPoint === -1) {
+        break
+      }
+
       parts.push(remaining.slice(0, breakPoint))
       remaining = remaining.slice(breakPoint)
     }
@@ -1054,11 +1079,16 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
         const numBarsPerOption = stacked ? 1 : groups.length
 
         // Calculate base height with proper spacing
-        const baseBarSize = HORIZONTAL_BAR_SIZE
-        const baseGapPerBar = baseBarSize * 0.5 // 50% of bar height
+        // For stacked: use 28px min bar + 20px min gap (for labels above) = 48px per row
+        // For grouped: use standard bar size + 50% gap
+        const baseBarSize = stacked ? 28 : HORIZONTAL_BAR_SIZE
+        const baseGapPerBar = stacked ? 20 : baseBarSize * 0.5
         const baseRowHeight = (baseBarSize * numBarsPerOption) + baseGapPerBar
-        const baseHeight = Math.max(200, data.length * baseRowHeight)
-        const totalHeight = baseHeight + heightOffset
+        // For stacked, ensure minimum height per row is enforced strictly
+        const minChartHeight = stacked ? Math.max(200, data.length * 60) : 200
+        const baseHeight = Math.max(minChartHeight, data.length * baseRowHeight)
+        // Never let heightOffset reduce below minimum
+        const totalHeight = Math.max(baseHeight, baseHeight + heightOffset)
 
         // Calculate space per option row
         const spacePerOption = totalHeight / data.length
@@ -1068,17 +1098,30 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
         // For stacked: rowSpace = barSize + 0.5*barSize = 1.5*barSize → barSize = rowSpace/1.5
         // For grouped: rowSpace = cluster + 0.5*cluster = 1.5*cluster → cluster = rowSpace/1.5
         const clusterHeight = spacePerOption / 1.5
-        const dynamicBarSize = Math.min(36, Math.max(16, clusterHeight / numBarsPerOption)) // min 16px, max 36px
+        // Stacked horizontal charts need minimum 28px bar height for readability
+        const minBarSize = stacked ? 28 : 16
+        const dynamicBarSize = Math.min(36, Math.max(minBarSize, clusterHeight / numBarsPerOption))
 
-        // Gap is 50% of the actual bar cluster height, minimum 10px enforced
-        // For stacked charts, use larger minimum gap since bars are visually denser
+        // Gap between different answer options
+        // For stacked horizontal charts, need extra space for small value labels that appear above bars
+        // Use percentage for stacked to ensure Recharts respects the gap
         const actualClusterHeight = dynamicBarSize * numBarsPerOption
-        const stackedMinGap = stacked ? Math.max(24, dynamicBarSize * 0.75) : 16 // Stacked needs 75% gap minimum
-        const dynamicGap = Math.max(MIN_CATEGORY_GAP, stackedMinGap, Math.ceil(actualClusterHeight * 0.5))
+
+        // For stacked: use percentage gap (more reliable), for grouped: use pixel gap
+        let finalGap: number | string
+        if (stacked) {
+          // Calculate percentage that gives at least 20px gap
+          // With 2 rows in 200px, 20px gap = 10% of total
+          // Use 15% to ensure adequate spacing
+          finalGap = '15%'
+        } else {
+          const baseMinGap = 16
+          finalGap = Math.max(baseMinGap, Math.ceil(actualClusterHeight * 0.5))
+        }
 
         return {
           chartHeight: totalHeight,
-          barCategoryGap: dynamicGap,
+          barCategoryGap: finalGap,
           barSize: dynamicBarSize,
         }
       })()
@@ -1694,6 +1737,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           layout={isHorizontal ? "vertical" : "horizontal"}
           barCategoryGap={barCategoryGap}
           barGap={0}
+          barSize={stacked ? barSize : undefined}
           margin={isHorizontal
             ? { top: 20, right: 20, bottom: 15, left: 0 }
             : { top: 0, right: 48, bottom: 0, left: 0 }
@@ -1768,7 +1812,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                 name={group.label}
                 fill={color}
                 radius={isHorizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]}
-                {...(barSize !== undefined && { barSize })}
+                {...(!stacked && barSize !== undefined && { barSize })}
                 stackId={stacked ? 'stack' : undefined}
                 isAnimationActive={false}
                 style={{ cursor: 'pointer' }}
