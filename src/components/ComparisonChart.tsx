@@ -1049,11 +1049,11 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   }, [isDragging, dragOffset])
 
   // Dynamic chart dimensions based on number of answer options
-  // Calculate dynamic barCategoryGap: gap between answer option groups should be at least 50% of total bar cluster width
+  // Calculate dynamic barCategoryGap: gap between answer option groups should be at least 50% of total bar cluster height
   const calculateBarCategoryGap = (baseBarSize: number, numGroups: number, isStackedChart: boolean) => {
     if (isStackedChart) {
-      // Stacked charts have single bars, use larger fixed gap
-      return 48
+      // Stacked charts have single bars - gap should be at least 50% of bar height
+      return Math.max(24, Math.ceil(baseBarSize * 0.5))
     }
     // For grouped charts: total cluster width = numGroups * barSize + (numGroups - 1) * barGap
     const barGap = 1 // Gap between bars within same group
@@ -1066,21 +1066,31 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   const { chartHeight, barCategoryGap, barSize } = isHorizontal
     ? (() => {
         // For horizontal charts: calculate height and bar size dynamically
-        // Bars should scale with container height, maintaining at least 50% gap
+        // Rule: gap between bars should be at least 50% of bar height
+        // Math: if gap = 0.5 * bar, then rowSpace = bar + gap = 1.5 * bar
+        // Therefore: bar = rowSpace / 1.5, gap = rowSpace / 3
         const numBarsPerOption = stacked ? 1 : groups.length
-        const baseGap = calculateBarCategoryGap(HORIZONTAL_BAR_SIZE, groups.length, stacked)
-        const baseHeight = Math.max(200, data.length * (HORIZONTAL_BAR_SIZE * numBarsPerOption + baseGap))
+
+        // Calculate base height with proper spacing
+        const baseBarSize = HORIZONTAL_BAR_SIZE
+        const baseGapPerBar = baseBarSize * 0.5 // 50% of bar height
+        const baseRowHeight = (baseBarSize * numBarsPerOption) + baseGapPerBar
+        const baseHeight = Math.max(200, data.length * baseRowHeight)
         const totalHeight = baseHeight + heightOffset
 
         // Calculate space per option row
         const spacePerOption = totalHeight / data.length
 
-        // Bar cluster (all bars for one option) should be at most 50% of row space
-        // This ensures gap is at least 50% of the row
-        const maxClusterHeight = spacePerOption * 0.5
-        const dynamicBarSize = Math.max(12, maxClusterHeight / numBarsPerOption) // min 12px for readability
+        // Calculate bar size to maintain 50% gap ratio
+        // rowSpace = (barSize * numBars) + gap, where gap = 0.5 * barSize (for stacked) or 0.5 * cluster
+        // For stacked: rowSpace = barSize + 0.5*barSize = 1.5*barSize → barSize = rowSpace/1.5
+        // For grouped: rowSpace = cluster + 0.5*cluster = 1.5*cluster → cluster = rowSpace/1.5
+        const clusterHeight = spacePerOption / 1.5
+        const dynamicBarSize = Math.min(36, Math.max(16, clusterHeight / numBarsPerOption)) // min 16px, max 36px
 
-        const dynamicGap = calculateBarCategoryGap(dynamicBarSize, groups.length, stacked)
+        // Gap is 50% of the actual bar cluster height
+        const actualClusterHeight = dynamicBarSize * numBarsPerOption
+        const dynamicGap = Math.max(16, Math.ceil(actualClusterHeight * 0.5))
 
         return {
           chartHeight: totalHeight,
@@ -1748,7 +1758,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           barCategoryGap={barCategoryGap}
           barGap={1}
           margin={isHorizontal
-            ? { top: 0, right: 20, bottom: 15, left: 0 }
+            ? { top: 20, right: 20, bottom: 15, left: 0 }
             : { top: 0, right: 48, bottom: 0, left: 0 }
           }
         >
