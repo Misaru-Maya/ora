@@ -271,7 +271,7 @@ const _CustomXAxisTick: React.FC<any & { maxWidth?: number }> = (props) => {
   )
 }
 
-// Editable Y-axis tick for horizontal charts
+// Editable Y-axis tick for horizontal charts - renders labels ABOVE bars
 const EditableYAxisTick: React.FC<any & {
   editingOption: string | null
   setEditingOption: (option: string | null) => void
@@ -279,9 +279,9 @@ const EditableYAxisTick: React.FC<any & {
   setEditInput: (value: string) => void
   onSave: (option: string, newLabel: string) => void
   data: SeriesDataPoint[]
-  maxWidth?: number
+  barGroupHeight?: number
 }> = (props) => {
-  const { x, y, payload, editingOption, setEditingOption, editInput, setEditInput, onSave, data, maxWidth = 150 } = props
+  const { x, y, payload, editingOption, setEditingOption, editInput, setEditInput, onSave, data, barGroupHeight = 48 } = props
   const text = payload.value || ''
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -314,91 +314,24 @@ const EditableYAxisTick: React.FC<any & {
     setEditingOption(null)
   }
 
-  // Word wrapping for long labels - only break after /, ), -
-  const lineHeight = 14
-  const lines: string[] = []
-  const charWidth = 7 // Rough estimate: 7 pixels per character
+  // Position label above the bar group
+  // y is the center of the bar group, so we need to move up by half the bar group height + some padding
+  const labelY = y - barGroupHeight / 2 - 8
 
-  // Helper to break a word only at acceptable break points: /, ), -, :, ;, _, ー
-  const breakLongWordY = (word: string): string[] => {
-    const maxCharsPerLine = Math.floor(maxWidth / charWidth)
-    if (word.length <= maxCharsPerLine) return [word]
-
-    const parts: string[] = []
-    let remaining = word
-    const breakChars = ['/', ')', '-', ':', ';', '_', 'ー']
-    while (remaining.length > maxCharsPerLine) {
-      let breakPoint = -1
-      for (let i = Math.min(maxCharsPerLine, remaining.length - 1); i > 0; i--) {
-        const char = remaining[i - 1]
-        if (breakChars.includes(char)) {
-          breakPoint = i
-          break
-        }
-      }
-      if (breakPoint === -1) break // No acceptable break point, keep intact
-      parts.push(remaining.slice(0, breakPoint))
-      remaining = remaining.slice(breakPoint)
-    }
-    if (remaining) parts.push(remaining)
-    return parts
-  }
-
-  // First split by newlines to preserve user's manual line breaks
-  const manualLines = text.split('\n')
-
-  manualLines.forEach((manualLine: string) => {
-    const words = manualLine.split(' ')
-    let currentLine = ''
-
-    words.forEach((word: string) => {
-      const testLine = currentLine ? `${currentLine} ${word}` : word
-
-      // Check if word itself is too long for maxWidth
-      if (word.length * charWidth > maxWidth) {
-        // Push current line first if there's content
-        if (currentLine) {
-          lines.push(currentLine)
-          currentLine = ''
-        }
-        // Break at acceptable points only (/, ), -)
-        const wordParts = breakLongWordY(word)
-        wordParts.forEach((part, i) => {
-          if (i < wordParts.length - 1) {
-            lines.push(part)
-          } else {
-            currentLine = part
-          }
-        })
-      } else if (testLine.length * charWidth > maxWidth && currentLine) {
-        lines.push(currentLine)
-        currentLine = word
-      } else {
-        currentLine = testLine
-      }
-    })
-    if (currentLine) lines.push(currentLine)
-  })
-
-  // Calculate actual text width based on the longest line
-  const longestLine = lines.reduce((a, b) => a.length > b.length ? a : b, '')
-  const actualTextWidth = Math.max(longestLine.length * 8 + 20, 60) // 8px per char + padding, min 60px
+  // Labels should align with where bars start
+  const labelX = 63
 
   if (isEditing) {
-    // Keep edit box within Y-axis area (left of bars)
-    // Use maxWidth to constrain - this is the Y-axis width minus padding
-    const editBoxWidth = Math.min(maxWidth + 15, x - 5) // Don't exceed Y-axis area
-    const editBoxX = Math.max(5, x - editBoxWidth) // Stay within left edge
-
     return (
-      <foreignObject x={editBoxX} y={y - 35} width={editBoxWidth} height={80}>
-        <textarea
-          ref={inputRef as any}
+      <foreignObject x={labelX} y={labelY - 24} width={600} height={36}>
+        <input
+          ref={inputRef}
+          type="text"
           value={editInput}
           onChange={(e) => setEditInput(e.target.value)}
           onBlur={handleSave}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
+            if (e.key === 'Enter') {
               e.preventDefault()
               handleSave()
             }
@@ -415,10 +348,7 @@ const EditableYAxisTick: React.FC<any & {
             outline: 'none',
             backgroundColor: 'white',
             boxSizing: 'border-box',
-            minHeight: '36px',
-            resize: 'vertical',
             fontFamily: 'inherit',
-            lineHeight: '1.4',
             cursor: 'text',
             userSelect: 'text'
           }}
@@ -447,18 +377,15 @@ const EditableYAxisTick: React.FC<any & {
         })
       }}
     >
-      {lines.map((line, i) => (
-        <text
-          key={i}
-          x={x}
-          y={y + (i - (lines.length - 1) / 2) * lineHeight}
-          textAnchor="end"
-          fontSize={14}
-          fill="#1f2833"
-        >
-          {line}
-        </text>
-      ))}
+      <text
+        x={labelX}
+        y={labelY}
+        textAnchor="start"
+        fontSize={14}
+        fill="#1f2833"
+      >
+        {text}
+      </text>
     </g>
   )
 }
@@ -1075,24 +1002,25 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   const { chartHeight, barCategoryGap, barSize } = isHorizontal
     ? (() => {
         // For horizontal charts: calculate height and bar size dynamically
-        // Rule: gap between bars should be at least 50% of bar height
-        // Math: if gap = 0.5 * bar, then rowSpace = bar + gap = 1.5 * bar
-        // Therefore: bar = rowSpace / 1.5, gap = rowSpace / 3
+        // Labels are now rendered ABOVE bars, so we need extra height per row
         const numBarsPerOption = stacked ? 1 : groups.length
 
+        // Height for label above bars (single line)
+        const labelHeightAboveBars = 24
+
         // Calculate base height with proper spacing
-        // For stacked: use 28px min bar + 16px min gap = 44px per row
-        // For grouped: use 24px min bar + 16px min gap per row
+        // For stacked: use 28px min bar + 16px min gap = 44px per row + label height
+        // For grouped: use 24px min bar + 16px min gap per row + label height
         const minBarHeight = stacked ? 28 : 24
         const maxBarHeight = 36
         const minGapBetweenOptions = 16 // Same for both stacked and grouped
 
         const baseBarSize = minBarHeight
         const baseGapPerBar = minGapBetweenOptions
-        const baseRowHeight = (baseBarSize * numBarsPerOption) + baseGapPerBar
+        const baseRowHeight = labelHeightAboveBars + (baseBarSize * numBarsPerOption) + baseGapPerBar
 
         // Ensure minimum height per row is enforced strictly
-        const minHeightPerRow = minBarHeight * numBarsPerOption + minGapBetweenOptions
+        const minHeightPerRow = labelHeightAboveBars + minBarHeight * numBarsPerOption + minGapBetweenOptions
         const minChartHeight = Math.max(200, data.length * minHeightPerRow)
         const baseHeight = Math.max(minChartHeight, data.length * baseRowHeight)
         // Never let heightOffset reduce below minimum
@@ -1102,10 +1030,10 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
         const spacePerOption = totalHeight / data.length
 
         // Calculate bar size dynamically
-        // Available space per row = spacePerOption
+        // Available space per row = spacePerOption - labelHeightAboveBars
         // Need to fit: (barSize * numBars) + gap, where gap >= minGapBetweenOptions
-        // So: barSize = (spacePerOption - minGapBetweenOptions) / numBarsPerOption
-        const availableForBars = spacePerOption - minGapBetweenOptions
+        // So: barSize = (spacePerOption - labelHeight - minGapBetweenOptions) / numBarsPerOption
+        const availableForBars = spacePerOption - labelHeightAboveBars - minGapBetweenOptions
         const calculatedBarSize = availableForBars / numBarsPerOption
 
         // Clamp bar size between min (24px for grouped, 28px for stacked) and max (36px)
@@ -1117,11 +1045,11 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
         // For stacked: use percentage gap (more reliable), for grouped: use pixel gap
         let finalGap: number | string
         if (stacked) {
-          // Use 15% to ensure adequate spacing for labels above bars
-          finalGap = '15%'
+          // Use 20% to ensure adequate spacing for labels above bars
+          finalGap = '20%'
         } else {
-          // Gap is remaining space after bars, but at least minGapBetweenOptions
-          const remainingSpace = spacePerOption - actualClusterHeight
+          // Gap is remaining space after bars and label, but at least minGapBetweenOptions
+          const remainingSpace = spacePerOption - labelHeightAboveBars - actualClusterHeight
           finalGap = Math.max(minGapBetweenOptions, remainingSpace)
         }
 
@@ -1450,8 +1378,8 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           alignItems: 'stretch',
           marginTop: '15px',
           marginBottom: isHorizontal ? '20px' : '30px',
-          // Left margin aligns with Y-axis (horizontalAxisWidth for horizontal charts)
-          marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
+          // Left margin - same 48px for both horizontal and vertical charts
+          marginLeft: '48px',
           marginRight: '48px',
           gap: '8px',
           transform: `translate(${titleOffset.x}px, ${titleOffset.y}px)`,
@@ -1611,7 +1539,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
             className="text-xs font-semibold text-brand-gray"
             style={{
               marginBottom: '15px',
-              marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
+              marginLeft: '48px',
               marginRight: isHorizontal ? '60px' : '48px'
             }}
           >
@@ -1704,7 +1632,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
             className="text-xs font-semibold text-brand-gray"
             style={{
               marginBottom: '15px',
-              marginLeft: isHorizontal ? `${horizontalAxisWidth}px` : '48px',
+              marginLeft: '48px',
               marginRight: isHorizontal ? '60px' : '48px'
             }}
           >
@@ -1748,7 +1676,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           barGap={0}
           barSize={stacked ? barSize : undefined}
           margin={isHorizontal
-            ? { top: 20, right: 20, bottom: 15, left: 0 }
+            ? { top: 20, right: 48, bottom: 15, left: 48 }
             : { top: 0, right: 48, bottom: 0, left: 0 }
           }
         >
@@ -1764,7 +1692,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
               <YAxis
                 type="category"
                 dataKey="optionDisplay"
-                width={horizontalAxisWidth}
+                width={10}
                 tick={(props) => (
                   <EditableYAxisTick
                     {...props}
@@ -1774,11 +1702,11 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                     setEditInput={setEditInput}
                     onSave={onSaveOptionLabel || (() => {})}
                     data={data}
-                    maxWidth={horizontalAxisWidth - 20}
+                    barGroupHeight={barSize * (stacked ? 1 : groups.length)}
                   />
                 )}
                 axisLine={AXIS_LINE_STYLE}
-                tickLine={TICK_LINE_STYLE}
+                tickLine={false}
               />
             </>
           ) : (
@@ -1854,33 +1782,6 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           })}
         </BarChart>
       </ResponsiveContainer>
-      {/* Y-axis resize handle for horizontal bar charts */}
-      {isHorizontal && (
-        <div
-          onMouseDown={handleYAxisResizeStart}
-          style={{
-            position: 'absolute',
-            left: horizontalAxisWidth - 3,
-            top: 25,
-            bottom: 0,
-            width: '6px',
-            cursor: 'col-resize',
-            backgroundColor: isResizingYAxis ? 'rgba(58, 133, 24, 0.3)' : 'transparent',
-            transition: 'background-color 0.15s ease',
-            zIndex: 20
-          }}
-          onMouseEnter={(e) => {
-            if (!isResizingYAxis) {
-              e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.15)'
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isResizingYAxis) {
-              e.currentTarget.style.backgroundColor = 'transparent'
-            }
-          }}
-        />
-      )}
       </div>
 
       {/* Click-based Tooltip Popup - rendered via portal to ensure it's above all content */}
