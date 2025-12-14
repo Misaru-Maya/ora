@@ -998,19 +998,37 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   }
 
   const { chartHeight, barCategoryGap, barSize } = isHorizontal
-    ? {
-        // For horizontal charts: calculate height to maintain same bar size per answer option
-        // Stacked charts have one bar per option, grouped charts have multiple bars per option
-        chartHeight: Math.max(200, data.length * (HORIZONTAL_BAR_SIZE * (stacked ? 1 : groups.length) + calculateBarCategoryGap(HORIZONTAL_BAR_SIZE, groups.length, stacked))) + heightOffset,
-        barCategoryGap: calculateBarCategoryGap(HORIZONTAL_BAR_SIZE, groups.length, stacked),
-        barSize: HORIZONTAL_BAR_SIZE,
-      }
+    ? (() => {
+        // For horizontal charts: calculate height and bar size dynamically
+        // Bars should scale with container height, maintaining at least 50% gap
+        const numBarsPerOption = stacked ? 1 : groups.length
+        const baseGap = calculateBarCategoryGap(HORIZONTAL_BAR_SIZE, groups.length, stacked)
+        const baseHeight = Math.max(200, data.length * (HORIZONTAL_BAR_SIZE * numBarsPerOption + baseGap))
+        const totalHeight = baseHeight + heightOffset
+
+        // Calculate space per option row
+        const spacePerOption = totalHeight / data.length
+
+        // Bar cluster (all bars for one option) should be at most 50% of row space
+        // This ensures gap is at least 50% of the row
+        const maxClusterHeight = spacePerOption * 0.5
+        const dynamicBarSize = Math.max(12, maxClusterHeight / numBarsPerOption) // min 12px for readability
+
+        const dynamicGap = calculateBarCategoryGap(dynamicBarSize, groups.length, stacked)
+
+        return {
+          chartHeight: totalHeight,
+          barCategoryGap: dynamicGap,
+          barSize: dynamicBarSize,
+        }
+      })()
     : {
-        // For vertical charts: adjust height and bar size dynamically
-        // Stacked charts should have same bar width as regular charts
+        // For vertical charts: use percentage-based gap for responsive bar widths
+        // "30%" means 30% of category band is gap - bars will auto-size to fill remaining 70%
+        // This gives good spacing while keeping bars visible at all container widths
         chartHeight: 320 + heightOffset,
-        barCategoryGap: calculateBarCategoryGap(VERTICAL_BAR_SIZE, groups.length, stacked),
-        barSize: VERTICAL_BAR_SIZE,
+        barCategoryGap: "30%",
+        barSize: undefined, // Let Recharts auto-calculate based on available width
       }
 
   // Calculate dynamic label widths based on chart layout
@@ -1019,7 +1037,8 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
     if (isHorizontal) {
       // For horizontal charts, scale based on number of groups (more groups = narrower bars = more space for labels)
       const baseWidth = 190
-      const scaleFactor = Math.max(1, Math.min(1.8, 1 + (barCategoryGap - 20) / 40))
+      const gapValue = typeof barCategoryGap === 'number' ? barCategoryGap : 40
+      const scaleFactor = Math.max(1, Math.min(1.8, 1 + (gapValue - 20) / 40))
       return Math.floor(baseWidth * scaleFactor)
     } else {
       // For vertical charts, calculate maximum label width while maintaining 20px gap
@@ -1674,7 +1693,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                 name={group.label}
                 fill={color}
                 radius={isHorizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]}
-                barSize={barSize}
+                {...(barSize !== undefined && { barSize })}
                 stackId={stacked ? 'stack' : undefined}
                 isAnimationActive={false}
                 style={{ cursor: 'pointer' }}
