@@ -531,8 +531,32 @@ const EditableXAxisTick: React.FC<any & {
     )
   }
 
-  // Simple word wrapping - display text with asterisk, respecting manual line breaks
+  // Word wrapping with mid-word breaking for very long words
   const lines: string[] = []
+  const charWidth = 8 // Conservative estimate: 8px per character
+
+  // Helper to break a word if it's too long for maxWidth
+  const breakLongWord = (word: string): string[] => {
+    const maxCharsPerLine = Math.floor(maxWidth / charWidth)
+    if (word.length <= maxCharsPerLine) return [word]
+
+    const parts: string[] = []
+    let remaining = word
+    while (remaining.length > maxCharsPerLine) {
+      // Try to find a good break point (hyphen, underscore, or just force break)
+      let breakPoint = maxCharsPerLine
+      for (let i = maxCharsPerLine - 1; i > maxCharsPerLine / 2; i--) {
+        if (remaining[i] === '-' || remaining[i] === '_') {
+          breakPoint = i + 1
+          break
+        }
+      }
+      parts.push(remaining.slice(0, breakPoint))
+      remaining = remaining.slice(breakPoint)
+    }
+    if (remaining) parts.push(remaining)
+    return parts
+  }
 
   // First split by newlines to preserve user's manual line breaks
   const manualLines = text.split('\n')
@@ -542,13 +566,31 @@ const EditableXAxisTick: React.FC<any & {
     let currentLine = ''
 
     words.forEach((word: string) => {
-      const testLine = currentLine ? `${currentLine} ${word}` : word
-      // Rough estimate: 7 pixels per character for more aggressive wrapping
-      if (testLine.length * 7 > maxWidth && currentLine) {
-        lines.push(currentLine)
-        currentLine = word
+      // First check if word itself is too long and needs breaking
+      const wordWidth = word.length * charWidth
+      if (wordWidth > maxWidth) {
+        // Push current line if exists
+        if (currentLine) {
+          lines.push(currentLine)
+          currentLine = ''
+        }
+        // Break the long word and add each part
+        const wordParts = breakLongWord(word)
+        wordParts.forEach((part, i) => {
+          if (i < wordParts.length - 1) {
+            lines.push(part)
+          } else {
+            currentLine = part // Last part becomes current line
+          }
+        })
       } else {
-        currentLine = testLine
+        const testLine = currentLine ? `${currentLine} ${word}` : word
+        if (testLine.length * charWidth > maxWidth && currentLine) {
+          lines.push(currentLine)
+          currentLine = word
+        } else {
+          currentLine = testLine
+        }
       }
     })
     if (currentLine) lines.push(currentLine)
@@ -989,16 +1031,17 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
 
   // Dynamic chart dimensions based on number of answer options
   // Calculate dynamic barCategoryGap: gap between answer option groups should be at least 50% of total bar cluster height
+  // MINIMUM: 10px gap between different answer options (enforced)
+  const MIN_CATEGORY_GAP = 10
   const calculateBarCategoryGap = (baseBarSize: number, numGroups: number, isStackedChart: boolean) => {
     if (isStackedChart) {
-      // Stacked charts have single bars - gap should be at least 50% of bar height
-      return Math.max(24, Math.ceil(baseBarSize * 0.5))
+      // Stacked charts have single bars - gap should be at least 50% of bar height, minimum 10px
+      return Math.max(MIN_CATEGORY_GAP, 24, Math.ceil(baseBarSize * 0.5))
     }
-    // For grouped charts: total cluster width = numGroups * barSize + (numGroups - 1) * barGap
-    const barGap = 1 // Gap between bars within same group
-    const totalClusterWidth = numGroups * baseBarSize + (numGroups - 1) * barGap
-    // Gap should be at least 50% of cluster width, with minimum of 24px
-    const minGap = Math.max(24, Math.ceil(totalClusterWidth * 0.5))
+    // For grouped charts: total cluster width = numGroups * barSize (no gap between bars in same group)
+    const totalClusterWidth = numGroups * baseBarSize
+    // Gap between different answer options should be at least 50% of cluster width, minimum 10px
+    const minGap = Math.max(MIN_CATEGORY_GAP, 24, Math.ceil(totalClusterWidth * 0.5))
     return minGap
   }
 
@@ -1027,9 +1070,11 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
         const clusterHeight = spacePerOption / 1.5
         const dynamicBarSize = Math.min(36, Math.max(16, clusterHeight / numBarsPerOption)) // min 16px, max 36px
 
-        // Gap is 50% of the actual bar cluster height
+        // Gap is 50% of the actual bar cluster height, minimum 10px enforced
+        // For stacked charts, use larger minimum gap since bars are visually denser
         const actualClusterHeight = dynamicBarSize * numBarsPerOption
-        const dynamicGap = Math.max(16, Math.ceil(actualClusterHeight * 0.5))
+        const stackedMinGap = stacked ? Math.max(24, dynamicBarSize * 0.75) : 16 // Stacked needs 75% gap minimum
+        const dynamicGap = Math.max(MIN_CATEGORY_GAP, stackedMinGap, Math.ceil(actualClusterHeight * 0.5))
 
         return {
           chartHeight: totalHeight,
@@ -1054,10 +1099,14 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
       const scaleFactor = Math.max(1, Math.min(1.8, 1 + (gapValue - 20) / 40))
       return Math.floor(baseWidth * scaleFactor)
     } else {
-      // For vertical charts, calculate maximum label width while maintaining 20px gap
-      // Estimate: typical chart container is ~1000px wide after margins (right: 48px, left: 48px)
-      const estimatedChartWidth = 1000 - 48 - 48 // subtract margins
-      const gapBetweenLabels = 20 // required gap between labels
+      // For vertical charts, calculate maximum label width while maintaining minimum 5px gap
+      // Use conservative estimate: container is ~850px wide after margins and padding
+      // (accounting for right: 48px, left: 48px, plus some buffer for chart internals)
+      const estimatedChartWidth = 850 - 48 - 48 // = 754px usable for labels
+      const minGapBetweenLabels = 5 // minimum 5px gap between labels (enforced)
+      // Scale preferred gap based on number of options - more options need tighter spacing
+      const preferredGap = data.length <= 4 ? 30 : data.length <= 6 ? 20 : 10
+      const gapBetweenLabels = Math.max(minGapBetweenLabels, preferredGap)
 
       // Total gaps = (number of options - 1) * gap
       const totalGaps = (data.length - 1) * gapBetweenLabels
@@ -1068,8 +1117,8 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
       // Max width per label
       const maxWidthPerLabel = availableWidthForLabels / data.length
 
-      // Ensure labels don't get too narrow (min 60px) or too wide (max 300px)
-      return Math.floor(Math.max(60, Math.min(300, maxWidthPerLabel)))
+      // Ensure labels don't get too narrow (min 50px) or too wide (max 250px)
+      return Math.floor(Math.max(50, Math.min(250, maxWidthPerLabel)))
     }
   }
 
@@ -1077,13 +1126,24 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
 
   // Calculate dynamic height for X-axis based on maximum lines needed
   const calculateMaxLines = (text: string, maxWidth: number): number => {
-    const _lineHeight = 14
-    const charWidth = 7 // Match the charWidth used in EditableXAxisTick
+    const charWidth = 8 // Match the charWidth used in EditableXAxisTick
+    const maxCharsPerLine = Math.floor(maxWidth / charWidth)
     const words = text.split(' ')
     let lines = 0
     let currentLine = ''
 
     words.forEach((word: string) => {
+      // Account for long words that will be broken
+      if (word.length > maxCharsPerLine) {
+        if (currentLine) {
+          lines++
+          currentLine = ''
+        }
+        // Count how many lines the broken word will take
+        lines += Math.ceil(word.length / maxCharsPerLine)
+        return
+      }
+
       const testLine = currentLine ? `${currentLine} ${word}` : word
       if (testLine.length * charWidth > maxWidth && currentLine) {
         lines++
@@ -1633,7 +1693,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
           data={data}
           layout={isHorizontal ? "vertical" : "horizontal"}
           barCategoryGap={barCategoryGap}
-          barGap={1}
+          barGap={0}
           margin={isHorizontal
             ? { top: 20, right: 20, bottom: 15, left: 0 }
             : { top: 0, right: 48, bottom: 0, left: 0 }
