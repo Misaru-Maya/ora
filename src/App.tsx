@@ -1457,9 +1457,9 @@ export default function App() {
 
       const element = chartGalleryRef.current
       const captureWidth = element.clientWidth
-      // Use 2x scale for good quality while avoiding canvas size limits
-      // Very large canvases (>16k pixels) can fail toDataURL in some browsers
-      const captureScale = 2
+      // Use 4x scale for high quality PDF export
+      // Max file size target: 190MB (canvas limit is ~16k pixels per dimension)
+      const captureScale = 4
 
       const canvas = await html2canvas(element, {
         backgroundColor: '#ffffff',
