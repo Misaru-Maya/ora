@@ -1170,32 +1170,8 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
 
   const maxLabelWidth = calculateMaxLabelWidth()
 
-  // Calculate dynamic font size for X-axis labels to prevent overlap
-  // Based only on label length, not number of options
-  const calculateXAxisFontSize = (): number => {
-    if (isHorizontal) return 14 // Horizontal charts use standard size
-
-    const baseFontSize = 14
-    const minFontSize = 10
-    const charWidthAt14px = 8 // Approximate character width at 14px font
-
-    // Find the longest label
-    const longestLabel = Math.max(...data.map(d => d.optionDisplay.length))
-
-    // Calculate how many characters can fit per label at base font size
-    const maxCharsAtBaseSize = Math.floor(maxLabelWidth / charWidthAt14px)
-
-    // Scale factor based on label length only
-    // If labels are longer than available space, reduce font size
-    const labelLengthFactor = Math.min(1, maxCharsAtBaseSize / Math.max(longestLabel / 2, 10))
-
-    // Calculate final font size, clamped between min (10px) and base (14px)
-    const fontSize = Math.max(minFontSize, Math.floor(baseFontSize * labelLengthFactor))
-
-    return fontSize
-  }
-
-  const xAxisFontSize = calculateXAxisFontSize()
+  // Fixed font size for X-axis labels
+  const xAxisFontSize = 13
 
   // Calculate dynamic height for X-axis based on maximum lines needed
   const calculateMaxLines = (text: string, maxWidth: number): number => {
