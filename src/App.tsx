@@ -218,6 +218,7 @@ export default function App() {
 
   // PDF export state
   const [isExportingPdf, setIsExportingPdf] = useState(false)
+  const [exportProgress, setExportProgress] = useState<{ current: number; total: number } | null>(null)
   const chartGalleryRef = useRef<HTMLDivElement>(null)
 
   // Chip drag-and-drop state
@@ -1443,11 +1444,13 @@ export default function App() {
   const handleSelectAllProducts = () => setSelections({ productGroups: [...productValues] })
   const handleClearProducts = () => setSelections({ productGroups: [] })
 
-  // PDF export handler - exports entire chart gallery as PDF
+  // PDF export handler - exports charts as multi-page PDF with batched charts per page
+  // Groups multiple charts per page for faster export while staying within canvas limits
   const handleExportPdf = async () => {
     if (!chartGalleryRef.current || isExportingPdf) return
 
     setIsExportingPdf(true)
+    setExportProgress(null)
 
     try {
       const [html2canvas, { default: jsPDF }] = await Promise.all([
@@ -1455,108 +1458,181 @@ export default function App() {
         import('jspdf')
       ])
 
-      const element = chartGalleryRef.current
-      const captureWidth = element.clientWidth
+      // Query all chart elements - each chart has id="chart-{qid}"
+      const chartElements = Array.from(
+        chartGalleryRef.current.querySelectorAll('[id^="chart-"]')
+      ) as HTMLElement[]
+
+      if (chartElements.length === 0) {
+        console.warn('No charts found to export')
+        return
+      }
+
       // Use 4x scale for high quality PDF export
-      // Max file size target: 190MB (canvas limit is ~16k pixels per dimension)
       const captureScale = 4
+      const margin = 30
+      // Max height per page batch (at 4x scale = 14000px canvas, under 16384 limit)
+      const MAX_PAGE_HEIGHT = 3500
+      const CHART_GAP = 24 // Gap between charts on same page
 
-      const canvas = await html2canvas(element, {
-        backgroundColor: '#ffffff',
-        scale: captureScale,
-        logging: false,
-        useCORS: true,
-        width: captureWidth,
-        height: element.scrollHeight,
-        windowWidth: captureWidth,
-        windowHeight: element.scrollHeight,
-        x: 0,
-        y: 0,
-        // Use onclone to modify the cloned DOM before capture
-        // This is cleaner than modifying the live DOM
-        onclone: (clonedDoc, clonedElement) => {
-          // Set overflow hidden on the cloned container
-          clonedElement.style.overflow = 'hidden'
-          clonedElement.style.width = `${captureWidth}px`
+      // Group charts into batches based on height
+      const batches: HTMLElement[][] = []
+      let currentBatch: HTMLElement[] = []
+      let currentBatchHeight = 0
 
-          // Get bounding rect of the cloned element (relative to cloned doc)
-          const clonedRect = clonedElement.getBoundingClientRect()
+      for (const chartEl of chartElements) {
+        const chartHeight = chartEl.offsetHeight
 
-          // Find and remove/hide elements that overflow
-          const allChildren = clonedElement.querySelectorAll('*')
-          allChildren.forEach((child) => {
-            const htmlEl = child as HTMLElement
-            const computedStyle = clonedDoc.defaultView?.getComputedStyle(htmlEl)
-            if (!computedStyle) return
+        // If adding this chart would exceed max height, start a new batch
+        if (currentBatchHeight + chartHeight + (currentBatch.length > 0 ? CHART_GAP : 0) > MAX_PAGE_HEIGHT && currentBatch.length > 0) {
+          batches.push(currentBatch)
+          currentBatch = [chartEl]
+          currentBatchHeight = chartHeight
+        } else {
+          currentBatch.push(chartEl)
+          currentBatchHeight += chartHeight + (currentBatch.length > 1 ? CHART_GAP : 0)
+        }
+      }
+      if (currentBatch.length > 0) {
+        batches.push(currentBatch)
+      }
 
-            const rect = htmlEl.getBoundingClientRect()
+      setExportProgress({ current: 0, total: batches.length })
 
-            // Hide resize handles (positioned absolutely with resize cursor)
-            if (computedStyle.position === 'absolute' &&
-                (computedStyle.cursor === 'ew-resize' || computedStyle.cursor === 'ns-resize')) {
+      // Helper function to clean up cloned elements before capture
+      const cleanupClonedElement = (clonedDoc: Document, clonedElement: HTMLElement) => {
+        const clonedRect = clonedElement.getBoundingClientRect()
+        const allChildren = clonedElement.querySelectorAll('*')
+
+        allChildren.forEach((child) => {
+          const htmlEl = child as HTMLElement
+          const computedStyle = clonedDoc.defaultView?.getComputedStyle(htmlEl)
+          if (!computedStyle) return
+
+          const rect = htmlEl.getBoundingClientRect()
+
+          // Hide resize handles (positioned absolutely with resize cursor)
+          if (computedStyle.position === 'absolute' &&
+              (computedStyle.cursor === 'ew-resize' || computedStyle.cursor === 'ns-resize')) {
+            htmlEl.style.display = 'none'
+          }
+
+          // Fix elements with negative margins that cause left overflow
+          const marginLeft = parseFloat(computedStyle.marginLeft)
+          if (marginLeft < 0) {
+            htmlEl.style.marginLeft = '0px'
+          }
+
+          // Hide any elements that extend beyond the right edge
+          if (rect.right > clonedRect.right + 5) {
+            if (rect.width < 50 && computedStyle.position === 'absolute') {
               htmlEl.style.display = 'none'
             }
+          }
+        })
+      }
 
-            // Fix elements with negative margins that cause left overflow
-            const marginLeft = parseFloat(computedStyle.marginLeft)
-            if (marginLeft < 0) {
-              htmlEl.style.marginLeft = '0px'
-            }
+      // Capture each batch
+      const canvases: HTMLCanvasElement[] = []
+      const captureWidth = chartElements[0]?.clientWidth || 900
 
-            // Hide any elements that extend beyond the right edge
-            if (rect.right > clonedRect.right + 5) {
-              // Check if it's a small element (like resize handle indicator)
-              if (rect.width < 50 && computedStyle.position === 'absolute') {
-                htmlEl.style.display = 'none'
-              }
-            }
-          })
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex]
+        setExportProgress({ current: batchIndex + 1, total: batches.length })
+
+        // Create a temporary container for this batch
+        const tempContainer = document.createElement('div')
+        tempContainer.style.cssText = `
+          position: absolute;
+          left: -9999px;
+          top: 0;
+          width: ${captureWidth}px;
+          background: white;
+          display: flex;
+          flex-direction: column;
+          gap: ${CHART_GAP}px;
+          padding: 0;
+        `
+        document.body.appendChild(tempContainer)
+
+        // Clone charts into temp container
+        for (const chartEl of batch) {
+          const clone = chartEl.cloneNode(true) as HTMLElement
+          clone.style.margin = '0'
+          tempContainer.appendChild(clone)
         }
-      })
 
-      // Use JPEG format with high quality for better resolution
-      // Quality 0.95 provides excellent quality while keeping file size reasonable
-      const imgData = canvas.toDataURL('image/jpeg', 0.95)
+        // Allow DOM to render
+        await new Promise(resolve => setTimeout(resolve, 50))
 
-      // Calculate dimensions based on captured canvas
-      const imgWidth = canvas.width / captureScale
-      const imgHeight = canvas.height / captureScale
+        const batchHeight = tempContainer.scrollHeight
 
-      // Create PDF with proper page size matching the content
+        // Capture the batch
+        const canvas = await html2canvas(tempContainer, {
+          backgroundColor: '#ffffff',
+          scale: captureScale,
+          logging: false,
+          useCORS: true,
+          width: captureWidth,
+          height: batchHeight,
+          onclone: cleanupClonedElement
+        })
+
+        canvases.push(canvas)
+
+        // Clean up temp container
+        document.body.removeChild(tempContainer)
+      }
+
+      // Create PDF
+      const firstCanvas = canvases[0]
+      const firstImgWidth = firstCanvas.width / captureScale
+      const firstImgHeight = firstCanvas.height / captureScale
+
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'px',
-        format: [imgWidth + 60, imgHeight + 60],
+        format: [firstImgWidth + margin * 2, firstImgHeight + margin * 2],
         compress: true
       })
 
-      // Add the image with padding - use JPEG format for smaller file size
-      pdf.addImage(imgData, 'JPEG', 30, 30, imgWidth, imgHeight, undefined, 'FAST')
+      // Add each batch as a page
+      for (let i = 0; i < canvases.length; i++) {
+        const canvas = canvases[i]
+        const imgData = canvas.toDataURL('image/jpeg', 0.92)
+        const imgWidth = canvas.width / captureScale
+        const imgHeight = canvas.height / captureScale
+        const pageWidth = imgWidth + margin * 2
+        const pageHeight = imgHeight + margin * 2
 
-      // Generate filename: {cleaned CSV name}_{segment}_{Filter or Compare}.pdf
+        if (i > 0) {
+          pdf.addPage([pageWidth, pageHeight])
+        }
+
+        pdf.addImage(imgData, 'JPEG', margin, margin, imgWidth, imgHeight, undefined, 'FAST')
+      }
+
+      // Generate filename
       const baseFileName = summary?.fileName
         ? cleanFileName(summary.fileName).replace(/\.csv$/i, '')
         : 'ora_charts'
 
-      // Get segment info
       const segmentPart = selections.segments && selections.segments.length > 0
         ? selections.segments.map(s => s.value).join('_')
         : selections.segmentColumn || 'Overall'
 
-      // Get mode (Filter or Compare) - based on the Compare toggle in sidebar
-      // comparisonMode is the toggle shown when 2+ segments selected
-      // multiFilterCompareMode is for the separate multi-filter comparison feature
       const isCompareMode = selections.comparisonMode || selections.multiFilterCompareMode
       const modePart = isCompareMode ? 'Compare' : 'Filter'
 
       const fileName = `${baseFileName}_${segmentPart}_${modePart}.pdf`
-        .replace(/\s+/g, '_') // Replace spaces with underscores
+        .replace(/\s+/g, '_')
 
       pdf.save(fileName)
     } catch (error) {
       console.error('PDF export failed:', error)
     } finally {
       setIsExportingPdf(false)
+      setExportProgress(null)
     }
   }
 
@@ -2093,7 +2169,11 @@ export default function App() {
                   <line x1="12" y1="18" x2="12" y2="12" />
                   <line x1="9" y1="15" x2="15" y2="15" />
                 </svg>
-                {isExportingPdf ? 'Exporting...' : 'Export PDF'}
+                {isExportingPdf
+                  ? (exportProgress
+                      ? `Exporting ${exportProgress.current}/${exportProgress.total}...`
+                      : 'Preparing...')
+                  : 'Export PDF'}
               </button>
             )}
           </div>
