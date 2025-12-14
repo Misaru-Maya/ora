@@ -1171,11 +1171,12 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   const maxLabelWidth = calculateMaxLabelWidth()
 
   // Calculate dynamic font size for X-axis labels to prevent overlap
+  // Based only on label length, not number of options
   const calculateXAxisFontSize = (): number => {
     if (isHorizontal) return 14 // Horizontal charts use standard size
 
     const baseFontSize = 14
-    const minFontSize = 6
+    const minFontSize = 10
     const charWidthAt14px = 8 // Approximate character width at 14px font
 
     // Find the longest label
@@ -1184,22 +1185,12 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
     // Calculate how many characters can fit per label at base font size
     const maxCharsAtBaseSize = Math.floor(maxLabelWidth / charWidthAt14px)
 
-    // If longest label fits comfortably with wrapping, use base size
-    // Consider that labels can wrap, so check average chars per line needed
-    const avgCharsPerLine = Math.min(longestLabel, maxCharsAtBaseSize)
+    // Scale factor based on label length only
+    // If labels are longer than available space, reduce font size
+    const labelLengthFactor = Math.min(1, maxCharsAtBaseSize / Math.max(longestLabel / 2, 10))
 
-    // Calculate scale factor based on how cramped the labels are
-    // More options = need smaller font to prevent overlap
-    const optionDensityFactor = Math.min(1, 6 / data.length) // Scale down if >6 options
-
-    // Longer labels need smaller font
-    const labelLengthFactor = Math.min(1, maxCharsAtBaseSize / Math.max(avgCharsPerLine, 10))
-
-    // Combined scale factor
-    const scaleFactor = Math.min(optionDensityFactor, labelLengthFactor)
-
-    // Calculate final font size, clamped between min and base
-    const fontSize = Math.max(minFontSize, Math.floor(baseFontSize * scaleFactor))
+    // Calculate final font size, clamped between min (10px) and base (14px)
+    const fontSize = Math.max(minFontSize, Math.floor(baseFontSize * labelLengthFactor))
 
     return fontSize
   }
