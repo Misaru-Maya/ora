@@ -369,8 +369,13 @@ const EditableYAxisTick: React.FC<any & {
   const actualTextWidth = Math.max(longestLine.length * 8 + 20, 60) // 8px per char + padding, min 60px
 
   if (isEditing) {
+    // Keep edit box within Y-axis area (left of bars)
+    // Use maxWidth to constrain - this is the Y-axis width minus padding
+    const editBoxWidth = Math.min(maxWidth + 15, x - 5) // Don't exceed Y-axis area
+    const editBoxX = Math.max(5, x - editBoxWidth) // Stay within left edge
+
     return (
-      <foreignObject x={x - actualTextWidth} y={y - 35} width={actualTextWidth} height={80}>
+      <foreignObject x={editBoxX} y={y - 35} width={editBoxWidth} height={80}>
         <textarea
           ref={inputRef as any}
           value={editInput}
@@ -451,9 +456,8 @@ const EditableXAxisTick: React.FC<any & {
   onSave: (option: string, newLabel: string) => void
   data: SeriesDataPoint[]
   maxWidth?: number
-  rotateLabels?: boolean
 }> = (props) => {
-  const { x, y, payload, editingOption, setEditingOption, editInput, setEditInput, onSave, data, maxWidth = 100, rotateLabels = false } = props
+  const { x, y, payload, editingOption, setEditingOption, editInput, setEditInput, onSave, data, maxWidth = 100 } = props
   const text = payload.value || ''
   const lineHeight = 14
   const inputRef = useRef<HTMLInputElement>(null)
@@ -549,71 +553,6 @@ const EditableXAxisTick: React.FC<any & {
     })
     if (currentLine) lines.push(currentLine)
   })
-
-  // If rotating labels, render at -45 degree angle with optional 2-line wrapping
-  if (rotateLabels) {
-    const fullText = text.replace(/\n/g, ' ')
-    const maxCharsPerLine = 25 // Max characters per line for rotated labels
-
-    // Split into up to 2 lines if text is too long
-    const rotatedLines: string[] = []
-    if (fullText.length > maxCharsPerLine) {
-      // Try to split at a space near the middle
-      const words = fullText.split(' ')
-      let line1 = ''
-      let line2 = ''
-
-      for (const word of words) {
-        if (line1.length + word.length + 1 <= maxCharsPerLine || line1 === '') {
-          line1 = line1 ? `${line1} ${word}` : word
-        } else {
-          line2 = line2 ? `${line2} ${word}` : word
-        }
-      }
-
-      rotatedLines.push(line1)
-      if (line2) rotatedLines.push(line2)
-    } else {
-      rotatedLines.push(fullText)
-    }
-
-    const rotatedLineHeight = 14
-    return (
-      <g
-        onClick={() => {
-          setEditingOption(option)
-          setEditInput(textWithoutAsterisk)
-        }}
-        style={{ cursor: 'pointer' }}
-        onMouseEnter={(e) => {
-          const textElements = e.currentTarget.querySelectorAll('text')
-          textElements.forEach((el) => {
-            el.style.fill = '#3A8518'
-          })
-        }}
-        onMouseLeave={(e) => {
-          const textElements = e.currentTarget.querySelectorAll('text')
-          textElements.forEach((el) => {
-            el.style.fill = '#1f2833'
-          })
-        }}
-      >
-        {rotatedLines.map((line, i) => (
-          <text
-            key={i}
-            x={x}
-            y={y + 8 + i * rotatedLineHeight}
-            textAnchor="end"
-            fontSize={12}
-            fill="#1f2833"
-            transform={`rotate(-45, ${x}, ${y + 8 + i * rotatedLineHeight})`}
-          >
-            {line}
-          </text>
-        ))}
-      </g>
-    )
-  }
 
   return (
     <g
@@ -1136,50 +1075,6 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
 
   const maxLabelWidth = calculateMaxLabelWidth()
 
-  // Determine if labels should be rotated based on available space
-  // DEFAULT: Horizontal labels with wrapping. Only rotate when bars are truly crowded.
-  const shouldRotateLabels = (() => {
-    if (isHorizontal || data.length === 0) return false
-
-    // Estimate chart content width (excluding margins)
-    const estimatedChartWidth = 1000 - 48 - 48 // subtract margins
-    const spacePerLabel = estimatedChartWidth / data.length
-
-    // Calculate how much vertical space wrapped labels would need
-    const charWidth = 7
-    const lineHeight = 16
-    const maxWrappedLines = 4 // Maximum lines we allow before rotating
-
-    // Calculate max lines needed for any label at the available width
-    const calculateLinesNeeded = (text: string, availableWidth: number): number => {
-      const words = text.split(' ')
-      let lines = 1
-      let currentLineWidth = 0
-
-      for (const word of words) {
-        const wordWidth = word.length * charWidth
-        if (currentLineWidth + wordWidth > availableWidth && currentLineWidth > 0) {
-          lines++
-          currentLineWidth = wordWidth
-        } else {
-          currentLineWidth += (currentLineWidth > 0 ? charWidth : 0) + wordWidth // add space
-        }
-      }
-      return lines
-    }
-
-    // Check if any label would need more than maxWrappedLines at current space
-    const maxLinesRequired = Math.max(...data.map(d => calculateLinesNeeded(d.optionDisplay, spacePerLabel - 10)))
-
-    // Only rotate if:
-    // 1. Space per label is extremely narrow (< 50px) - no room even for short words, OR
-    // 2. Labels would need more than 4 lines of wrapping to fit
-    if (spacePerLabel < 50) return true
-    if (maxLinesRequired > maxWrappedLines) return true
-
-    return false
-  })()
-
   // Calculate dynamic height for X-axis based on maximum lines needed
   const calculateMaxLines = (text: string, maxWidth: number): number => {
     const _lineHeight = 14
@@ -1205,28 +1100,9 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
     ? Math.max(...data.map(d => calculateMaxLines(d.optionDisplay, maxLabelWidth)), 3)
     : 3 // Default for horizontal
 
-  // Calculate height with extra padding for better spacing
-  // When labels are rotated, we need more height to accommodate the diagonal text
+  // Calculate height for X-axis based on number of wrapped lines needed
   const xAxisHeight = !isHorizontal
-    ? (shouldRotateLabels
-        // For rotated labels with 2-line wrapping:
-        // - Calculate based on longest label (after splitting to 2 lines if needed)
-        // - At 45°, diagonal text needs ~0.7x width as height
-        // - Add extra height for 2nd line if labels are long
-        ? (() => {
-            const maxCharsPerLine = 25
-            const longestLabel = Math.max(...data.map(d => d.optionDisplay.length))
-            // If label needs 2 lines, calculate height for shorter lines
-            const effectiveLength = longestLabel > maxCharsPerLine
-              ? Math.min(maxCharsPerLine, longestLabel / 2)
-              : longestLabel
-            // Base height + extra for 2-line labels
-            const baseHeight = effectiveLength * 4.5 + 40
-            const twoLineBonus = longestLabel > maxCharsPerLine ? 20 : 0
-            return Math.max(90, Math.min(180, baseHeight + twoLineBonus))
-          })()
-        // For horizontal labels: based on number of wrapped lines
-        : Math.max(80, 12 + maxLinesNeeded * 16 + 10))
+    ? Math.max(80, 12 + maxLinesNeeded * 16 + 10)
     : 70
 
   // Always show legend when there are groups to display
@@ -1245,7 +1121,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
     // Account for word wrapping - if label has multiple words, it might wrap
     const charWidth = 8
     const padding = 20
-    const maxCharsPerLine = 25 // Approximate max chars before wrapping
+    const maxCharsPerLine = 40 // Allow longer lines for wider Y-axis
 
     // Calculate based on longest line after potential wrapping
     const words = longestLabel.split(' ')
@@ -1264,8 +1140,9 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
 
     const estimatedWidth = longestLineLength * charWidth + padding
 
-    // Clamp between reasonable min (80px) and max (300px)
-    return Math.max(80, Math.min(300, estimatedWidth))
+    // Clamp between reasonable min (80px) and max (450px)
+    // Allow wider labels for better readability of long answer options
+    return Math.max(80, Math.min(450, estimatedWidth))
   }
 
   const defaultAxisWidth = calculateDynamicAxisWidth()
@@ -1807,7 +1684,6 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                     onSave={onSaveOptionLabel || (() => {})}
                     data={data}
                     maxWidth={maxLabelWidth}
-                    rotateLabels={shouldRotateLabels}
                   />
                 )}
                 axisLine={AXIS_LINE_STYLE}
