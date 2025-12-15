@@ -1170,6 +1170,11 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     return [...nonExcluded, ...excluded]
   }, [series, cardSort, statSigFilteredData, chartVariant, canUsePie, showAsterisks, customOptionOrder])
 
+  // Check if any data point has statistical significance (asterisk in original data)
+  const hasAnySignificance = useMemo(() => {
+    return statSigFilteredData.some(d => d.optionDisplay?.endsWith('*'))
+  }, [statSigFilteredData])
+
   // Transpose data when axes are swapped
   const { transposedData, transposedGroups } = useMemo(() => {
     if (!axesSwapped || series.groups.length <= 1) {
@@ -2480,6 +2485,21 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
           />
         )
       })()}
+        {/* Statistical significance footnote - only show when there are actual significant differences */}
+        {showAsterisks && hasAnySignificance && (
+          <div
+            style={{
+              textAlign: 'right',
+              marginTop: '0px',
+              paddingBottom: '24px',
+              paddingRight: '48px',
+              fontSize: '11px',
+              fontFamily: "'Space Grotesk', sans-serif",
+              color: '#717F90'
+            }}>
+            *Statistically significant difference across consumer segments.
+          </div>
+        )}
         </div>{/* Close export wrapper */}
       </div>{/* Close chartContentRef */}
       {/* Height resize handle below the chart */}

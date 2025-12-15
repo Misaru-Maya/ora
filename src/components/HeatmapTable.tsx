@@ -612,13 +612,14 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
       </button>
         {showProductFilter && (
           <div
-            className="absolute left-0 top-10 z-50 animate-in fade-in slide-in-from-top-2 duration-200"
+            className="absolute left-0 top-10 animate-in fade-in slide-in-from-top-2 duration-200"
             style={{
               backgroundColor: 'white',
               borderRadius: '12px',
               boxShadow: '0 4px 24px -4px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05)',
               overflow: 'hidden',
-              width: '280px'
+              width: '280px',
+              zIndex: 9999
             }}
           >
             {/* Header */}
