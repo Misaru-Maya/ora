@@ -439,7 +439,7 @@ export function buildSeries({
           }
 
           count = seen.size
-          denom = answeredRespondents.size
+          denom = info.uniqueRespondents.length // Use all respondents in segment, not just those who answered
         } else {
           // COUNT AT RESPONDENT LEVEL: Each unique respondent is counted once
           const seen = new Set<string>()
@@ -499,7 +499,7 @@ export function buildSeries({
           }
 
           count = seen.size
-          denom = answeredRespondents.size
+          denom = info.uniqueRespondents.length // Use all respondents in segment, not just those who answered
         }
       } else if (question.type === 'ranking') {
         // For ranking questions, calculate average ranking score
@@ -1079,7 +1079,7 @@ export function buildSeriesFromComparisonSets({
         }
 
         count = seen.size
-        denom = answeredRespondents.size
+        denom = info.uniqueRespondents.length // Use all respondents in segment, not just those who answered
       } else if (question.type === 'ranking') {
         const headersToCheck = [col.header, ...(col.alternateHeaders || [])]
         const rankingsByRespondent = new Map<string, number>()
@@ -1451,7 +1451,7 @@ export function buildSeriesFromProductBuckets({
         }
 
         count = seen.size
-        denom = answeredRespondents.size
+        denom = info.uniqueRespondents.length // Use all respondents in segment, not just those who answered
       } else if (question.type === 'ranking') {
         const headersToCheck = [col.header, ...(col.alternateHeaders || [])]
         const rankingsByRespondent = new Map<string, number>()
