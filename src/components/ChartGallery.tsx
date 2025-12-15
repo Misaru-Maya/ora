@@ -2493,7 +2493,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               marginTop: '0px',
               paddingBottom: '24px',
               paddingRight: '48px',
-              fontSize: '11px',
+              fontSize: '12px',
               fontFamily: "'Space Grotesk', sans-serif",
               color: '#717F90'
             }}>
