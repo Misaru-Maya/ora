@@ -1586,7 +1586,8 @@ export default function App() {
       'thing', 'things', 'something', 'everything', 'anything',
       'lot', 'lots', 'kind', 'kinda', 'sorta', 'bit',
       'definitely', 'absolutely', 'totally', 'basically', 'honestly',
-      'perfect', 'excellent', 'wonderful', 'fantastic', 'best', 'worst'
+      'perfect', 'excellent', 'wonderful', 'fantastic', 'best', 'worst',
+      'specified'
     ])
 
     // Check if a response is meaningful (not just stop words or too short)
