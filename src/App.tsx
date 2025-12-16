@@ -2605,7 +2605,7 @@ export default function App() {
                 </svg>
               </button>
             )}
-            {/* Insight Generator Button */}
+            {/* Insight Finder Button */}
             {dataset && (
               <button
                 onClick={() => window.open('https://chatgpt.com/g/g-693dce2d9fac8191bfab3d9dd6ea35f8-insight-generator', '_blank', 'noopener,noreferrer')}
@@ -2635,9 +2635,9 @@ export default function App() {
                   e.currentTarget.style.backgroundColor = '#FFFFFF'
                   e.currentTarget.style.boxShadow = '0 0 0 1px rgba(58,133,24,0.3), 0 2px 8px -2px rgba(58,133,24,0.15)'
                 }}
-                title="Open Insight Generator in ChatGPT"
+                title="Open Insight Finder in ChatGPT"
               >
-                Insight Generator
+                Insight Finder
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                   <polyline points="15 3 21 3 21 9" />
