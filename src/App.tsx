@@ -1463,7 +1463,6 @@ export default function App() {
     // Header
     lines.push(`# ${cleanName} - Survey Results`)
     lines.push('')
-    lines.push(`**Total Responses:** ${summary?.rowCount || 0}`)
     lines.push(`**Unique Respondents:** ${summary?.uniqueRespondents || 0}`)
     lines.push(`**Questions Analyzed:** ${filteredQuestions.length}`)
     lines.push('')
@@ -1603,9 +1602,9 @@ export default function App() {
       if (['n/a', 'na', 'none', '-', '.', '...', 'skip', 'unspecified'].includes(trimmed)) return false
       // Always remove any response containing "not specified" or similar patterns
       if (trimmed.includes('not specified') || trimmed.includes('notspecified')) return false
-      // Only include responses with more than 3 words
+      // Only include responses with more than 7 words
       const wordCount = trimmed.split(/\s+/).filter(w => w.length > 0).length
-      if (wordCount <= 3) return false
+      if (wordCount <= 7) return false
       return true
     }
 
