@@ -145,7 +145,7 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
             backgroundColor: showContainer ? '#ffffff' : 'transparent',
             borderRadius: showContainer ? '20px' : '0',
             boxShadow: showContainer ? '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)' : 'none',
-            padding: showContainer ? '32px 48px 48px 48px' : '0',
+            padding: showContainer ? '32px 48px 96px 48px' : '0',
             margin: '0 auto',
             width: '95%',
             position: 'relative',
