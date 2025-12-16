@@ -292,8 +292,8 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
     const placedRects: Array<{x: number, y: number, width: number, height: number}> = []
     const padding = 2
 
-    // Circle shape (ratio = 1)
-    const shapeRatio = 1
+    // Dynamic shape ratio - circle when width=height, oval when width>height
+    const shapeRatio = canvas.width / canvas.height
 
     availableWords.forEach((wordData, index) => {
       let fontSize: number

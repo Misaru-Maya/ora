@@ -30,18 +30,28 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
   const [containerWidth, setContainerWidth] = useState(800)
   const baseHeight = 350
 
-  // Word cloud width resize state
-  const [cloudWidthPercent, setCloudWidthPercent] = useState(100)
+  // Word cloud width resize state - default to circle (width = height)
+  // Calculate initial percent so that effectiveCloudWidth = baseHeight
+  const getDefaultCloudWidthPercent = (width: number) => Math.min(100, (baseHeight / width) * 100)
+  const [cloudWidthPercent, setCloudWidthPercent] = useState(() => getDefaultCloudWidthPercent(800))
   const [isResizingCloud, setIsResizingCloud] = useState(false)
   const resizeStartX = useRef<number>(0)
   const resizeStartWidth = useRef<number>(100)
+
+  // Track if user has manually resized
+  const hasUserResized = useRef(false)
 
   // Update container width on mount and resize
   useEffect(() => {
     const updateWidth = () => {
       if (containerRef.current) {
         const width = containerRef.current.offsetWidth * 0.95
-        setContainerWidth(Math.max(300, width))
+        const newWidth = Math.max(300, width)
+        setContainerWidth(newWidth)
+        // Only set default circle size if user hasn't manually resized
+        if (!hasUserResized.current) {
+          setCloudWidthPercent(getDefaultCloudWidthPercent(newWidth))
+        }
       }
     }
     updateWidth()
@@ -77,6 +87,7 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
     e.preventDefault()
     e.stopPropagation()
     setIsResizingCloud(true)
+    hasUserResized.current = true
     resizeStartX.current = e.clientX
     resizeStartWidth.current = cloudWidthPercent
   }
