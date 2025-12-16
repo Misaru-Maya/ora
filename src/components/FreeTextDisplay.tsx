@@ -33,8 +33,8 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
   // Word cloud width resize state - default to circle (width = height)
   // Calculate initial percent so that effectiveCloudWidth = baseHeight
   const getDefaultCloudWidthPercent = (width: number) => {
-    // Account for word list space (280px + 20px gap + 40px handle gap + 12px handle)
-    const maxWidth = width - 352
+    // Account for word list space (280px + 20px gap + 12px handle)
+    const maxWidth = width - 312
     const circleWidth = Math.min(baseHeight, maxWidth)
     return Math.min(100, (circleWidth / width) * 100)
   }
@@ -98,11 +98,11 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
   }
 
   // Word list is 280px, need 20px gap between handle and word list
-  // Handle should be 40px right of cloud edge
+  // Handle should be at cloud edge (0px gap)
   const wordListWidth = 280
   const handleToWordListGap = 20
-  const cloudToHandleGap = 40
-  const maxCloudWidth = containerWidth - wordListWidth - handleToWordListGap - cloudToHandleGap - 12 // 12 = handle width
+  const cloudToHandleGap = 0
+  const maxCloudWidth = containerWidth - wordListWidth - handleToWordListGap - 12 // 12 = handle width
   const effectiveCloudWidth = Math.min(containerWidth * (cloudWidthPercent / 100), maxCloudWidth)
 
   // Clean the label (remove Example: text and (text) marker)
