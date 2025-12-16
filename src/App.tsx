@@ -1452,6 +1452,7 @@ export default function App() {
   const handleClearProducts = () => setSelections({ productGroups: [] })
 
   // Markdown export handler - exports data in AI-readable format for ChatGPT/NotebookLM
+  // Captures the exact view state including sorting, filtering, and product averages
   const handleExportMarkdown = () => {
     if (!dataset) return
 
@@ -1466,8 +1467,128 @@ export default function App() {
     lines.push(`**Unique Respondents:** ${summary?.uniqueRespondents || 0}`)
     lines.push(`**Questions Analyzed:** ${filteredQuestions.length}`)
     lines.push('')
+
+    // Current view settings
+    lines.push('## Current View Settings')
+    lines.push('')
+    if (selections.segments && selections.segments.length > 0) {
+      const segmentLabels = selections.segments.map(s => {
+        if (s.value === 'Overall') return 'Overall'
+        return selections.groupLabels?.[s.value] || s.value
+      })
+      lines.push(`**Segment Filter:** ${segmentLabels.join(', ')}`)
+    }
+    if (selections.productColumn && selections.productGroups.length > 0) {
+      lines.push(`**Products:** ${selections.productGroups.length} selected`)
+    }
+    lines.push(`**Sort Order:** ${selections.sortOrder}`)
+    lines.push('')
     lines.push('---')
     lines.push('')
+
+    // Helper: Check if question is a product follow-up (has positive/negative in label)
+    const isProductFollowUp = (q: QuestionDef) => {
+      const label = q.label.toLowerCase()
+      return (label.includes('(positive)') || label.includes('(negative)')) && productColumn
+    }
+
+    // Helper: Calculate per-product averages for product follow-up questions
+    const calculateProductAverages = (question: QuestionDef) => {
+      if (!productColumn) return null
+
+      // Get all unique products
+      const allProducts = Array.from(
+        new Set(dataset.rows.map(row => normalizeProductValue(row[productColumn])).filter(v => v && v !== 'Unspecified'))
+      ).sort()
+
+      if (allProducts.length === 0) return null
+
+      // Get all options
+      const allOptions = question.columns.map(col => col.optionLabel).filter(Boolean)
+
+      // Calculate per-product percentages, then average
+      const optionAverages: Record<string, { total: number; count: number }> = {}
+      allOptions.forEach(opt => {
+        optionAverages[opt] = { total: 0, count: 0 }
+      })
+
+      for (const product of allProducts) {
+        // Filter rows for this product
+        const productRows = dataset.rows.filter(row => normalizeProductValue(row[productColumn]) === product)
+        if (productRows.length === 0) continue
+
+        // Calculate percentage for each option for this product
+        for (const option of allOptions) {
+          const optionColumn = question.columns.find(col => col.optionLabel === option)
+          if (!optionColumn) continue
+
+          let count = 0
+          for (const row of productRows) {
+            if (question.type === 'single' && question.singleSourceColumn) {
+              const val = stripQuotes(String(row[question.singleSourceColumn] || '').trim())
+              if (val === option) count++
+            } else if (question.type === 'multi') {
+              const headersToCheck = [optionColumn.header, ...(optionColumn.alternateHeaders || [])]
+              const hasOption = headersToCheck.some(header => {
+                const val = row[header]
+                return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes'
+              })
+              if (hasOption) count++
+            }
+          }
+
+          const percent = (count / productRows.length) * 100
+          optionAverages[option].total += percent
+          optionAverages[option].count++
+        }
+      }
+
+      // Calculate final averages
+      const result: Array<{ option: string; percent: number }> = []
+      for (const option of allOptions) {
+        const avg = optionAverages[option]
+        if (avg.count > 0) {
+          result.push({ option, percent: avg.total / avg.count })
+        }
+      }
+
+      // Sort by percentage descending (or by sort order)
+      if (selections.sortOrder === 'descending') {
+        result.sort((a, b) => b.percent - a.percent)
+      } else if (selections.sortOrder === 'ascending') {
+        result.sort((a, b) => a.percent - b.percent)
+      }
+
+      return result
+    }
+
+    // Helper: Calculate word frequencies for text questions
+    const calculateWordFrequencies = (responses: string[]) => {
+      const stopWords = new Set([
+        'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
+        'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did',
+        'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these',
+        'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'what', 'which', 'who', 'whom',
+        'very', 'really', 'just', 'also', 'more', 'some', 'any', 'all', 'most', 'other', 'into',
+        'good', 'bad', 'nice', 'great', 'like', 'dont', "don't", 'not', 'no', 'yes', 'so', 'as'
+      ])
+
+      const wordCounts: Record<string, number> = {}
+      for (const response of responses) {
+        const words = response.toLowerCase()
+          .replace(/[^a-z\s]/g, ' ')
+          .split(/\s+/)
+          .filter(w => w.length > 2 && !stopWords.has(w))
+
+        for (const word of words) {
+          wordCounts[word] = (wordCounts[word] || 0) + 1
+        }
+      }
+
+      return Object.entries(wordCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 30) // Top 30 words
+    }
 
     // Process each question
     for (const question of filteredQuestions) {
@@ -1480,21 +1601,42 @@ export default function App() {
       if (exampleIndex !== -1) {
         cleanLabel = cleanLabel.substring(0, exampleIndex).trim()
       }
-      cleanLabel = cleanLabel.replace(/\s*\((single|multi|text|ranking)\)\s*/gi, '').trim()
+      cleanLabel = cleanLabel.replace(/\s*\((single|multi|text|ranking|positive|negative)\)\s*/gi, '').trim()
+
+      // Determine sentiment for product follow-up questions
+      const labelLower = question.label.toLowerCase()
+      const sentiment = labelLower.includes('(positive)') ? 'Advocates' :
+                       labelLower.includes('(negative)') ? 'Detractors' : null
 
       lines.push(`## ${cleanLabel}`)
       lines.push('')
+      if (sentiment) {
+        lines.push(`**Respondent Group:** ${sentiment}`)
+      }
       lines.push(`*Question Type: ${question.type}*`)
       lines.push('')
 
-      // Handle text/free-text questions
+      // Handle text/free-text questions with word frequencies
       if (question.type === 'text') {
         lines.push(`**Total Responses:** ${question.rawTextResponses?.length || 0}`)
         lines.push(`**Unique Values:** ${question.uniqueValueCount || 0}`)
         lines.push('')
 
-        // Show sample responses (first 10)
+        // Word frequency table
         if (question.rawTextResponses && question.rawTextResponses.length > 0) {
+          const wordFreqs = calculateWordFrequencies(question.rawTextResponses)
+          if (wordFreqs.length > 0) {
+            lines.push('**Top Words:**')
+            lines.push('')
+            lines.push('| Word | Frequency |')
+            lines.push('| --- | --- |')
+            wordFreqs.forEach(([word, count]) => {
+              lines.push(`| ${word} | ${count} |`)
+            })
+            lines.push('')
+          }
+
+          // Sample responses
           lines.push('**Sample Responses:**')
           const samples = question.rawTextResponses.slice(0, 10)
           samples.forEach(response => {
@@ -1510,7 +1652,26 @@ export default function App() {
         continue
       }
 
-      // Build series data for other question types
+      // Handle product follow-up questions with per-product averaging
+      if (isProductFollowUp(question)) {
+        const productAverages = calculateProductAverages(question)
+        if (productAverages && productAverages.length > 0) {
+          lines.push(`*Data: Average across ${selections.productGroups.length || 'all'} products*`)
+          lines.push('')
+          lines.push('| Option | Average % |')
+          lines.push('| --- | --- |')
+          for (const item of productAverages) {
+            const optionLabel = selections.optionLabels?.[question.qid]?.[item.option] || item.option
+            lines.push(`| ${optionLabel} | ${Math.round(item.percent)}% |`)
+          }
+          lines.push('')
+          lines.push('---')
+          lines.push('')
+          continue
+        }
+      }
+
+      // Build series data for regular questions
       try {
         const seriesResult = buildSeries({
           dataset,
@@ -1518,7 +1679,7 @@ export default function App() {
           segmentColumn: selections.segmentColumn,
           groups: selections.groups.length > 0 ? selections.groups : undefined,
           segments: selections.segments,
-          sortOrder: 'descending',
+          sortOrder: selections.sortOrder,
           groupLabels: selections.groupLabels
         })
 
