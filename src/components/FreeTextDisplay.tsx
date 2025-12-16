@@ -30,21 +30,12 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
   const [containerWidth, setContainerWidth] = useState(800)
   const baseHeight = 350
 
-  // Word cloud width resize state - default to circle (width = height)
-  // Calculate initial percent so that effectiveCloudWidth = baseHeight
-  const getDefaultCloudWidthPercent = (width: number) => {
-    // Account for word list space (280px + 20px gap + 12px handle)
-    const maxWidth = width - 312
-    const circleWidth = Math.min(baseHeight, maxWidth)
-    return Math.min(100, (circleWidth / width) * 100)
-  }
-  const [cloudWidthPercent, setCloudWidthPercent] = useState(() => getDefaultCloudWidthPercent(800))
+  // Word cloud width resize state - default to oval (maximum width)
+  // Start at 100% width so cloud is oval, user can resize smaller for circle
+  const [cloudWidthPercent, setCloudWidthPercent] = useState(100)
   const [isResizingCloud, setIsResizingCloud] = useState(false)
   const resizeStartX = useRef<number>(0)
   const resizeStartWidth = useRef<number>(100)
-
-  // Track if user has manually resized
-  const hasUserResized = useRef(false)
 
   // Update container width on mount and resize
   useEffect(() => {
@@ -53,10 +44,7 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
         const width = containerRef.current.offsetWidth * 0.95
         const newWidth = Math.max(300, width)
         setContainerWidth(newWidth)
-        // Only set default circle size if user hasn't manually resized
-        if (!hasUserResized.current) {
-          setCloudWidthPercent(getDefaultCloudWidthPercent(newWidth))
-        }
+        // Keep oval (100%) as default - no need to recalculate on resize
       }
     }
     updateWidth()
@@ -92,7 +80,6 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
     e.preventDefault()
     e.stopPropagation()
     setIsResizingCloud(true)
-    hasUserResized.current = true
     resizeStartX.current = e.clientX
     resizeStartWidth.current = cloudWidthPercent
   }

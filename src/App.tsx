@@ -1790,8 +1790,27 @@ export default function App() {
                   gap: '10px'
                 }}
               >
-              {/* Feature pill 1 - Product buckets */}
+              {/* Feature pill 1 - Word cloud generator */}
               <div className="feature-pill-wrapper pill-1">
+                <div className="feature-pill">
+                  <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <text x="2" y="10" fontSize="6" fontWeight="bold" fill="#3A8518">Word</text>
+                    <text x="8" y="16" fontSize="5" fontWeight="bold" fill="#A5CF8E">cloud</text>
+                    <text x="3" y="21" fontSize="4" fill="#E7CB38">text</text>
+                    <text x="13" y="20" fontSize="3" fill="#717F90">data</text>
+                  </svg>
+                  <span className="pill-label">Word cloud generator</span>
+                </div>
+                <div className="pill-card">
+                  <div className="pill-card-content">
+                    <div className="pill-card-tagline">Visualize free-text responses ☁️</div>
+                    <div className="pill-card-location">Auto-generated from text questions</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Feature pill 2 - Product buckets */}
+              <div className="feature-pill-wrapper pill-2">
                 <div className="feature-pill">
                   <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <rect x="2" y="4" width="8" height="16" rx="2" fill="#FEF3C7" stroke="#E7CB38" strokeWidth="1.5"/>
@@ -1808,43 +1827,6 @@ export default function App() {
                   <div className="pill-card-content">
                     <div className="pill-card-tagline">Group products into buckets 🪣</div>
                     <div className="pill-card-location">Compare aggregated bucket data</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Feature pill 2 - Bulk chart export */}
-              <div className="feature-pill-wrapper pill-2">
-                <div className="feature-pill">
-                  <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="3" y="3" width="18" height="18" rx="2" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5" />
-                    <path d="M12 8v6M9 11l3 3 3-3" stroke="#3A8518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M8 17h8" stroke="#E7CB38" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                  <span className="pill-label">Bulk chart export</span>
-                </div>
-                <div className="pill-card">
-                  <div className="pill-card-content">
-                    <div className="pill-card-tagline">Export all charts to PDF 📄</div>
-                    <div className="pill-card-location">Feed to NotebookLM for AI analysis</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Feature pill 3 - Heatmap color toggle */}
-              <div className="feature-pill-wrapper pill-3">
-                <div className="feature-pill">
-                  <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="3" y="6" width="8" height="12" rx="2" fill="#A5CF8E" stroke="#3A8518" strokeWidth="1.5"/>
-                    <rect x="13" y="6" width="8" height="12" rx="2" fill="#FEF3C7" stroke="#E7CB38" strokeWidth="1.5"/>
-                    <rect x="5" y="9" width="4" height="2" rx="0.5" fill="#3A8518"/>
-                    <rect x="15" y="13" width="4" height="2" rx="0.5" fill="#E7CB38"/>
-                  </svg>
-                  <span className="pill-label">Heatmap color toggle</span>
-                </div>
-                <div className="pill-card">
-                  <div className="pill-card-content">
-                    <div className="pill-card-tagline">Switch green ↔ yellow 🎨</div>
-                    <div className="pill-card-location">For most/least liked questions</div>
                   </div>
                 </div>
               </div>
