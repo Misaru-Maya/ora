@@ -1509,17 +1509,17 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
                   backgroundColor: 'rgba(255, 255, 255, 0.85)',
                   backdropFilter: 'blur(12px)',
                   WebkitBackdropFilter: 'blur(12px)',
-                  border: '1px solid rgba(212, 186, 51, 0.15)',
+                  border: '1px solid rgba(184, 134, 11, 0.2)',
                   borderRadius: '8px',
-                  boxShadow: '0 2px 8px rgba(180, 150, 20, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                  boxShadow: '0 2px 8px rgba(184, 134, 11, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
                   fontSize: '10px',
                   fontWeight: 600,
                   textTransform: 'uppercase' as const,
                   letterSpacing: '0.5px'
                 }}
               >
-                <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#D4BA33' }} />
-                <span style={{ color: '#D4BA33' }}>Detractors</span>
+                <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#B8860B' }} />
+                <span style={{ color: '#B8860B' }}>Detractors</span>
               </div>
             )}
             {questionTypeBadge}
