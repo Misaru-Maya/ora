@@ -1616,14 +1616,14 @@ export default function App() {
       lines.push(`*Question Type: ${question.type}*`)
       lines.push('')
 
-      // Handle text/free-text questions with word frequencies
+      // Handle text/free-text questions with word frequencies and all unique responses
       if (question.type === 'text') {
         lines.push(`**Total Responses:** ${question.rawTextResponses?.length || 0}`)
         lines.push(`**Unique Values:** ${question.uniqueValueCount || 0}`)
         lines.push('')
 
-        // Word frequency table
         if (question.rawTextResponses && question.rawTextResponses.length > 0) {
+          // Word frequency table
           const wordFreqs = calculateWordFrequencies(question.rawTextResponses)
           if (wordFreqs.length > 0) {
             lines.push('**Top Words:**')
@@ -1636,15 +1636,28 @@ export default function App() {
             lines.push('')
           }
 
-          // Sample responses
-          lines.push('**Sample Responses:**')
-          const samples = question.rawTextResponses.slice(0, 10)
-          samples.forEach(response => {
-            lines.push(`- "${response}"`)
-          })
-          if (question.rawTextResponses.length > 10) {
-            lines.push(`- *(${question.rawTextResponses.length - 10} more responses...)*`)
+          // Get all unique responses with their counts
+          const responseCounts: Record<string, number> = {}
+          for (const response of question.rawTextResponses) {
+            const trimmed = response.trim()
+            if (trimmed) {
+              responseCounts[trimmed] = (responseCounts[trimmed] || 0) + 1
+            }
           }
+
+          // Sort by frequency descending
+          const uniqueResponses = Object.entries(responseCounts)
+            .sort((a, b) => b[1] - a[1])
+
+          lines.push('**All Unique Responses:**')
+          lines.push('')
+          lines.push('| Response | Count |')
+          lines.push('| --- | --- |')
+          uniqueResponses.forEach(([response, count]) => {
+            // Escape pipe characters in responses for markdown table
+            const escapedResponse = response.replace(/\|/g, '\\|')
+            lines.push(`| ${escapedResponse} | ${count} |`)
+          })
         }
         lines.push('')
         lines.push('---')
