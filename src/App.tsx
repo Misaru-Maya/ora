@@ -2565,53 +2565,6 @@ export default function App() {
                 Apples-to-Apples
               </button>
             )}
-            {/* Export PDF Button */}
-            {dataset && (
-              <button
-                onClick={handleExportPdf}
-                disabled={isExportingPdf}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '4px',
-                  padding: '12px 24px',
-                  backgroundColor: '#FFFFFF',
-                  border: 'none',
-                  borderRadius: '10px',
-                  color: '#3A8518',
-                  fontSize: '12px',
-                  fontWeight: '500',
-                  cursor: isExportingPdf ? 'wait' : 'pointer',
-                  fontFamily: 'Space Grotesk, sans-serif',
-                  transition: 'all 0.15s ease-out',
-                  boxShadow: '0 0 0 1px rgba(58,133,24,0.3), 0 2px 8px -2px rgba(58,133,24,0.15)',
-                  opacity: isExportingPdf ? 0.7 : 1
-                }}
-                onMouseEnter={(e) => {
-                  if (!isExportingPdf) {
-                    e.currentTarget.style.backgroundColor = '#F0FDF4'
-                    e.currentTarget.style.boxShadow = '0 0 0 1px rgba(58,133,24,0.5), 0 4px 12px -2px rgba(58,133,24,0.25)'
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#FFFFFF'
-                  e.currentTarget.style.boxShadow = '0 0 0 1px rgba(58,133,24,0.3), 0 2px 8px -2px rgba(58,133,24,0.15)'
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="12" y1="18" x2="12" y2="12" />
-                  <line x1="9" y1="15" x2="15" y2="15" />
-                </svg>
-                {isExportingPdf
-                  ? (exportProgress
-                      ? `Exporting ${exportProgress.current}/${exportProgress.total}...`
-                      : 'Preparing...')
-                  : 'Export PDF'}
-              </button>
-            )}
             {/* Export Markdown Button - for AI tools (ChatGPT, NotebookLM) */}
             {dataset && (
               <button
