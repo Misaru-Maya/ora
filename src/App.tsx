@@ -2604,6 +2604,84 @@ export default function App() {
                 Export for AI
               </button>
             )}
+            {/* NotebookLM Button */}
+            {dataset && (
+              <button
+                onClick={() => window.open('https://notebooklm.google.com/', '_blank', 'noopener,noreferrer')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '5px',
+                  padding: '10px 16px',
+                  backgroundColor: 'rgba(58, 133, 24, 0.1)',
+                  border: '1px solid rgba(58, 133, 24, 0.25)',
+                  borderRadius: '8px',
+                  color: '#3A8518',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontFamily: 'Space Grotesk, sans-serif',
+                  transition: 'all 0.15s ease-out',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.15)'
+                  e.currentTarget.style.borderColor = 'rgba(58, 133, 24, 0.4)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.1)'
+                  e.currentTarget.style.borderColor = 'rgba(58, 133, 24, 0.25)'
+                }}
+                title="Open NotebookLM"
+              >
+                NotebookLM
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </button>
+            )}
+            {/* Insight Generator Button */}
+            {dataset && (
+              <button
+                onClick={() => window.open('https://chatgpt.com/g/g-693dce2d9fac8191bfab3d9dd6ea35f8-insight-generator', '_blank', 'noopener,noreferrer')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '5px',
+                  padding: '10px 16px',
+                  backgroundColor: 'rgba(58, 133, 24, 0.1)',
+                  border: '1px solid rgba(58, 133, 24, 0.25)',
+                  borderRadius: '8px',
+                  color: '#3A8518',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontFamily: 'Space Grotesk, sans-serif',
+                  transition: 'all 0.15s ease-out',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.15)'
+                  e.currentTarget.style.borderColor = 'rgba(58, 133, 24, 0.4)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.1)'
+                  e.currentTarget.style.borderColor = 'rgba(58, 133, 24, 0.25)'
+                }}
+                title="Open Insight Generator in ChatGPT"
+              >
+                Insight Generator
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </button>
+            )}
           </div>
           <div className="flex items-center" style={{ paddingRight: '24px', gap: '16px' }}>
             {summary && (
