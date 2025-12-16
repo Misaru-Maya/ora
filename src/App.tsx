@@ -2256,24 +2256,22 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Feature pill 2 - Product buckets */}
+              {/* Feature pill 2 - Markdown export for AI */}
               <div className="feature-pill-wrapper pill-2">
                 <div className="feature-pill">
                   <svg className="pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="2" y="4" width="8" height="16" rx="2" fill="#FEF3C7" stroke="#E7CB38" strokeWidth="1.5"/>
-                    <rect x="14" y="4" width="8" height="16" rx="2" fill="#FEF3C7" stroke="#E7CB38" strokeWidth="1.5"/>
-                    <rect x="4" y="7" width="4" height="2" rx="0.5" fill="#3A8518"/>
-                    <rect x="4" y="11" width="4" height="2" rx="0.5" fill="#3A8518"/>
-                    <rect x="4" y="15" width="4" height="2" rx="0.5" fill="#3A8518"/>
-                    <rect x="16" y="7" width="4" height="2" rx="0.5" fill="#E7CB38"/>
-                    <rect x="16" y="11" width="4" height="2" rx="0.5" fill="#E7CB38"/>
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="#DAEBD1" stroke="#3A8518" strokeWidth="1.5"/>
+                    <polyline points="14 2 14 8 20 8" fill="none" stroke="#3A8518" strokeWidth="1.5"/>
+                    <line x1="16" y1="13" x2="8" y2="13" stroke="#3A8518" strokeWidth="1.5"/>
+                    <line x1="16" y1="17" x2="8" y2="17" stroke="#3A8518" strokeWidth="1.5"/>
+                    <polyline points="10 9 9 9 8 9" stroke="#3A8518" strokeWidth="1.5"/>
                   </svg>
-                  <span className="pill-label">Product buckets</span>
+                  <span className="pill-label">Markdown export for AI</span>
                 </div>
                 <div className="pill-card">
                   <div className="pill-card-content">
-                    <div className="pill-card-tagline">Group products into buckets 🪣</div>
-                    <div className="pill-card-location">Compare aggregated bucket data</div>
+                    <div className="pill-card-tagline">Export for ChatGPT & NotebookLM 🤖</div>
+                    <div className="pill-card-location">AI-readable markdown format</div>
                   </div>
                 </div>
               </div>
@@ -2321,7 +2319,7 @@ export default function App() {
               color: '#6B7280',
               marginBottom: '8px'
             }}>
-              Last updated on December 11, 2025
+              Last updated on December 16, 2025
             </p>
             <p style={{
               fontSize: '13px',
