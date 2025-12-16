@@ -283,11 +283,17 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
       wordColors[w.word] = colorList[i]
     })
 
-    // Calculate font sizes based on frequency
+    // Calculate font sizes based on frequency using logarithmic scaling
+    // Log scaling prevents one dominant word from making all others tiny
     const maxFont = Math.round(canvas.height / 5)
     const minFont = Math.round(canvas.height / 25)
-    const maxFreq = Math.max(...availableWords.map(w => w.frequency))
-    const minFreq = Math.min(...availableWords.map(w => w.frequency))
+    const frequencies = availableWords.map(w => w.frequency)
+    const maxFreq = Math.max(...frequencies)
+    const minFreq = Math.min(...frequencies)
+
+    // Use log scaling to compress the range when there's a dominant word
+    const logMaxFreq = Math.log(maxFreq + 1)
+    const logMinFreq = Math.log(minFreq + 1)
 
     const placedRects: Array<{x: number, y: number, width: number, height: number}> = []
     const padding = 2
@@ -299,10 +305,12 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
 
     availableWords.forEach((wordData, index) => {
       let fontSize: number
-      if (maxFreq === minFreq) {
+      if (logMaxFreq === logMinFreq) {
         fontSize = maxFont
       } else {
-        fontSize = Math.round(minFont + (wordData.frequency - minFreq) / (maxFreq - minFreq) * (maxFont - minFont))
+        // Logarithmic scaling: compresses range so dominant words don't dwarf others
+        const logFreq = Math.log(wordData.frequency + 1)
+        fontSize = Math.round(minFont + (logFreq - logMinFreq) / (logMaxFreq - logMinFreq) * (maxFont - minFont))
       }
 
       const color = wordColors[wordData.word]
