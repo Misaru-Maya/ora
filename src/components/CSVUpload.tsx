@@ -87,7 +87,7 @@ export const CSVUpload = forwardRef<CSVUploadHandle, CSVUploadProps>(({ variant 
       return [base, active, 'focus:outline-none'].filter(Boolean).join(' ')
     }
 
-    const base = 'relative overflow-hidden rounded-[10px] bg-white shadow-[0_0_0_1px_rgba(58,133,24,0.3),0_2px_8px_-2px_rgba(58,133,24,0.15)]'
+    const base = 'relative overflow-hidden rounded-[10px] bg-[#FFFFFF] shadow-[0_0_0_1px_rgba(58,133,24,0.3),0_2px_8px_-2px_rgba(58,133,24,0.15)]'
     const hover = 'transition-all duration-150 ease-out hover:bg-[#F0FDF4] hover:shadow-[0_0_0_1px_rgba(58,133,24,0.5),0_4px_12px_-2px_rgba(58,133,24,0.25)]'
     const active = isDragOver
       ? 'bg-[#E8F5E9] shadow-[0_0_0_2px_rgba(58,133,24,0.4),0_4px_12px_-2px_rgba(58,133,24,0.3)]'
