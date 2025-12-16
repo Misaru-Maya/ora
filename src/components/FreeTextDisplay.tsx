@@ -28,7 +28,7 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
 
   // Container dimensions for word cloud
   const [containerWidth, setContainerWidth] = useState(800)
-  const baseHeight = Math.round(350 * 0.95) // 5% smaller
+  const baseHeight = Math.round(350 * 1.10) // 10% bigger
 
   // Word cloud width resize state - default to circle (width = height)
   // Calculate initial percent so that effectiveCloudWidth = baseHeight
@@ -103,8 +103,8 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
   const handleToWordListGap = 20
   const cloudToHandleGap = 0
   const maxCloudWidth = containerWidth - wordListWidth - handleToWordListGap - 12 // 12 = handle width
-  // Apply 5% reduction to cloud size
-  const effectiveCloudWidth = Math.min(containerWidth * (cloudWidthPercent / 100), maxCloudWidth) * 0.95
+  // Apply 10% increase to cloud size
+  const effectiveCloudWidth = Math.min(containerWidth * (cloudWidthPercent / 100), maxCloudWidth) * 1.10
 
   // Clean the label (remove Example: text and (text) marker)
   const cleanLabel = (label: string): string => {
