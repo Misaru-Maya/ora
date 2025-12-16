@@ -2654,7 +2654,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         onMouseDown={handleHeightResizeStart}
         style={{
           position: 'absolute',
-          left: '50%',
+          left: `${chartWidthPercent / 2}%`,
           transform: 'translateX(-50%)',
           bottom: 0,
           width: '80px',
