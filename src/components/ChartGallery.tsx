@@ -6,6 +6,7 @@ import { SingleSelectPieChart } from './SingleSelectPieChart'
 import { HeatmapTable } from './HeatmapTable'
 import { SentimentHeatmap } from './SentimentHeatmap'
 import { RankingDisplay } from './RankingDisplay'
+import { FreeTextDisplay } from './FreeTextDisplay'
 import { buildSeries, buildSeriesFromComparisonSets, buildSeriesFromProductBuckets } from '../dataCalculations'
 import type { BuildSeriesResult } from '../dataCalculations'
 import type { ParsedCSV, QuestionDef, SortOrder, SegmentDef, ComparisonSet, ProductBucket } from '../types'
@@ -72,6 +73,7 @@ const getQuestionTypeLabel = (question: QuestionDef): string => {
   if (question.type === 'single') return 'Single Select'
   if (question.type === 'multi') return 'Multi Select'
   if (question.type === 'ranking') return 'Ranking'
+  if (question.type === 'text') return 'Free Text'
   return question.type
 }
 
@@ -1307,7 +1309,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   const hasBaseData = series.data.length > 0
   const hasStatSigResults = statSigFilteredData.length > 0
 
-  if (!hasBaseData) {
+  // Text questions don't have series data, so skip this check for them
+  if (!hasBaseData && question.type !== 'text') {
     return null
   }
 
@@ -1871,7 +1874,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                 backgroundColor: question.isLikert ? '#2D6912' : // Darkest green for Likert
                   question.type === 'single' ? '#3A8518' : // Standard green for Single
                   question.type === 'multi' ? '#6AAD47' : // Lighter green for Multi
-                  question.type === 'ranking' ? '#8BC474' : '#64748b' // Lightest green for Ranking
+                  question.type === 'ranking' ? '#8BC474' : // Lightest green for Ranking
+                  question.type === 'text' ? '#7E8BA0' : '#64748b' // Gray for Free Text
               }}
             />
             {getQuestionTypeLabel(question)}
@@ -1971,7 +1975,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
           selectedOptionsLength: selectedOptions.length
         })
 
-        if (!hasData) {
+        // For text questions, skip the hasData check - they don't have traditional chart data
+        if (!hasData && question.type !== 'text') {
           // Show title with "No data available" message (no question type badge)
           return (
             <div className="w-full" style={{ paddingBottom: '30px' }}>
@@ -2023,6 +2028,23 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               onSaveQuestionLabel={onSaveQuestionLabel}
               questionTypeBadge={questionTypeBadge}
               showSegment={showSegment}
+            />
+          )
+        }
+
+        // Render text/free-text questions with FreeTextDisplay component
+        if (question.type === 'text') {
+          devLog('Rendering free text display for question:', question.qid)
+          return (
+            <FreeTextDisplay
+              questionLabel={displayLabel}
+              uniqueValueCount={question.uniqueValueCount || 0}
+              totalResponses={question.rawTextResponses?.length || 0}
+              rawTextResponses={question.rawTextResponses || []}
+              onSaveQuestionLabel={onSaveQuestionLabel}
+              questionTypeBadge={questionTypeBadge}
+              showSegment={showSegment}
+              showContainer={showContainer}
             />
           )
         }
@@ -2353,15 +2375,74 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                     devLog(`📊 Found groupMeta:`, groupMeta)
                     if (groupMeta) {
                       newDataPoint[groupMeta.key] = avgValue
+
+                      // Get unique respondents in this segment for significance calculation
+                      const respIdCol = dataset.summary.respondentIdColumn || 'Respondent Id'
+                      const uniqueRespondents = new Set(segmentRows.map(r => r[respIdCol]).filter(Boolean))
+                      const denominator = uniqueRespondents.size
+
+                      // Count respondents who selected this option
+                      const optionColumn = question.columns.find(col => col.optionLabel?.toLowerCase() === optionLabel.toLowerCase())
+                      let count = 0
+                      if (optionColumn) {
+                        const headersToCheck = [optionColumn.header, ...(optionColumn.alternateHeaders || [])]
+                        const respondentsWithOption = new Set<string>()
+                        for (const row of segmentRows) {
+                          const respondent = row[respIdCol]
+                          if (!respondent) continue
+                          for (const header of headersToCheck) {
+                            const val = row[header]
+                            if (val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes') {
+                              respondentsWithOption.add(respondent)
+                              break
+                            }
+                          }
+                        }
+                        count = respondentsWithOption.size
+                      }
+
                       newDataPoint.groupSummaries.push({
                         label: groupMeta.label, // Use display label, not original value
-                        count: 0,
-                        denominator: 0,
+                        count,
+                        denominator,
                         percent: avgValue
                       })
                     }
                   }
                 })
+
+                // Calculate significance between groups using chi-square test
+                const significanceResults: Array<{ pair: [string, string]; chiSquare: number; significant: boolean }> = []
+                let hasSignificant = false
+                const summaries = newDataPoint.groupSummaries
+                for (let i = 0; i < summaries.length; i++) {
+                  for (let j = i + 1; j < summaries.length; j++) {
+                    const g1 = summaries[i]
+                    const g2 = summaries[j]
+                    if (!g1.denominator || !g2.denominator) continue
+                    const a = g1.count
+                    const b = Math.max(g1.denominator - g1.count, 0)
+                    const c = g2.count
+                    const d = Math.max(g2.denominator - g2.count, 0)
+                    const total = a + b + c + d
+                    if (total === 0) continue
+                    const numerator = (a * d - b * c) ** 2 * total
+                    const denom = (a + b) * (c + d) * (a + c) * (b + d)
+                    if (denom === 0) continue
+                    const chiSquare = numerator / denom
+                    const significant = chiSquare >= 3.841
+                    if (significant) hasSignificant = true
+                    significanceResults.push({
+                      pair: [g1.label, g2.label],
+                      chiSquare,
+                      significant
+                    })
+                  }
+                }
+                newDataPoint.significance = significanceResults
+                if (hasSignificant) {
+                  newDataPoint.optionDisplay = `${optionLabels[optionLabel] || optionLabel}*`
+                }
 
                 return newDataPoint
               }).filter(d => !isExcludedValue(d.optionDisplay))
@@ -2637,7 +2718,7 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
 
           return { question, series }
         })
-        .filter(entry => entry.series.data.length > 0)
+        .filter(entry => entry.series.data.length > 0 || entry.question.type === 'text')
     }
 
     // If using multi-filter comparison mode
@@ -2660,7 +2741,7 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
 
           return { question, series }
         })
-        .filter(entry => entry.series.data.length > 0)
+        .filter(entry => entry.series.data.length > 0 || entry.question.type === 'text')
     }
 
     // Standard mode (segments-based)
@@ -2729,7 +2810,7 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
 
         return { question, series }
       })
-      .filter(entry => entry.series.data.length > 0)
+      .filter(entry => entry.series.data.length > 0 || entry.question.type === 'text')
   }, [dataset, questions, segmentColumn, groups, segments, sortOrder, groupLabels, optionLabels, comparisonMode, multiFilterCompareMode, comparisonSets, productBuckets, productBucketMode, productColumn])
 
   // Create a wrapper div with ref for each chart

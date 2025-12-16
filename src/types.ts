@@ -1,4 +1,4 @@
-export type QuestionType = 'single' | 'multi' | 'ranking'
+export type QuestionType = 'single' | 'multi' | 'ranking' | 'text'
 
 export interface QuestionOptionColumn {
   header: string // column name for multi; synthetic key for single option
@@ -23,6 +23,10 @@ export interface QuestionDef {
   level: 'respondent' | 'row'
   // Whether this is a likert scale question
   isLikert?: boolean
+  // For 'text' questions: array of all raw text responses
+  rawTextResponses?: string[]
+  // For 'text' questions: count of unique text values
+  uniqueValueCount?: number
 }
 
 export interface DatasetSummary {
@@ -32,6 +36,7 @@ export interface DatasetSummary {
   columns: string[]
   isProductTest: boolean
   questionsDetected: number
+  respondentIdColumn?: string
 }
 
 export interface ParsedCSV {

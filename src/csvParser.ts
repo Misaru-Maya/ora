@@ -336,10 +336,28 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
     const questionType = normalizeQuestionType(rawType)
     const isLikert = rawType.toLowerCase().includes('scale')
 
-    // Skip open-ended text questions - they can't be visualized as charts
+    // Preserve text questions for word cloud generation
     if (questionType === 'text') {
-      devLog(`[CSV Parser] Skipping text/open-ended question: ${qid} - "${questionText?.substring(0, 50)}..."`)
+      devLog(`[CSV Parser] Preserving text question for word cloud: ${qid} - "${questionText?.substring(0, 50)}..."`)
       segmentCandidateSet.delete(col)
+
+      // Create text question entry and store the source column
+      const textQuestionKey = `${qid}::${questionText || qid}`
+      const textUniqueQid = questionText && questionText !== qid
+        ? `${qid}_${questionText.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20)}`
+        : qid
+
+      if (!qMap.has(textQuestionKey)) {
+        qMap.set(textQuestionKey, {
+          qid: textUniqueQid,
+          label: questionText || qid,
+          type: 'text',
+          columns: [],
+          singleSourceColumn: col,
+          level: 'respondent' as const,
+          isLikert: false,
+        })
+      }
       continue
     }
 
@@ -677,7 +695,41 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
   }
 
   // Filter out questions that have no valid options (e.g., text questions that were marked for removal)
-  const filteredQuestions = Array.from(qMap.values()).filter(q => q.columns && q.columns.length > 0)
+  // Keep text questions even if they have no columns (they use rawTextResponses instead)
+  const filteredQuestions = Array.from(qMap.values()).filter(q =>
+    (q.columns && q.columns.length > 0) || q.type === 'text'
+  )
+
+  // Process text questions - collect raw responses
+  for (const q of filteredQuestions) {
+    if (q.type === 'text' && q.singleSourceColumn) {
+      const textResponses: string[] = []
+      const uniqueValues = new Set<string>()
+
+      for (const row of rows) {
+        const value = row[q.singleSourceColumn]
+        if (value !== null && value !== undefined && value !== '') {
+          const strValue = String(value).trim()
+          // Filter out common non-responses
+          if (strValue.length > 0 &&
+              strValue.toLowerCase() !== 'not specified' &&
+              strValue.toLowerCase() !== 'n/a' &&
+              strValue.toLowerCase() !== 'na' &&
+              strValue !== '-') {
+            const cleanValue = stripQuotes(strValue)
+            if (cleanValue.length > 0) {
+              textResponses.push(cleanValue)
+              uniqueValues.add(cleanValue.toLowerCase())
+            }
+          }
+        }
+      }
+
+      q.rawTextResponses = textResponses
+      q.uniqueValueCount = uniqueValues.size
+      devLog(`[CSV Parser] Text question ${q.qid}: ${textResponses.length} responses, ${uniqueValues.size} unique values`)
+    }
+  }
 
   // Sort questions: sentiment questions first, then by original order
   // Sentiment questions contain "would you consider buying" or similar in their label
@@ -697,11 +749,16 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
   // Log summary of all questions
   devLog(`[CSV Parser] Parsed ${questions.length} questions:`)
   questions.forEach(q => {
-    const optionCount = q.columns?.length || 0
-    devLog(`  ${q.qid} (${q.type}): "${q.label.substring(0, 60)}..." - ${optionCount} options`)
+    if (q.type === 'text') {
+      devLog(`  ${q.qid} (${q.type}): "${q.label.substring(0, 60)}..." - ${q.rawTextResponses?.length || 0} responses, ${q.uniqueValueCount || 0} unique`)
+    } else {
+      const optionCount = q.columns?.length || 0
+      devLog(`  ${q.qid} (${q.type}): "${q.label.substring(0, 60)}..." - ${optionCount} options`)
+    }
   })
   const rankingCount = questions.filter(q => q.type === 'ranking').length
-  devLog(`[CSV Parser] Found ${rankingCount} ranking questions`)
+  const textCount = questions.filter(q => q.type === 'text').length
+  devLog(`[CSV Parser] Found ${rankingCount} ranking questions, ${textCount} text questions`)
 
   // Detect if this is a product test (has product/style ID columns)
   const isProductTest = lowerCols.some(c => 

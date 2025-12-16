@@ -1,0 +1,21 @@
+Respondent Id,[Q1] (single) What is your favorite color?,[Q2] (text) What do you like most about this product?,[Q3] (multi): Option A,[Q3] (multi): Option B,[Q3] (multi): Option C
+1,Red,The quality is amazing and the design is very modern. Love the comfortable fit.,1,0,1
+2,Blue,Great product overall. The material feels premium and durable.,0,1,0
+3,Red,I love the stylish design and how well it fits. Very comfortable to wear.,1,1,0
+4,Green,The color options are fantastic. Really comfortable and lightweight.,0,0,1
+5,Blue,Excellent quality and craftsmanship. The design is innovative and fresh.,1,0,0
+6,Red,Very comfortable and the style is perfect for everyday use.,0,1,1
+7,Yellow,The product exceeded my expectations. Great quality and value.,1,0,1
+8,Blue,Love the modern design. It's comfortable and looks great.,0,1,0
+9,Red,Amazing quality. The fit is perfect and the color is beautiful.,1,1,1
+10,Green,Great product! The comfort level is outstanding. Highly recommend.,0,0,1
+11,Blue,The design is sleek and modern. Very happy with this purchase.,1,0,0
+12,Red,Excellent craftsmanship and attention to detail. Love it!,0,1,0
+13,Yellow,Super comfortable and stylish. The quality is top-notch.,1,0,1
+14,Blue,Great value for money. The product is durable and looks premium.,0,1,1
+15,Red,I really appreciate the thoughtful design and comfort.,1,1,0
+16,Green,Fantastic product! The quality and style are amazing.,0,0,1
+17,Blue,Very happy with this purchase. Comfortable and well-made.,1,0,0
+18,Red,The design is innovative and the comfort is excellent.,0,1,1
+19,Yellow,Love the quality and the attention to detail. Great product!,1,0,1
+20,Blue,Perfect fit and great comfort. The style is exactly what I wanted.,0,1,0

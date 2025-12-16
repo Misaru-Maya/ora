@@ -134,7 +134,7 @@ function shouldIncludeInSegmentation(question: QuestionDef, _rows: any[]): boole
   return true
 }
 
-// Filter out zipcode and free text questions
+// Filter out zipcode questions, include all other question types including text
 function shouldIncludeQuestion(question: QuestionDef): boolean {
   const labelLower = question.label.toLowerCase()
 
@@ -144,6 +144,12 @@ function shouldIncludeQuestion(question: QuestionDef): boolean {
     return false
   }
 
+  // Include text questions for word cloud display
+  if (question.type === 'text') {
+    devLog(`[FILTER] ✅ Including ${question.qid} (${question.type}): text question for word cloud`)
+    return true
+  }
+
   // Always include multi, single, scale, and ranking questions even if their labels contain tokens
   const labelHasTypeToken = ['(multi)', '(single)', '(scale)', '(ranking)'].some(token => labelLower.includes(token))
   if (labelHasTypeToken) {
@@ -151,9 +157,10 @@ function shouldIncludeQuestion(question: QuestionDef): boolean {
     return true
   }
 
-  // Treat questions containing "(text)" in the label or column headers as free-text, exclude them
+  // For non-text questions, check for text markers and exclude if found
+  // (This handles edge cases where single/multi questions have text in labels)
   if (labelLower.includes('(text)')) {
-    devLog(`[FILTER] ❌ Excluding ${question.qid} (${question.type}): text in label`)
+    devLog(`[FILTER] ❌ Excluding ${question.qid} (${question.type}): text marker in label but not text type`)
     return false
   }
 
