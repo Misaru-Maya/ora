@@ -34,8 +34,6 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
   // Start at 100% width so cloud is oval, user can resize smaller for circle
   const [cloudWidthPercent, setCloudWidthPercent] = useState(100)
   const [isResizingCloud, setIsResizingCloud] = useState(false)
-  const resizeStartX = useRef<number>(0)
-  const resizeStartWidth = useRef<number>(100)
 
   // Update container width on mount and resize
   useEffect(() => {
@@ -52,36 +50,30 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
     return () => window.removeEventListener('resize', updateWidth)
   }, [])
 
-  // Word cloud width resize effect
-  useEffect(() => {
-    if (!isResizingCloud) return
+  // Word cloud resize handler - add listeners directly on mousedown for immediate response
+  const handleCloudResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsResizingCloud(true)
+    const startX = e.clientX
+    const startWidth = cloudWidthPercent
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const deltaX = e.clientX - resizeStartX.current
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaX = moveEvent.clientX - startX
       const containerW = containerRef.current?.offsetWidth || 800
       const deltaPercent = (deltaX / containerW) * 100 * 2
-      const newWidth = Math.max(40, Math.min(100, resizeStartWidth.current + deltaPercent))
+      const newWidth = Math.max(40, Math.min(100, startWidth + deltaPercent))
       setCloudWidthPercent(newWidth)
     }
 
     const handleMouseUp = () => {
       setIsResizingCloud(false)
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
     }
 
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseup', handleMouseUp)
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove)
-      window.removeEventListener('mouseup', handleMouseUp)
-    }
-  }, [isResizingCloud])
-
-  const handleCloudResizeStart = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsResizingCloud(true)
-    resizeStartX.current = e.clientX
-    resizeStartWidth.current = cloudWidthPercent
   }
 
   // Word list is 280px, need 20px gap between handle and word list
