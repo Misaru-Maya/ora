@@ -11,6 +11,7 @@ interface FreeTextDisplayProps {
   showSegment?: boolean
   showContainer?: boolean
   segmentLabel?: string
+  sentimentType?: 'advocates' | 'detractors' | null
 }
 
 export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
@@ -21,6 +22,7 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
   showSegment = true,
   showContainer = true,
   segmentLabel = 'Overall',
+  sentimentType = null,
 }) => {
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleInput, setTitleInput] = useState(questionLabel)
@@ -76,9 +78,9 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
     window.addEventListener('mouseup', handleMouseUp)
   }
 
-  // Word list is 280px, need 20px gap between handle and word list
+  // Word list is 240px, need 20px gap between handle and word list
   // Handle should be at cloud edge (0px gap)
-  const wordListWidth = 280
+  const wordListWidth = 240
   const handleToWordListGap = 20
   const cloudToHandleGap = 0
   const maxCloudWidth = containerWidth - wordListWidth - handleToWordListGap - 12 // 12 = handle width
@@ -140,7 +142,42 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
             marginBottom: '20px',
           }}>
             {/* Left: Segment Card */}
-            {showSegment && (
+            {showSegment && sentimentType && (
+              <div style={{ flex: '0 0 auto', minWidth: '80px' }}>
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    alignSelf: 'flex-start',
+                    gap: '6px',
+                    padding: '5px 10px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                    border: `1px solid ${sentimentType === 'advocates' ? 'rgba(58, 133, 24, 0.15)' : 'rgba(212, 186, 51, 0.15)'}`,
+                    borderRadius: '8px',
+                    boxShadow: sentimentType === 'advocates'
+                      ? '0 2px 8px rgba(58, 133, 24, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)'
+                      : '0 2px 8px rgba(180, 150, 20, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    textTransform: 'uppercase' as const,
+                    letterSpacing: '0.5px'
+                  }}
+                >
+                  <div style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '2px',
+                    backgroundColor: sentimentType === 'advocates' ? '#3A8518' : '#D4BA33'
+                  }} />
+                  <span style={{ color: sentimentType === 'advocates' ? '#3A8518' : '#D4BA33' }}>
+                    {sentimentType === 'advocates' ? 'Advocates' : 'Detractors'}
+                  </span>
+                </div>
+              </div>
+            )}
+            {showSegment && !sentimentType && (
               <div style={{ flex: '0 0 auto', minWidth: '80px' }}>
                 <div
                   style={{

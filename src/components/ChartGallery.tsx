@@ -2109,6 +2109,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               showSegment={showSegment}
               showContainer={false}
               segmentLabel={series.groups[0]?.label || 'Overall'}
+              sentimentType={effectiveSentimentType}
             />
           )
         }

@@ -473,7 +473,7 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
         padding: '8px',
         backgroundColor: '#F8F9FA',
         borderRadius: '8px',
-        width: '280px',
+        width: '240px',
         boxSizing: 'border-box',
         alignContent: 'flex-start',
       }}>
