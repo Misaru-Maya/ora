@@ -1665,18 +1665,82 @@ export default function App() {
         continue
       }
 
-      // Handle product follow-up questions with per-product averaging
-      if (isProductFollowUp(question)) {
-        const productAverages = calculateProductAverages(question)
-        if (productAverages && productAverages.length > 0) {
-          lines.push(`*Data: Average across ${selections.productGroups.length || 'all'} products*`)
-          lines.push('')
-          lines.push('| Option | Average % |')
-          lines.push('| --- | --- |')
-          for (const item of productAverages) {
-            const optionLabel = selections.optionLabels?.[question.qid]?.[item.option] || item.option
-            lines.push(`| ${optionLabel} | ${Math.round(item.percent)}% |`)
+      // Handle product follow-up questions - show per-product data (heatmap style)
+      if (isProductFollowUp(question) && productColumn) {
+        // Get selected products or all products
+        const selectedProducts = selections.productGroups.length > 0
+          ? selections.productGroups
+          : Array.from(new Set(dataset.rows.map(row => normalizeProductValue(row[productColumn])).filter(v => v && v !== 'Unspecified'))).sort()
+
+        if (selectedProducts.length > 0) {
+          // Get all options
+          const allOptions = question.columns.map(col => col.optionLabel).filter(Boolean)
+
+          // Calculate per-product percentages
+          const productData: Record<string, Record<string, number>> = {}
+          const optionAverages: Record<string, { total: number; count: number }> = {}
+          allOptions.forEach(opt => {
+            optionAverages[opt] = { total: 0, count: 0 }
+          })
+
+          for (const product of selectedProducts) {
+            productData[product] = {}
+            const productRows = dataset.rows.filter(row => normalizeProductValue(row[productColumn]) === product)
+            if (productRows.length === 0) continue
+
+            for (const option of allOptions) {
+              const optionColumn = question.columns.find(col => col.optionLabel === option)
+              if (!optionColumn) continue
+
+              let count = 0
+              for (const row of productRows) {
+                if (question.type === 'single' && question.singleSourceColumn) {
+                  const val = stripQuotes(String(row[question.singleSourceColumn] || '').trim())
+                  if (val === option) count++
+                } else if (question.type === 'multi') {
+                  const headersToCheck = [optionColumn.header, ...(optionColumn.alternateHeaders || [])]
+                  const hasOption = headersToCheck.some(header => {
+                    const val = row[header]
+                    return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes'
+                  })
+                  if (hasOption) count++
+                }
+              }
+
+              const percent = (count / productRows.length) * 100
+              productData[product][option] = percent
+              optionAverages[option].total += percent
+              optionAverages[option].count++
+            }
           }
+
+          // Create heatmap-style table with products as columns
+          lines.push(`*Data: Per-product breakdown (${selectedProducts.length} products)*`)
+          lines.push('')
+
+          // Header row with product names
+          const headers = ['Option', ...selectedProducts, 'Average']
+          lines.push(`| ${headers.join(' | ')} |`)
+          lines.push(`| ${headers.map(() => '---').join(' | ')} |`)
+
+          // Data rows for each option
+          for (const option of allOptions) {
+            const optionLabel = selections.optionLabels?.[question.qid]?.[option] || option
+            const row = [optionLabel]
+
+            for (const product of selectedProducts) {
+              const percent = productData[product]?.[option]
+              row.push(percent !== undefined ? `${Math.round(percent)}%` : '-')
+            }
+
+            // Add average
+            const avg = optionAverages[option]
+            const avgPercent = avg.count > 0 ? avg.total / avg.count : 0
+            row.push(`${Math.round(avgPercent)}%`)
+
+            lines.push(`| ${row.join(' | ')} |`)
+          }
+
           lines.push('')
           lines.push('---')
           lines.push('')
