@@ -53,6 +53,7 @@ interface WordCloudCanvasProps {
   questionLabel: string
   containerWidth: number
   containerHeight: number
+  wordListWidth?: number
   onWordClick?: (word: string) => void
 }
 
@@ -125,8 +126,11 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
   questionLabel,
   containerWidth,
   containerHeight,
+  wordListWidth,
   onWordClick,
 }) => {
+  // Use wordListWidth if provided, otherwise use containerWidth
+  const effectiveWordListWidth = wordListWidth || containerWidth
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [wordFrequencies, setWordFrequencies] = useState<WordFrequency[]>([])
   const [removedWords, setRemovedWords] = useState<Set<string>>(new Set())
@@ -157,49 +161,79 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
     }
   }, [])
 
-  // Process text to extract word frequencies
+  // Process text to extract word frequencies with smart deduplication
   const processText = useCallback((texts: string[]): WordFrequency[] => {
     const nlp = (window as any).nlp
     if (!nlp) return []
 
-    const combinedText = texts.join(' ')
-    const cleanText = combinedText.toLowerCase()
-      .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
+    // Step 1: Deduplicate and count occurrences (weighted deduplication)
+    // This is much faster than processing duplicates AND more accurate
+    const SKIP_RESPONSES = new Set([
+      'not specified', 'n/a', 'na', 'none', 'no', 'yes', '-', '--', '---',
+      'nothing', 'idk', "i don't know", 'dont know', "don't know", 'no comment',
+      'no comments', 'same', 'all good', 'all', 'everything', 'anything',
+    ])
 
-    const doc = nlp(cleanText)
-    const adjectives: string[] = doc.adjectives().terms().out('array')
-    const nouns: string[] = doc.nouns().terms().out('array')
-    const normalizedNouns = nouns.map(normalizeToSingular)
-
-    const words = [...adjectives, ...normalizedNouns].filter(word =>
-      word.length > 2 &&
-      !STOP_WORDS.has(word) &&
-      !/^\d+$/.test(word) &&
-      word !== 'not' &&
-      word !== 'specified'
-    )
-
-    // Filter out "not specified" phrase
-    const filteredWords: string[] = []
-    for (let i = 0; i < words.length; i++) {
-      if (words[i] === 'not' && words[i + 1] === 'specified') {
-        i++
-        continue
+    const responseCount = new Map<string, number>()
+    texts.forEach(text => {
+      const normalized = text.trim().toLowerCase()
+      if (normalized && normalized.length > 2 && !SKIP_RESPONSES.has(normalized)) {
+        responseCount.set(normalized, (responseCount.get(normalized) || 0) + 1)
       }
-      filteredWords.push(words[i])
+    })
+
+    const uniqueResponses = Array.from(responseCount.keys())
+    const totalResponses = texts.length
+    const uniqueCount = uniqueResponses.length
+
+    console.log(`[WordCloud] Deduplicated: ${totalResponses} total → ${uniqueCount} unique responses (${Math.round((1 - uniqueCount/totalResponses) * 100)}% reduction)`)
+
+    // Step 2: Sample unique responses if still too many
+    const MAX_UNIQUE = 2000
+    let sampled = uniqueResponses
+    let sampleRatio = 1
+    if (uniqueCount > MAX_UNIQUE) {
+      const shuffled = [...uniqueResponses].sort(() => Math.random() - 0.5)
+      sampled = shuffled.slice(0, MAX_UNIQUE)
+      sampleRatio = uniqueCount / MAX_UNIQUE
+      console.log(`[WordCloud] Sampled ${MAX_UNIQUE} of ${uniqueCount} unique responses`)
     }
 
-    // Count frequencies
+    // Step 3: Process each unique response and weight words by occurrence count
     const frequency: Record<string, number> = {}
-    filteredWords.forEach(word => {
-      frequency[word] = (frequency[word] || 0) + 1
+
+    sampled.forEach(response => {
+      const weight = (responseCount.get(response) || 1) * sampleRatio
+
+      const cleanText = response
+        .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+
+      if (!cleanText) return
+
+      const doc = nlp(cleanText)
+      const adjectives: string[] = doc.adjectives().terms().out('array')
+      const nouns: string[] = doc.nouns().terms().out('array')
+      const normalizedNouns = nouns.map(normalizeToSingular)
+
+      const words = [...adjectives, ...normalizedNouns].filter(word =>
+        word.length > 2 &&
+        !STOP_WORDS.has(word) &&
+        !/^\d+$/.test(word) &&
+        word !== 'not' &&
+        word !== 'specified'
+      )
+
+      // Count with weight (how many people gave this response)
+      words.forEach(word => {
+        frequency[word] = (frequency[word] || 0) + weight
+      })
     })
 
     // Convert to array and sort by frequency
     return Object.entries(frequency)
-      .map(([word, freq]) => ({ word, frequency: freq }))
+      .map(([word, freq]) => ({ word, frequency: Math.round(freq) }))
       .sort((a, b) => b.frequency - a.frequency)
       .slice(0, 30) // Top 30 words
   }, [])
@@ -230,10 +264,8 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
     canvas.width = containerWidth
     canvas.height = containerHeight
 
-    // Clear canvas
+    // Clear canvas to transparent
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.fillStyle = '#FFFFFF'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
 
     const availableWords = wordFrequencies.filter(w => !removedWords.has(w.word))
     if (availableWords.length === 0) {
@@ -258,10 +290,10 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
     const minFreq = Math.min(...availableWords.map(w => w.frequency))
 
     const placedRects: Array<{x: number, y: number, width: number, height: number}> = []
-    const padding = 15
+    const padding = 2
 
-    // Oval shape ratio (width/height)
-    const shapeRatio = canvas.width / canvas.height
+    // Circle shape (ratio = 1)
+    const shapeRatio = 1
 
     availableWords.forEach((wordData, index) => {
       let fontSize: number
@@ -406,8 +438,8 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
   }
 
   return (
-    <div style={{ width: '100%' }}>
-      {/* Canvas */}
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      {/* Canvas - centered */}
       <canvas
         ref={canvasRef}
         style={{
@@ -429,6 +461,9 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
         padding: '8px',
         backgroundColor: '#F8F9FA',
         borderRadius: '8px',
+        width: '100%',
+        maxWidth: effectiveWordListWidth,
+        boxSizing: 'border-box',
       }}>
         {availableWords.map(({ word, frequency }) => (
           <button

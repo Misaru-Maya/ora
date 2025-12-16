@@ -163,6 +163,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
   }
 
   // Copy to clipboard handler - copies chart with rounded corners and shadow (unless showContainer is false)
+  // For text questions, copies only the word cloud canvas
   const handleCopyToClipboard = async () => {
     if (!exportContentRef.current || isCopying) return
 
@@ -170,6 +171,26 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     setCopySuccess(false)
 
     try {
+      // For text questions, copy only the word cloud canvas
+      if (question.type === 'text') {
+        const canvas = exportContentRef.current.querySelector('canvas')
+        if (canvas) {
+          const blob = await new Promise<Blob>((resolve, reject) => {
+            canvas.toBlob(blob => {
+              if (blob) resolve(blob)
+              else reject(new Error('Failed to create blob'))
+            }, 'image/png')
+          })
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+          ])
+          setCopySuccess(true)
+          setTimeout(() => setCopySuccess(false), 2000)
+          setIsCopying(false)
+          return
+        }
+      }
+
       const html2canvas = (await import('html2canvas')).default
 
       // Use devicePixelRatio-aware capture scale for consistent quality across displays
@@ -1318,6 +1339,9 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     <div className="rounded-2xl bg-white p-5 shadow-md transition-shadow hover:shadow-lg space-y-4" style={{ paddingRight: '30px', position: 'relative', zIndex: showFilter || showSortMenu ? 1000 : 'auto' }}>
       <div className="flex items-center gap-2 pb-2" style={{ width: '95%', margin: '0 auto', marginBottom: '20px', marginLeft: 'calc(2.5% - 30px)', position: 'relative', zIndex: 100 }}>
         <div className="flex items-center gap-2">
+          {/* Toolbar controls - hidden for text questions (only show copy and analyzer) */}
+          {question.type !== 'text' && (
+            <>
           {/* 1. Filter Icon Button */}
           <div className="relative" ref={filterMenuRef}>
             <button
@@ -1746,6 +1770,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
           )}
           {/* Divider before copy button */}
           <div style={{ width: '1px', height: '20px', backgroundColor: 'rgba(0, 0, 0, 0.1)', margin: '0 6px' }} />
+            </>
+          )}
           {/* Copy to Clipboard Button */}
           <button
             onClick={handleCopyToClipboard}
@@ -1773,6 +1799,40 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               }}
             />
           </button>
+          {/* Free Text Analyzer Button - only for text questions */}
+          {question.type === 'text' && (
+            <>
+              <div style={{ width: '1px', height: '20px', backgroundColor: 'rgba(0, 0, 0, 0.1)', margin: '0 6px' }} />
+              <button
+                onClick={() => window.open('https://chatgpt.com/g/g-693def96d1ec8191a4b8bb8545a70487-free-text-analyzer', '_blank', 'noopener,noreferrer')}
+                className="flex items-center justify-center shadow-sm transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 active:scale-95 cursor-pointer"
+                style={{
+                  height: '32px',
+                  padding: '0 10px',
+                  backgroundColor: 'rgba(58, 133, 24, 0.1)',
+                  border: '1px solid rgba(58, 133, 24, 0.25)',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+                  backdropFilter: 'blur(8px)',
+                  fontFamily: 'Space Grotesk',
+                  fontWeight: 600,
+                  fontSize: '11px',
+                  color: '#3A8518',
+                  gap: '5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title="Open Free Text Analyzer in ChatGPT"
+              >
+                Free Text Analyzer
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </button>
+            </>
+          )}
           {/* Sentiment Color Toggle - matches toolbar button style */}
           {chartVariant === 'heatmap' && canUseHeatmap && !isSentimentQuestion && !hasPositiveNegative && question.type !== 'ranking' && (
             <>
@@ -1893,7 +1953,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         position: 'relative',
         minHeight: `${300 + chartHeightOffset}px`
       }}>
-      {/* Right resize handle - positioned based on chart type */}
+      {/* Right resize handle - positioned based on chart type (hidden for text questions) */}
+      {question.type !== 'text' && (
       <div
         onMouseDown={handleChartResizeStart('right')}
         style={{
@@ -1936,6 +1997,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
           transition: 'background-color 0.15s ease'
         }} />
       </div>
+      )}
       <div ref={chartContentRef} style={{
         width: `${chartWidthPercent}%`
       }}>
@@ -2033,6 +2095,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         }
 
         // Render text/free-text questions with FreeTextDisplay component
+        // Note: showContainer=false because ChartCard already provides the outer container
         if (question.type === 'text') {
           devLog('Rendering free text display for question:', question.qid)
           return (
@@ -2044,7 +2107,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               onSaveQuestionLabel={onSaveQuestionLabel}
               questionTypeBadge={questionTypeBadge}
               showSegment={showSegment}
-              showContainer={showContainer}
+              showContainer={false}
+              segmentLabel={series.groups[0]?.label || 'Overall'}
             />
           )
         }
@@ -2583,7 +2647,8 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         )}
         </div>{/* Close export wrapper */}
       </div>{/* Close chartContentRef */}
-      {/* Height resize handle below the chart */}
+      {/* Height resize handle below the chart (hidden for text questions) */}
+      {question.type !== 'text' && (
       <div
         onMouseDown={handleHeightResizeStart}
         style={{
@@ -2621,6 +2686,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
           transition: 'background-color 0.15s ease'
         }} />
       </div>
+      )}
       </div>
         )
       })()}
