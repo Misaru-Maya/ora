@@ -461,7 +461,7 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
         }}
       />
 
-      {/* Word list for removal/restoration - right side */}
+      {/* Word list for removal/restoration - right side, fixed width */}
       <div style={{
         display: 'flex',
         flexWrap: 'wrap',
@@ -471,7 +471,8 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
         padding: '8px',
         backgroundColor: '#F8F9FA',
         borderRadius: '8px',
-        flex: 1,
+        width: '280px',
+        minWidth: '280px',
         boxSizing: 'border-box',
         alignContent: 'flex-start',
       }}>
