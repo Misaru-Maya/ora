@@ -448,8 +448,8 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
   }
 
   return (
-    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      {/* Canvas - centered */}
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: '20px' }}>
+      {/* Canvas - left side */}
       <canvas
         ref={canvasRef}
         style={{
@@ -457,23 +457,23 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
           height: containerHeight,
           borderRadius: '12px',
           backgroundColor: '#FFFFFF',
+          flexShrink: 0,
         }}
       />
 
-      {/* Word list for removal/restoration */}
+      {/* Word list for removal/restoration - right side */}
       <div style={{
-        marginTop: '16px',
         display: 'flex',
         flexWrap: 'wrap',
         gap: '8px',
-        maxHeight: '120px',
+        maxHeight: `${containerHeight}px`,
         overflowY: 'auto',
         padding: '8px',
         backgroundColor: '#F8F9FA',
         borderRadius: '8px',
-        width: '100%',
-        maxWidth: effectiveWordListWidth,
+        flex: 1,
         boxSizing: 'border-box',
+        alignContent: 'flex-start',
       }}>
         {availableWords.map(({ word, frequency }) => (
           <button
