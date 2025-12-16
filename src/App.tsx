@@ -5847,7 +5847,7 @@ export default function App() {
                       gap: '8px',
                       width: '100%',
                       padding: '12px 16px',
-                      backgroundColor: 'rgba(58, 133, 24, 0.1)',
+                      backgroundColor: '#FFFFFF',
                       border: '1px solid rgba(58, 133, 24, 0.25)',
                       borderRadius: '10px',
                       color: '#3A8518',
@@ -5856,14 +5856,14 @@ export default function App() {
                       cursor: 'pointer',
                       fontFamily: 'Space Grotesk, sans-serif',
                       transition: 'all 0.15s ease-out',
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)'
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.15)'
+                      e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.1)'
                       e.currentTarget.style.borderColor = 'rgba(58, 133, 24, 0.4)'
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.1)'
+                      e.currentTarget.style.backgroundColor = '#FFFFFF'
                       e.currentTarget.style.borderColor = 'rgba(58, 133, 24, 0.25)'
                     }}
                     title="Run apples-to-apples comparison controlling for demographics"
