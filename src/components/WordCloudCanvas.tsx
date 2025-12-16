@@ -320,20 +320,11 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
       let attempts = 0
       const maxAttempts = 2000
 
-      // Rotate some words to fill corners and make more circular
-      // First few words horizontal, then alternate with vertical
-      const wordRotation = (index === 0 || index < 3) ? 0 : (index % 3 === 0 ? Math.PI / 2 : 0)
-      const isVertical = wordRotation !== 0
-
       // Try to place the word, reducing font size if needed
       while (!placed && fontSize >= 10 && attempts < maxAttempts * 3) {
         ctx.font = `${fontSize}px "Space Grotesk"`
         const textWidth = ctx.measureText(wordData.word).width
         const textHeight = fontSize
-
-        // For vertical words, swap width and height for collision detection
-        const effectiveWidth = isVertical ? textHeight : textWidth
-        const effectiveHeight = isVertical ? textWidth : textHeight
 
         let localAttempts = 0
         while (!placed && localAttempts < maxAttempts) {
@@ -341,22 +332,22 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
 
           if (index === 0) {
             // First word (highest frequency) in center
-            x = canvas.width / 2
-            y = canvas.height / 2
+            x = canvas.width / 2 - textWidth / 2
+            y = canvas.height / 2 + textHeight / 2
           } else {
             // Spiral placement with alternating direction
             const spiralDir = (index % 2 === 0) ? 1 : -1
             const spiralAngle = angle * spiralDir
             // Circular shape
-            x = canvas.width / 2 + Math.cos(spiralAngle) * radius * shapeRatio
-            y = canvas.height / 2 + Math.sin(spiralAngle) * radius
+            x = canvas.width / 2 + Math.cos(spiralAngle) * radius * shapeRatio - textWidth / 2
+            y = canvas.height / 2 + Math.sin(spiralAngle) * radius + textHeight / 2
           }
 
-          // Calculate bounding box for collision detection
-          const rectX = x - effectiveWidth / 2
-          const rectY = y - effectiveHeight / 2
-          const rectW = effectiveWidth
-          const rectH = effectiveHeight
+          // Check collision with existing words
+          const rectX = x
+          const rectY = y - textHeight
+          const rectW = textWidth
+          const rectH = textHeight
 
           const collision = placedRects.some(rect =>
             rectX < rect.x + rect.width &&
@@ -366,18 +357,12 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
           )
 
           if (!collision &&
-              rectX >= padding &&
-              rectX + rectW <= canvas.width - padding &&
-              rectY >= padding &&
-              rectY + rectH <= canvas.height - padding) {
-            ctx.save()
-            ctx.translate(x, y)
-            ctx.rotate(wordRotation)
+              x >= padding &&
+              x + textWidth <= canvas.width - padding &&
+              y - textHeight >= padding &&
+              y <= canvas.height - padding) {
             ctx.fillStyle = color
-            ctx.textAlign = 'center'
-            ctx.textBaseline = 'middle'
-            ctx.fillText(wordData.word, 0, 0)
-            ctx.restore()
+            ctx.fillText(wordData.word, x, y)
             placedRects.push({x: rectX, y: rectY, width: rectW, height: rectH})
             placed = true
             break
