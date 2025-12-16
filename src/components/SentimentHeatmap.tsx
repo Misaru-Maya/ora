@@ -1006,11 +1006,15 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
                   {filteredProducts.map(product => (
                     <th key={product.productName} style={{
                       backgroundColor: '#FFFFFF',
-                      padding: '8px 12px',
+                      padding: '8px 4px',
                       textAlign: 'center',
-                      fontSize: '14px',
+                      fontSize: '12px',
                       fontWeight: 600,
-                      verticalAlign: 'middle'
+                      verticalAlign: 'bottom',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
+                      whiteSpace: 'normal',
+                      lineHeight: '1.2'
                     }}>
                       {product.productName}
                     </th>
