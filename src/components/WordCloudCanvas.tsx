@@ -448,7 +448,7 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
   }
 
   return (
-    <div style={{ width: '100%', display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: '20px' }}>
+    <div style={{ width: '100%', position: 'relative', minHeight: `${containerHeight}px` }}>
       {/* Canvas - left side */}
       <canvas
         ref={canvasRef}
@@ -457,12 +457,14 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
           height: containerHeight,
           borderRadius: '12px',
           backgroundColor: '#FFFFFF',
-          flexShrink: 0,
         }}
       />
 
-      {/* Word list for removal/restoration - right side, fixed width */}
+      {/* Word list for removal/restoration - fixed position on right */}
       <div style={{
+        position: 'absolute',
+        top: 0,
+        right: 0,
         display: 'flex',
         flexWrap: 'wrap',
         gap: '8px',
@@ -472,7 +474,6 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
         backgroundColor: '#F8F9FA',
         borderRadius: '8px',
         width: '280px',
-        minWidth: '280px',
         boxSizing: 'border-box',
         alignContent: 'flex-start',
       }}>
