@@ -1562,16 +1562,52 @@ export default function App() {
       return result
     }
 
+    // Stop words and meaningless responses to filter (same as WordCloudCanvas)
+    const MEANINGLESS_WORDS = new Set([
+      'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', 'your', 'yours',
+      'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', 'her', 'hers',
+      'herself', 'it', 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves',
+      'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those', 'am', 'is', 'are',
+      'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does',
+      'did', 'doing', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 'because', 'as', 'until',
+      'while', 'of', 'at', 'by', 'for', 'with', 'through', 'during', 'before', 'after',
+      'above', 'below', 'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under', 'again',
+      'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all',
+      'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor',
+      'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will',
+      'just', 'don', 'should', 'now', 've', 'll', 're',
+      'seem', 'think', 'really', 'much', "don't", 'would', "won't", "can't", 'could',
+      'know', 'like', 'make', 'made', "isn't", 'isn', 'about', 'around', 'way', 'doesn', 'overall', 'wouldn', 'couldn',
+      'dont', 'little', 'less', 'skip', 'nothing', 'none', 'meant',
+      // Meaningless adjectives
+      'good', 'bad', 'nice', 'great', 'stuff', 'okay', 'ok', 'fine',
+      'cool', 'awesome', 'amazing', 'horrible', 'terrible', 'awful',
+      'decent', 'solid', 'pretty', 'many', 'yes', 'no', 'na', 'n/a',
+      'thing', 'things', 'something', 'everything', 'anything',
+      'lot', 'lots', 'kind', 'kinda', 'sorta', 'bit',
+      'definitely', 'absolutely', 'totally', 'basically', 'honestly',
+      'perfect', 'excellent', 'wonderful', 'fantastic', 'best', 'worst'
+    ])
+
+    // Check if a response is meaningful (not just stop words or too short)
+    const isMeaningfulResponse = (response: string): boolean => {
+      const trimmed = response.trim().toLowerCase()
+      // Filter out very short responses
+      if (trimmed.length < 3) return false
+      // Filter out responses that are just numbers
+      if (/^\d+$/.test(trimmed)) return false
+      // Filter out responses that are just a single meaningless word
+      if (MEANINGLESS_WORDS.has(trimmed)) return false
+      // Filter out common non-responses (including any variation of "not specified")
+      if (['n/a', 'na', 'none', '-', '.', '...', 'skip', 'unspecified'].includes(trimmed)) return false
+      // Always remove any response containing "not specified" or similar patterns
+      if (trimmed.includes('not specified') || trimmed.includes('notspecified')) return false
+      return true
+    }
+
     // Helper: Calculate word frequencies for text questions
     const calculateWordFrequencies = (responses: string[]) => {
-      const stopWords = new Set([
-        'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
-        'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did',
-        'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these',
-        'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'what', 'which', 'who', 'whom',
-        'very', 'really', 'just', 'also', 'more', 'some', 'any', 'all', 'most', 'other', 'into',
-        'good', 'bad', 'nice', 'great', 'like', 'dont', "don't", 'not', 'no', 'yes', 'so', 'as'
-      ])
+      const stopWords = MEANINGLESS_WORDS
 
       const wordCounts: Record<string, number> = {}
       for (const response of responses) {
@@ -1636,11 +1672,11 @@ export default function App() {
             lines.push('')
           }
 
-          // Get all unique responses with their counts
+          // Get all unique responses with their counts (filter out meaningless responses)
           const responseCounts: Record<string, number> = {}
           for (const response of question.rawTextResponses) {
             const trimmed = response.trim()
-            if (trimmed) {
+            if (trimmed && isMeaningfulResponse(trimmed)) {
               responseCounts[trimmed] = (responseCounts[trimmed] || 0) + 1
             }
           }
