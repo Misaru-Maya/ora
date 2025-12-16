@@ -1602,6 +1602,9 @@ export default function App() {
       if (['n/a', 'na', 'none', '-', '.', '...', 'skip', 'unspecified'].includes(trimmed)) return false
       // Always remove any response containing "not specified" or similar patterns
       if (trimmed.includes('not specified') || trimmed.includes('notspecified')) return false
+      // Only include responses with more than 3 words
+      const wordCount = trimmed.split(/\s+/).filter(w => w.length > 0).length
+      if (wordCount <= 3) return false
       return true
     }
 
