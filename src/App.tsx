@@ -2523,46 +2523,6 @@ export default function App() {
             <div style={{ flexShrink: 0 }}>
               <CSVUpload />
             </div>
-            {/* Apples-to-Apples Comparison Button */}
-            {dataset && (
-              <button
-                onClick={() => setShowRegressionPanel(true)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '4px',
-                  padding: '12px 24px',
-                  backgroundColor: '#FFFFFF',
-                  border: 'none',
-                  borderRadius: '10px',
-                  color: '#3A8518',
-                  fontSize: '12px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  fontFamily: 'Space Grotesk, sans-serif',
-                  transition: 'all 0.15s ease-out',
-                  boxShadow: '0 0 0 1px rgba(58,133,24,0.3), 0 2px 8px -2px rgba(58,133,24,0.15)'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#F0FDF4'
-                  e.currentTarget.style.boxShadow = '0 0 0 1px rgba(58,133,24,0.5), 0 4px 12px -2px rgba(58,133,24,0.25)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#FFFFFF'
-                  e.currentTarget.style.boxShadow = '0 0 0 1px rgba(58,133,24,0.3), 0 2px 8px -2px rgba(58,133,24,0.15)'
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
-                  <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
-                  <path d="M7 21h10" />
-                  <path d="M12 3v18" />
-                  <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
-                </svg>
-                Apples-to-Apples
-              </button>
-            )}
             {/* Export Markdown Button - for AI tools (ChatGPT, NotebookLM) */}
             {dataset && (
               <button
@@ -5875,6 +5835,52 @@ export default function App() {
                   </div>
                   )}
                 </section>
+
+                {/* Apples-to-Apples Button - Bottom of sidebar */}
+                <div style={{ padding: '16px', marginTop: '8px' }}>
+                  <button
+                    onClick={() => setShowRegressionPanel(true)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      width: '100%',
+                      padding: '12px 16px',
+                      backgroundColor: 'rgba(58, 133, 24, 0.1)',
+                      border: '1px solid rgba(58, 133, 24, 0.25)',
+                      borderRadius: '10px',
+                      color: '#3A8518',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      fontFamily: 'Space Grotesk, sans-serif',
+                      transition: 'all 0.15s ease-out',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.15)'
+                      e.currentTarget.style.borderColor = 'rgba(58, 133, 24, 0.4)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.1)'
+                      e.currentTarget.style.borderColor = 'rgba(58, 133, 24, 0.25)'
+                    }}
+                    title="Run apples-to-apples comparison controlling for demographics"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="20" x2="18" y2="10" />
+                      <line x1="12" y1="20" x2="12" y2="4" />
+                      <line x1="6" y1="20" x2="6" y2="14" />
+                      <path d="m14 8 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+                      <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+                      <path d="M7 21h10" />
+                      <path d="M12 3v18" />
+                      <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
+                    </svg>
+                    Apples-to-Apples
+                  </button>
+                </div>
 
               </div>
             </>
