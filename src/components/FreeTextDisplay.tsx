@@ -32,7 +32,12 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
 
   // Word cloud width resize state - default to circle (width = height)
   // Calculate initial percent so that effectiveCloudWidth = baseHeight
-  const getDefaultCloudWidthPercent = (width: number) => Math.min(100, (baseHeight / width) * 100)
+  const getDefaultCloudWidthPercent = (width: number) => {
+    // Account for word list space (280px + 20px gap + 40px handle gap + 12px handle)
+    const maxWidth = width - 352
+    const circleWidth = Math.min(baseHeight, maxWidth)
+    return Math.min(100, (circleWidth / width) * 100)
+  }
   const [cloudWidthPercent, setCloudWidthPercent] = useState(() => getDefaultCloudWidthPercent(800))
   const [isResizingCloud, setIsResizingCloud] = useState(false)
   const resizeStartX = useRef<number>(0)
@@ -92,7 +97,13 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
     resizeStartWidth.current = cloudWidthPercent
   }
 
-  const effectiveCloudWidth = containerWidth * (cloudWidthPercent / 100)
+  // Word list is 280px, need 20px gap between handle and word list
+  // Handle should be 40px right of cloud edge
+  const wordListWidth = 280
+  const handleToWordListGap = 20
+  const cloudToHandleGap = 40
+  const maxCloudWidth = containerWidth - wordListWidth - handleToWordListGap - cloudToHandleGap - 12 // 12 = handle width
+  const effectiveCloudWidth = Math.min(containerWidth * (cloudWidthPercent / 100), maxCloudWidth)
 
   // Clean the label (remove Example: text and (text) marker)
   const cleanLabel = (label: string): string => {
@@ -280,12 +291,12 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
             </div>
           )}
 
-          {/* Word cloud width resize handle (vertical bar on right of cloud) */}
+          {/* Word cloud width resize handle (vertical bar 40px right of cloud edge) */}
           <div
             onMouseDown={handleCloudResizeStart}
             style={{
               position: 'absolute',
-              right: `calc(${(100 - cloudWidthPercent) / 2}% + 20px)`,
+              left: `${effectiveCloudWidth + cloudToHandleGap}px`,
               top: '180px',
               width: '12px',
               height: '60px',
