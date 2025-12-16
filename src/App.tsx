@@ -2533,6 +2533,7 @@ export default function App() {
                   justifyContent: 'center',
                   gap: '4px',
                   padding: '12px 24px',
+                  minWidth: '140px',
                   backgroundColor: '#FFFFFF',
                   border: 'none',
                   borderRadius: '10px',
@@ -2572,26 +2573,27 @@ export default function App() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '5px',
-                  padding: '10px 16px',
-                  backgroundColor: 'rgba(58, 133, 24, 0.1)',
-                  border: '1px solid rgba(58, 133, 24, 0.25)',
-                  borderRadius: '8px',
+                  gap: '4px',
+                  padding: '12px 24px',
+                  minWidth: '140px',
+                  backgroundColor: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '10px',
                   color: '#3A8518',
                   fontSize: '12px',
-                  fontWeight: '600',
+                  fontWeight: '500',
                   cursor: 'pointer',
                   fontFamily: 'Space Grotesk, sans-serif',
                   transition: 'all 0.15s ease-out',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)'
+                  boxShadow: '0 0 0 1px rgba(58,133,24,0.3), 0 2px 8px -2px rgba(58,133,24,0.15)'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.15)'
-                  e.currentTarget.style.borderColor = 'rgba(58, 133, 24, 0.4)'
+                  e.currentTarget.style.backgroundColor = '#F0FDF4'
+                  e.currentTarget.style.boxShadow = '0 0 0 1px rgba(58,133,24,0.5), 0 4px 12px -2px rgba(58,133,24,0.25)'
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.1)'
-                  e.currentTarget.style.borderColor = 'rgba(58, 133, 24, 0.25)'
+                  e.currentTarget.style.backgroundColor = '#FFFFFF'
+                  e.currentTarget.style.boxShadow = '0 0 0 1px rgba(58,133,24,0.3), 0 2px 8px -2px rgba(58,133,24,0.15)'
                 }}
                 title="Open NotebookLM"
               >
@@ -2611,26 +2613,27 @@ export default function App() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '5px',
-                  padding: '10px 16px',
-                  backgroundColor: 'rgba(58, 133, 24, 0.1)',
-                  border: '1px solid rgba(58, 133, 24, 0.25)',
-                  borderRadius: '8px',
+                  gap: '4px',
+                  padding: '12px 24px',
+                  minWidth: '140px',
+                  backgroundColor: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '10px',
                   color: '#3A8518',
                   fontSize: '12px',
-                  fontWeight: '600',
+                  fontWeight: '500',
                   cursor: 'pointer',
                   fontFamily: 'Space Grotesk, sans-serif',
                   transition: 'all 0.15s ease-out',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)'
+                  boxShadow: '0 0 0 1px rgba(58,133,24,0.3), 0 2px 8px -2px rgba(58,133,24,0.15)'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.15)'
-                  e.currentTarget.style.borderColor = 'rgba(58, 133, 24, 0.4)'
+                  e.currentTarget.style.backgroundColor = '#F0FDF4'
+                  e.currentTarget.style.boxShadow = '0 0 0 1px rgba(58,133,24,0.5), 0 4px 12px -2px rgba(58,133,24,0.25)'
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(58, 133, 24, 0.1)'
-                  e.currentTarget.style.borderColor = 'rgba(58, 133, 24, 0.25)'
+                  e.currentTarget.style.backgroundColor = '#FFFFFF'
+                  e.currentTarget.style.boxShadow = '0 0 0 1px rgba(58,133,24,0.3), 0 2px 8px -2px rgba(58,133,24,0.15)'
                 }}
                 title="Open Insight Generator in ChatGPT"
               >
