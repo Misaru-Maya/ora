@@ -1811,10 +1811,17 @@ export default function App() {
           lines.push(`| ${headers.join(' | ')} |`)
           lines.push(`| ${headers.map(() => '---').join(' | ')} |`)
 
+          // Collect significant differences for notes
+          const significantNotes: string[] = []
+
           // Add data rows
           for (const dataPoint of seriesResult.data) {
             const optionLabel = selections.optionLabels?.[question.qid]?.[dataPoint.option] || dataPoint.optionDisplay
-            const row = [optionLabel]
+
+            // Check if this option has statistically significant differences
+            const hasSignificance = dataPoint.significance && dataPoint.significance.some(sig => sig.significant)
+            const displayLabel = hasSignificance ? `${optionLabel}*` : optionLabel
+            const row = [displayLabel]
 
             for (const group of groups) {
               const value = dataPoint[group.key]
@@ -1825,6 +1832,27 @@ export default function App() {
               }
             }
             lines.push(`| ${row.join(' | ')} |`)
+
+            // Collect significant pair details
+            if (dataPoint.significance) {
+              for (const sig of dataPoint.significance) {
+                if (sig.significant) {
+                  const [group1, group2] = sig.pair
+                  const label1 = selections.groupLabels?.[group1] || group1
+                  const label2 = selections.groupLabels?.[group2] || group2
+                  significantNotes.push(`"${optionLabel}": ${label1} vs ${label2} (χ²=${sig.chiSquare.toFixed(2)})`)
+                }
+              }
+            }
+          }
+
+          // Add significance note if any
+          if (significantNotes.length > 0) {
+            lines.push('')
+            lines.push('**Statistically Significant Differences (p<0.05):**')
+            significantNotes.forEach(note => {
+              lines.push(`- ${note}`)
+            })
           }
         }
       } catch (e) {
