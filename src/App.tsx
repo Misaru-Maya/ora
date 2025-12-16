@@ -1677,25 +1677,31 @@ export default function App() {
           }
 
           // Get all unique responses with their counts (filter out meaningless responses)
-          const responseCounts: Record<string, number> = {}
+          // Use lowercase key to consolidate case-insensitive duplicates
+          const responseCounts: Record<string, { display: string; count: number }> = {}
           for (const response of question.rawTextResponses) {
             const trimmed = response.trim()
             if (trimmed && isMeaningfulResponse(trimmed)) {
-              responseCounts[trimmed] = (responseCounts[trimmed] || 0) + 1
+              const key = trimmed.toLowerCase()
+              if (responseCounts[key]) {
+                responseCounts[key].count += 1
+              } else {
+                responseCounts[key] = { display: trimmed, count: 1 }
+              }
             }
           }
 
           // Sort by frequency descending
-          const uniqueResponses = Object.entries(responseCounts)
-            .sort((a, b) => b[1] - a[1])
+          const uniqueResponses = Object.values(responseCounts)
+            .sort((a, b) => b.count - a.count)
 
           lines.push('**All Unique Responses:**')
           lines.push('')
           lines.push('| Response | Count |')
           lines.push('| --- | --- |')
-          uniqueResponses.forEach(([response, count]) => {
+          uniqueResponses.forEach(({ display, count }) => {
             // Escape pipe characters in responses for markdown table
-            const escapedResponse = response.replace(/\|/g, '\\|')
+            const escapedResponse = display.replace(/\|/g, '\\|')
             lines.push(`| ${escapedResponse} | ${count} |`)
           })
         }
