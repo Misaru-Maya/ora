@@ -36,10 +36,10 @@ const COLOR_PALETTES = {
     '#B2BBC5',  // silver fog
   ],
   negative: [
+    '#B8860B',  // dark goldenrod (matches detractors label)
     '#E7CB38',  // brand-yellow
     '#ECD560',  // arylide yellow
-    '#F1E088',  // wild rice
-    '#393C2C',  // dune
+    '#B2BBC5',  // silver fog (same gray as green palette)
   ],
 }
 
