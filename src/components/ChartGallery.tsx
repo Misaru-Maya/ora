@@ -1490,7 +1490,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
           </div>
           {/* 2. Heatmap product filter portal */}
           {chartVariant === 'heatmap' && (
-            <div id={`heatmap-filters-${question.qid}`}></div>
+            <div id={`heatmap-filters-${question.qid}`} style={{ position: 'relative', zIndex: 10000 }}></div>
           )}
           {/* 3. Sort Icon Dropdown */}
           {chartVariant !== 'heatmap' && question.type !== 'ranking' && (
