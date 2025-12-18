@@ -2621,12 +2621,22 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                 return newDataPoint
               }).filter(d => !isExcludedValue(d.optionDisplay))
 
+              // Apply sorting based on sortOrder
+              const sortedAveragedData = [...averagedData]
+              if (sortOrder === 'descending' || sortOrder === 'ascending') {
+                sortedAveragedData.sort((a, b) => {
+                  const aVal = a.overall || 0
+                  const bVal = b.overall || 0
+                  return sortOrder === 'descending' ? bVal - aVal : aVal - bVal
+                })
+              }
+
               const averagedGroups = [{ key: 'overall', label: 'Overall' }]
 
               return (
                 <ComparisonChart
                   key={averagedGroups.map(g => g.key).join('|')}
-                  data={averagedData}
+                  data={sortedAveragedData}
                   groups={averagedGroups}
                   orientation={chartOrientation}
                   questionLabel={displayLabel}
