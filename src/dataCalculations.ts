@@ -439,7 +439,11 @@ export function buildSeries({
           }
 
           count = seen.size
-          denom = info.uniqueRespondents.length // Use all respondents in segment, not just those who answered
+          // For product follow-up questions (positive/negative), use only respondents who answered
+          // For other questions, use all respondents in segment
+          const isProductFollowUp = question.label.toLowerCase().includes('(positive)') ||
+                                    question.label.toLowerCase().includes('(negative)')
+          denom = isProductFollowUp ? answeredRespondents.size : info.uniqueRespondents.length
         } else {
           // COUNT AT RESPONDENT LEVEL: Each unique respondent is counted once
           const seen = new Set<string>()
@@ -499,7 +503,11 @@ export function buildSeries({
           }
 
           count = seen.size
-          denom = info.uniqueRespondents.length // Use all respondents in segment, not just those who answered
+          // For product follow-up questions (positive/negative), use only respondents who answered
+          // For other questions, use all respondents in segment
+          const isProductFollowUp = question.label.toLowerCase().includes('(positive)') ||
+                                    question.label.toLowerCase().includes('(negative)')
+          denom = isProductFollowUp ? answeredRespondents.size : info.uniqueRespondents.length
         }
       } else if (question.type === 'ranking') {
         // For ranking questions, calculate average ranking score

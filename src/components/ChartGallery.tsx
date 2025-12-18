@@ -2443,8 +2443,32 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
 
                       // Get unique respondents in this segment for significance calculation
                       const respIdCol = dataset.summary.respondentIdColumn || 'Respondent Id'
-                      const uniqueRespondents = new Set(segmentRows.map(r => r[respIdCol]).filter(Boolean))
-                      const denominator = uniqueRespondents.size
+
+                      // For product follow-up questions (positive/negative), only count respondents who answered
+                      const isProductFollowUp = question.label.toLowerCase().includes('(positive)') ||
+                                                question.label.toLowerCase().includes('(negative)')
+
+                      let denominator: number
+                      if (isProductFollowUp && question.type === 'multi') {
+                        // Count respondents who answered (any option selected)
+                        const allQuestionHeaders = question.columns.flatMap(col =>
+                          [col.header, ...(col.alternateHeaders || [])]
+                        )
+                        const answeredRespondents = new Set<string>()
+                        for (const row of segmentRows) {
+                          const respondent = row[respIdCol]
+                          if (!respondent) continue
+                          const hasAnswer = allQuestionHeaders.some(header => {
+                            const val = row[header]
+                            return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes'
+                          })
+                          if (hasAnswer) answeredRespondents.add(respondent)
+                        }
+                        denominator = answeredRespondents.size
+                      } else {
+                        const uniqueRespondents = new Set(segmentRows.map(r => r[respIdCol]).filter(Boolean))
+                        denominator = uniqueRespondents.size
+                      }
 
                       // Count respondents who selected this option
                       const optionColumn = question.columns.find(col => col.optionLabel?.toLowerCase() === optionLabel.toLowerCase())
@@ -2654,7 +2678,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
         onMouseDown={handleHeightResizeStart}
         style={{
           position: 'absolute',
-          left: `${chartWidthPercent / 2}%`,
+          left: '50%',
           transform: 'translateX(-50%)',
           bottom: 0,
           width: '80px',

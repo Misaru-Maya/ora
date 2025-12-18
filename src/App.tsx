@@ -1516,6 +1516,21 @@ export default function App() {
         const productRows = dataset.rows.filter(row => normalizeProductValue(row[productColumn]) === product)
         if (productRows.length === 0) continue
 
+        // For multi-select product follow-up questions, count rows where respondent answered (any option selected)
+        let answeredRowCount = productRows.length
+        if (question.type === 'multi') {
+          const allQuestionHeaders = question.columns.flatMap(col =>
+            [col.header, ...(col.alternateHeaders || [])]
+          )
+          answeredRowCount = productRows.filter(row => {
+            return allQuestionHeaders.some(header => {
+              const val = row[header]
+              return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes'
+            })
+          }).length
+        }
+        if (answeredRowCount === 0) continue
+
         // Calculate percentage for each option for this product
         for (const option of allOptions) {
           const optionColumn = question.columns.find(col => col.optionLabel === option)
@@ -1536,7 +1551,7 @@ export default function App() {
             }
           }
 
-          const percent = (count / productRows.length) * 100
+          const percent = (count / answeredRowCount) * 100
           optionAverages[option].total += percent
           optionAverages[option].count++
         }
