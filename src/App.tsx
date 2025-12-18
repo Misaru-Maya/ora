@@ -1505,6 +1505,16 @@ export default function App() {
       // Get all options
       const allOptions = question.columns.map(col => col.optionLabel).filter(Boolean)
 
+      // Check if this is a product follow-up question
+      const isPositiveFollowUp = question.label.toLowerCase().includes('(positive)')
+      const isNegativeFollowUp = question.label.toLowerCase().includes('(negative)')
+
+      // Find sentiment column for product follow-up questions
+      const sentimentCol = dataset.summary.columns.find(col =>
+        col.toLowerCase().includes('(sentiment)') ||
+        col.toLowerCase().includes('would you consider buying')
+      )
+
       // Calculate per-product percentages, then average
       const optionAverages: Record<string, { total: number; count: number }> = {}
       allOptions.forEach(opt => {
@@ -1516,20 +1526,30 @@ export default function App() {
         const productRows = dataset.rows.filter(row => normalizeProductValue(row[productColumn]) === product)
         if (productRows.length === 0) continue
 
-        // For multi-select product follow-up questions, count rows where respondent answered (any option selected)
-        let answeredRowCount = productRows.length
-        if (question.type === 'multi') {
+        // For product follow-up questions, use sentiment to determine denominator (who was shown the question)
+        let shownRowCount = productRows.length
+        if ((isPositiveFollowUp || isNegativeFollowUp) && sentimentCol) {
+          shownRowCount = productRows.filter(row => {
+            const sentiment = row[sentimentCol]
+            const sentimentNum = typeof sentiment === 'number' ? sentiment : parseInt(String(sentiment))
+            if (isNaN(sentimentNum)) return false
+            if (isPositiveFollowUp) return sentimentNum === 4 || sentimentNum === 5
+            if (isNegativeFollowUp) return sentimentNum >= 1 && sentimentNum <= 3
+            return false
+          }).length
+        } else if (question.type === 'multi') {
+          // Fallback for non-follow-up multi-select: count rows where any option is selected
           const allQuestionHeaders = question.columns.flatMap(col =>
             [col.header, ...(col.alternateHeaders || [])]
           )
-          answeredRowCount = productRows.filter(row => {
+          shownRowCount = productRows.filter(row => {
             return allQuestionHeaders.some(header => {
               const val = row[header]
               return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes'
             })
           }).length
         }
-        if (answeredRowCount === 0) continue
+        if (shownRowCount === 0) continue
 
         // Calculate percentage for each option for this product
         for (const option of allOptions) {
@@ -1551,7 +1571,7 @@ export default function App() {
             }
           }
 
-          const percent = (count / answeredRowCount) * 100
+          const percent = (count / shownRowCount) * 100
           optionAverages[option].total += percent
           optionAverages[option].count++
         }

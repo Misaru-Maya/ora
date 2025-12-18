@@ -2444,27 +2444,34 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                       // Get unique respondents in this segment for significance calculation
                       const respIdCol = dataset.summary.respondentIdColumn || 'Respondent Id'
 
-                      // For product follow-up questions (positive/negative), only count respondents who answered
-                      const isProductFollowUp = question.label.toLowerCase().includes('(positive)') ||
-                                                question.label.toLowerCase().includes('(negative)')
+                      // For product follow-up questions (positive/negative), use sentiment to determine who was shown
+                      const isPositiveFollowUp = question.label.toLowerCase().includes('(positive)')
+                      const isNegativeFollowUp = question.label.toLowerCase().includes('(negative)')
+                      const isProductFollowUp = isPositiveFollowUp || isNegativeFollowUp
+
+                      // Find sentiment column
+                      const sentimentCol = dataset.summary.columns.find(col =>
+                        col.toLowerCase().includes('(sentiment)') ||
+                        col.toLowerCase().includes('would you consider buying')
+                      )
 
                       let denominator: number
-                      if (isProductFollowUp && question.type === 'multi') {
-                        // Count respondents who answered (any option selected)
-                        const allQuestionHeaders = question.columns.flatMap(col =>
-                          [col.header, ...(col.alternateHeaders || [])]
-                        )
-                        const answeredRespondents = new Set<string>()
+                      if (isProductFollowUp && sentimentCol) {
+                        // Count respondents who were shown the question (based on sentiment)
+                        const shownRespondents = new Set<string>()
                         for (const row of segmentRows) {
                           const respondent = row[respIdCol]
                           if (!respondent) continue
-                          const hasAnswer = allQuestionHeaders.some(header => {
-                            const val = row[header]
-                            return val === 1 || val === '1' || val === true || val === 'true' || val === 'TRUE' || val === 'Yes' || val === 'yes'
-                          })
-                          if (hasAnswer) answeredRespondents.add(respondent)
+                          const sentiment = row[sentimentCol]
+                          const sentimentNum = typeof sentiment === 'number' ? sentiment : parseInt(String(sentiment))
+                          if (isNaN(sentimentNum)) continue
+                          if (isPositiveFollowUp && (sentimentNum === 4 || sentimentNum === 5)) {
+                            shownRespondents.add(respondent)
+                          } else if (isNegativeFollowUp && sentimentNum >= 1 && sentimentNum <= 3) {
+                            shownRespondents.add(respondent)
+                          }
                         }
-                        denominator = answeredRespondents.size
+                        denominator = shownRespondents.size
                       } else {
                         const uniqueRespondents = new Set(segmentRows.map(r => r[respIdCol]).filter(Boolean))
                         denominator = uniqueRespondents.size

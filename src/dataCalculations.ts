@@ -384,7 +384,21 @@ export function buildSeries({
         if (isRowLevel) {
           // COUNT AT RESPONDENT LEVEL: Each unique respondent is counted once (changed from row-level)
           const seen = new Set<string>()
-          const answeredRespondents = new Set<string>()
+          const shownRespondents = new Set<string>()
+
+          // Check if this is a product follow-up question
+          const isPositiveFollowUp = question.label.toLowerCase().includes('(positive)')
+          const isNegativeFollowUp = question.label.toLowerCase().includes('(negative)')
+          const isProductFollowUp = isPositiveFollowUp || isNegativeFollowUp
+
+          // Find sentiment column for product follow-up questions
+          let sentimentColumn: string | undefined
+          if (isProductFollowUp) {
+            sentimentColumn = dataset.summary.columns.find(col =>
+              col.toLowerCase().includes('(sentiment)') ||
+              col.toLowerCase().includes('would you consider buying')
+            )
+          }
 
           if (question.textSummaryColumn && col.header.startsWith('__TEXT_MULTI__')) {
             const optionLabelLower = optionLabel.toLowerCase()
@@ -392,10 +406,25 @@ export function buildSeries({
               const respondent = normalizeValue(r[respIdCol])
               if (!respondent) continue
 
+              // For product follow-up, use sentiment to determine if respondent was shown the question
+              if (isProductFollowUp && sentimentColumn) {
+                const sentiment = r[sentimentColumn]
+                const sentimentNum = typeof sentiment === 'number' ? sentiment : parseInt(String(sentiment))
+                if (!isNaN(sentimentNum)) {
+                  if (isPositiveFollowUp && (sentimentNum === 4 || sentimentNum === 5)) {
+                    shownRespondents.add(respondent)
+                  } else if (isNegativeFollowUp && sentimentNum >= 1 && sentimentNum <= 3) {
+                    shownRespondents.add(respondent)
+                  }
+                }
+              }
+
               const textValue = r[question.textSummaryColumn]
               if (!textValue || textValue === '') continue
 
-              answeredRespondents.add(respondent)
+              if (!isProductFollowUp) {
+                shownRespondents.add(respondent)
+              }
 
               const cleanedValue = stripQuotes(String(textValue).trim())
               const options = cleanedValue.includes('|')
@@ -416,17 +445,31 @@ export function buildSeries({
               const respondent = normalizeValue(r[respIdCol])
               if (!respondent) continue
 
-              let hasAnswerForThisRow = false
-              for (const h of allQuestionHeaders) {
-                const val = r[h]
-                if (val === 1 || val === true || val === '1' || val === 'true' || val === 'Y') {
-                  hasAnswerForThisRow = true
-                  break
+              // For product follow-up, use sentiment to determine if respondent was shown the question
+              if (isProductFollowUp && sentimentColumn) {
+                const sentiment = r[sentimentColumn]
+                const sentimentNum = typeof sentiment === 'number' ? sentiment : parseInt(String(sentiment))
+                if (!isNaN(sentimentNum)) {
+                  if (isPositiveFollowUp && (sentimentNum === 4 || sentimentNum === 5)) {
+                    shownRespondents.add(respondent)
+                  } else if (isNegativeFollowUp && sentimentNum >= 1 && sentimentNum <= 3) {
+                    shownRespondents.add(respondent)
+                  }
+                }
+              } else {
+                // For non-product-follow-up, check if any option is selected
+                let hasAnswerForThisRow = false
+                for (const h of allQuestionHeaders) {
+                  const val = r[h]
+                  if (val === 1 || val === true || val === '1' || val === 'true' || val === 'Y') {
+                    hasAnswerForThisRow = true
+                    break
+                  }
+                }
+                if (hasAnswerForThisRow) {
+                  shownRespondents.add(respondent)
                 }
               }
-              if (!hasAnswerForThisRow) continue
-
-              answeredRespondents.add(respondent)
 
               for (const header of headersToCheck) {
                 const v = r[header]
@@ -439,11 +482,9 @@ export function buildSeries({
           }
 
           count = seen.size
-          // For product follow-up questions (positive/negative), use only respondents who answered
+          // For product follow-up questions, use respondents who were shown the question (based on sentiment)
           // For other questions, use all respondents in segment
-          const isProductFollowUp = question.label.toLowerCase().includes('(positive)') ||
-                                    question.label.toLowerCase().includes('(negative)')
-          denom = isProductFollowUp ? answeredRespondents.size : info.uniqueRespondents.length
+          denom = isProductFollowUp ? shownRespondents.size : info.uniqueRespondents.length
         } else {
           // COUNT AT RESPONDENT LEVEL: Each unique respondent is counted once
           const seen = new Set<string>()
@@ -503,11 +544,8 @@ export function buildSeries({
           }
 
           count = seen.size
-          // For product follow-up questions (positive/negative), use only respondents who answered
-          // For other questions, use all respondents in segment
-          const isProductFollowUp = question.label.toLowerCase().includes('(positive)') ||
-                                    question.label.toLowerCase().includes('(negative)')
-          denom = isProductFollowUp ? answeredRespondents.size : info.uniqueRespondents.length
+          // Non-row-level multi-select questions use all respondents in segment
+          denom = info.uniqueRespondents.length
         }
       } else if (question.type === 'ranking') {
         // For ranking questions, calculate average ranking score
