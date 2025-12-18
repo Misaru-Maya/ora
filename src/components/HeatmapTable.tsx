@@ -708,8 +708,8 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                 </div>
               </div>
             </div>
-            {/* Products list */}
-            <div className="max-h-64 overflow-y-auto" style={{ padding: '8px' }}>
+            {/* Products list - shorter height to avoid overlapping next question's toolbar */}
+            <div className="max-h-48 overflow-y-auto" style={{ padding: '8px' }}>
               {allGroupsOrdered.map((group, index) => {
                 const isChecked = selectedProducts.includes(group.key)
                 return (

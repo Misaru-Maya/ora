@@ -601,8 +601,8 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
                 </div>
               </div>
             </div>
-            {/* Products list */}
-            <div className="max-h-64 overflow-y-auto" style={{ padding: '8px' }}>
+            {/* Products list - shorter height to avoid overlapping next question's toolbar */}
+            <div className="max-h-48 overflow-y-auto" style={{ padding: '8px' }}>
               {orderedProducts.map((product, index) => {
                 const isChecked = selectedProducts.includes(product.productName)
                 return (
