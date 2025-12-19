@@ -1799,6 +1799,69 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               }}
             />
           </button>
+          {/* Color Toggle for Free Text - next to copy button */}
+          {question.type === 'text' && (() => {
+            // Compute effective color: manual override > sentimentType default > green
+            const effectiveColor = sentimentOverride || (effectiveSentimentType === 'detractors' ? 'negative' : 'positive')
+            const isYellow = effectiveColor === 'negative'
+            return (
+            <>
+              <div style={{ width: '1px', height: '20px', backgroundColor: 'rgba(0, 0, 0, 0.1)', margin: '0 6px' }} />
+              <div
+                onClick={() => setSentimentOverride(isYellow ? 'positive' : 'negative')}
+              className="flex items-center shadow-sm transition-all duration-200 hover:border-gray-300 active:scale-95 cursor-pointer"
+              style={{
+                height: '32px',
+                backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                border: '1px solid rgba(0, 0, 0, 0.08)',
+                borderRadius: '8px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+                backdropFilter: 'blur(8px)',
+                padding: '4px',
+                gap: '2px'
+              }}
+              title={isYellow ? 'Negative sentiment (Yellow) - Click for Green' : 'Positive sentiment (Green) - Click for Yellow'}
+            >
+              {/* Green side */}
+              <div
+                style={{
+                  width: '22px',
+                  height: '22px',
+                  backgroundColor: !isYellow
+                    ? 'rgba(58, 133, 24, 0.85)'
+                    : 'rgba(58, 133, 24, 0.12)',
+                  border: !isYellow
+                    ? '1px solid rgba(58, 133, 24, 0.3)'
+                    : '1px solid rgba(58, 133, 24, 0.15)',
+                  borderRadius: '5px',
+                  transition: 'all 0.2s ease',
+                  boxShadow: !isYellow
+                    ? 'inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+                    : 'none'
+                }}
+              />
+              {/* Yellow side */}
+              <div
+                style={{
+                  width: '22px',
+                  height: '22px',
+                  backgroundColor: isYellow
+                    ? 'rgba(212, 186, 51, 0.85)'
+                    : 'rgba(212, 186, 51, 0.12)',
+                  border: isYellow
+                    ? '1px solid rgba(212, 186, 51, 0.3)'
+                    : '1px solid rgba(212, 186, 51, 0.15)',
+                  borderRadius: '5px',
+                  transition: 'all 0.2s ease',
+                  boxShadow: isYellow
+                    ? 'inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+                    : 'none'
+                }}
+              />
+            </div>
+            </>
+            )
+          })()}
           {/* Free Text Analyzer Button - only for text questions */}
           {question.type === 'text' && (
             <>
@@ -2110,6 +2173,7 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
               showContainer={false}
               segmentLabel={series.groups[0]?.label || 'Overall'}
               sentimentType={effectiveSentimentType}
+              sentimentColorOverride={sentimentOverride}
             />
           )
         }
@@ -2543,10 +2607,10 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                 return newDataPoint
               }).filter(d => !isExcludedValue(d.optionDisplay))
 
-              // Apply sorting based on sortOrder
+              // Apply sorting based on cardSort (local state from dropdown)
               // Sort by average value across all groups
               const sortedAveragedData = [...averagedData]
-              if (sortOrder === 'descending' || sortOrder === 'ascending') {
+              if (cardSort === 'descending' || cardSort === 'ascending') {
                 sortedAveragedData.sort((a, b) => {
                   // Calculate average value across all segment groups
                   const getAvgValue = (item: any) => {
@@ -2563,7 +2627,13 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                   }
                   const aVal = getAvgValue(a)
                   const bVal = getAvgValue(b)
-                  return sortOrder === 'descending' ? bVal - aVal : aVal - bVal
+                  return cardSort === 'descending' ? bVal - aVal : aVal - bVal
+                })
+              } else if (cardSort === 'alphabetical') {
+                sortedAveragedData.sort((a, b) => {
+                  const aText = a.optionDisplay || a.option || ''
+                  const bText = b.optionDisplay || b.option || ''
+                  return aText.localeCompare(bText)
                 })
               }
 
@@ -2621,13 +2691,19 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
                 return newDataPoint
               }).filter(d => !isExcludedValue(d.optionDisplay))
 
-              // Apply sorting based on sortOrder
+              // Apply sorting based on cardSort (local state from dropdown)
               const sortedAveragedData = [...averagedData]
-              if (sortOrder === 'descending' || sortOrder === 'ascending') {
+              if (cardSort === 'descending' || cardSort === 'ascending') {
                 sortedAveragedData.sort((a, b) => {
                   const aVal = a.overall || 0
                   const bVal = b.overall || 0
-                  return sortOrder === 'descending' ? bVal - aVal : aVal - bVal
+                  return cardSort === 'descending' ? bVal - aVal : aVal - bVal
+                })
+              } else if (cardSort === 'alphabetical') {
+                sortedAveragedData.sort((a, b) => {
+                  const aText = a.optionDisplay || a.option || ''
+                  const bText = b.optionDisplay || b.option || ''
+                  return aText.localeCompare(bText)
                 })
               }
 

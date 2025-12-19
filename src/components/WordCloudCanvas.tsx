@@ -55,6 +55,7 @@ interface WordCloudCanvasProps {
   containerHeight: number
   wordListWidth?: number
   onWordClick?: (word: string) => void
+  sentimentOverride?: 'positive' | 'negative' | null
 }
 
 // Check if question is negative based on label
@@ -128,6 +129,7 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
   containerHeight,
   wordListWidth,
   onWordClick,
+  sentimentOverride,
 }) => {
   // Use wordListWidth if provided, otherwise use containerWidth
   const effectiveWordListWidth = wordListWidth || containerWidth
@@ -137,10 +139,14 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
   const [nlpLoaded, setNlpLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Determine color palette based on question label
+  // Determine color palette based on sentiment override or question label
   const colorPalette = useMemo(() => {
+    // If there's a manual override, use that
+    if (sentimentOverride === 'negative') return COLOR_PALETTES.negative
+    if (sentimentOverride === 'positive') return COLOR_PALETTES.positive
+    // Otherwise, determine from question label
     return isNegativeQuestion(questionLabel) ? COLOR_PALETTES.negative : COLOR_PALETTES.positive
-  }, [questionLabel])
+  }, [questionLabel, sentimentOverride])
 
   // Load Compromise.js dynamically
   useEffect(() => {

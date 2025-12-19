@@ -12,6 +12,7 @@ interface FreeTextDisplayProps {
   showContainer?: boolean
   segmentLabel?: string
   sentimentType?: 'advocates' | 'detractors' | null
+  sentimentColorOverride?: 'positive' | 'negative' | null
 }
 
 export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
@@ -23,6 +24,7 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
   showContainer = true,
   segmentLabel = 'Overall',
   sentimentType = null,
+  sentimentColorOverride = null,
 }) => {
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleInput, setTitleInput] = useState(questionLabel)
@@ -286,6 +288,11 @@ export const FreeTextDisplay: React.FC<FreeTextDisplayProps> = ({
               containerWidth={effectiveCloudWidth}
               containerHeight={baseHeight}
               wordListWidth={containerWidth}
+              sentimentOverride={
+                // Manual override takes priority, then default based on sentimentType
+                sentimentColorOverride ||
+                (sentimentType === 'detractors' ? 'negative' : null)
+              }
             />
           ) : (
             <div style={{
