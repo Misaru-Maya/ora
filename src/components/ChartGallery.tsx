@@ -547,9 +547,9 @@ const ChartCard: React.FC<ChartCardProps> = memo(({
     }
   }, [isResizingHeight])
 
-  // Can use alternate chart types for single select with < 7 visible options (after filtering)
+  // Can use alternate chart types for single select with <= 9 visible options (after filtering)
   const visibleOptionsCount = series.data.length
-  const canUseAlternateCharts = question.type === 'single' && visibleOptionsCount < 7
+  const canUseAlternateCharts = question.type === 'single' && visibleOptionsCount <= 9
   const canUsePie = canUseAlternateCharts && series.groups.length === 1
   const canUseStacked = canUseAlternateCharts && series.groups.length > 1
 
