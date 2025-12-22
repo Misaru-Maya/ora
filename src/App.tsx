@@ -224,6 +224,16 @@ export default function App() {
   // Performance: Use transition for non-urgent updates to keep UI responsive
   const [isPending, startTransition] = useTransition()
 
+  // Clear global loading when transition completes
+  const prevIsPendingRef = useRef(false)
+  useEffect(() => {
+    // When isPending changes from true to false, transition completed
+    if (prevIsPendingRef.current && !isPending) {
+      setGlobalLoading(false)
+    }
+    prevIsPendingRef.current = isPending
+  }, [isPending, setGlobalLoading])
+
   // Loading state for initial chart rendering after CSV load
   const [isInitializing, setIsInitializing] = useState(false)
 
@@ -3306,15 +3316,19 @@ export default function App() {
                                   onChange={(e) => {
                                     e.stopPropagation()
                                     const newComparisonMode = !selections.comparisonMode
-                                    // Use startTransition to keep UI responsive during heavy recalculation
-                                    startTransition(() => {
-                                      setSelections({
-                                        comparisonMode: newComparisonMode,
-                                        showAsterisks: newComparisonMode,
-                                        // Clear multi-filter comparison when switching to Filter mode
-                                        ...(newComparisonMode ? {} : { multiFilterCompareMode: false, comparisonSets: [] })
+                                    // Show loading immediately before heavy recalculation
+                                    setGlobalLoading(true)
+                                    // Use setTimeout to ensure loading shows before React starts work
+                                    setTimeout(() => {
+                                      startTransition(() => {
+                                        setSelections({
+                                          comparisonMode: newComparisonMode,
+                                          showAsterisks: newComparisonMode,
+                                          // Clear multi-filter comparison when switching to Filter mode
+                                          ...(newComparisonMode ? {} : { multiFilterCompareMode: false, comparisonSets: [] })
+                                        })
                                       })
-                                    })
+                                    }, 10)
                                   }}
                                   style={{ opacity: 0, width: 0, height: 0 }}
                                 />
