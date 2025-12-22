@@ -2843,6 +2843,24 @@ interface ChartGalleryProps {
   productColumn?: string
 }
 
+// PERF: Cache key generator for buildSeries results
+// This creates a stable string hash from the inputs that affect buildSeries output
+function createSeriesCacheKey(
+  qid: string,
+  mode: 'standard' | 'multiFilter' | 'productBucket',
+  segments: SegmentDef[] | undefined,
+  comparisonSets: ComparisonSet[] | undefined,
+  productBuckets: ProductBucket[] | undefined,
+  sortOrder: SortOrder,
+  datasetRowCount: number,
+  comparisonMode: boolean
+): string {
+  const segKey = segments ? segments.map(s => `${s.column}:${s.value}`).sort().join('|') : ''
+  const csKey = comparisonSets ? comparisonSets.map(cs => cs.id).sort().join('|') : ''
+  const pbKey = productBuckets ? productBuckets.map(pb => pb.id).sort().join('|') : ''
+  return `${qid}::${mode}::${segKey}::${csKey}::${pbKey}::${sortOrder}::${datasetRowCount}::${comparisonMode}`
+}
+
 export const ChartGallery: React.FC<ChartGalleryProps> = ({
   questions,
   dataset,
@@ -2872,6 +2890,10 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
   productBucketMode = false,
   productColumn
 }) => {
+  // PERF: Per-question buildSeries cache to avoid recalculating all questions
+  // when only one question's inputs change
+  const seriesCacheRef = useRef<Map<string, { result: BuildSeriesResult, cacheKey: string }>>(new Map())
+
   const renderableEntries = useMemo(() => {
     // Check if we have valid comparison sets for multi-filter mode
     const validComparisonSets = comparisonSets.filter(s => s.filters.length > 0)
@@ -2955,18 +2977,58 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
     const actualSegments = segments?.filter(seg => seg.value !== 'Overall') || []
     const useFilterMode = !comparisonMode && actualSegments.length >= 1
 
+    // PERF: Access cache ref for per-question caching
+    const cache = seriesCacheRef.current
+
     return questions
       .map(question => {
-        const series = buildSeries({
-          dataset,
-          question,
-          ...(hasSegments
-            ? (useFilterMode ? { segments: [{ column: 'Overall', value: 'Overall' }] } : { segments })
-            : { segmentColumn, groups }
-          ),
+        // PERF: Check cache before computing buildSeries
+        const effectiveSegments = hasSegments
+          ? (useFilterMode ? [{ column: 'Overall', value: 'Overall' }] : segments)
+          : undefined
+        const cacheKey = createSeriesCacheKey(
+          question.qid,
+          'standard',
+          effectiveSegments,
+          undefined,
+          undefined,
           sortOrder,
-          groupLabels: combinedLabels
-        })
+          dataset.rows.length,
+          comparisonMode
+        )
+
+        let series: BuildSeriesResult
+        const cached = cache.get(question.qid)
+
+        if (cached && cached.cacheKey === cacheKey) {
+          // Cache hit - use cached result (deep clone to avoid mutation issues)
+          series = {
+            data: cached.result.data.map(d => ({ ...d })),
+            groups: cached.result.groups.map(g => ({ ...g }))
+          }
+          devLog(`[PERF] Cache HIT for ${question.qid}`)
+        } else {
+          // Cache miss - compute and store
+          series = buildSeries({
+            dataset,
+            question,
+            ...(hasSegments
+              ? (useFilterMode ? { segments: [{ column: 'Overall', value: 'Overall' }] } : { segments })
+              : { segmentColumn, groups }
+            ),
+            sortOrder,
+            groupLabels: combinedLabels
+          })
+          // Store in cache
+          cache.set(question.qid, {
+            result: {
+              data: series.data.map(d => ({ ...d })),
+              groups: series.groups.map(g => ({ ...g }))
+            },
+            cacheKey
+          })
+          devLog(`[PERF] Cache MISS for ${question.qid}`)
+        }
 
         // Apply custom labels to series groups (fallback for any missed labels)
         series.groups = series.groups.map(group => ({
