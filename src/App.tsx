@@ -188,7 +188,7 @@ function shouldIncludeQuestion(question: QuestionDef): boolean {
 }
 
 export default function App() {
-  const { dataset, selections, setSelections } = useORAStore()
+  const { dataset, selections, setSelections, isLoading: isGlobalLoading, setIsLoading: setGlobalLoading } = useORAStore()
   const [chartOrientation] = useState<'horizontal' | 'vertical'>('vertical')
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [sidebarWidth, setSidebarWidth] = useState(() => Math.max(250, Math.min(window.innerWidth * 0.20, 500)))
@@ -368,20 +368,21 @@ export default function App() {
     }
   }, [chartOrientation, setSelections])
 
-  // Track dataset changes to show loading state during initial chart render
+  // Track dataset changes to clear loading state after charts render
   const prevDatasetRef = useRef<typeof dataset>(null)
   useEffect(() => {
     if (dataset && dataset !== prevDatasetRef.current) {
-      // Dataset just loaded or changed - show loading overlay
+      // Dataset just loaded or changed - keep loading overlay
       setIsInitializing(true)
-      // Hide loading after a short delay to let React render the charts
+      // Hide loading after charts have had time to render
       const timer = setTimeout(() => {
         setIsInitializing(false)
+        setGlobalLoading(false)  // Clear global loading from CSV upload
       }, 100)
       prevDatasetRef.current = dataset
       return () => clearTimeout(timer)
     }
-  }, [dataset])
+  }, [dataset, setGlobalLoading])
 
   const currentQuestion: QuestionDef | undefined = useMemo(
     () => questions.find(q => q.qid === selections.question),
@@ -6023,8 +6024,8 @@ export default function App() {
         />
       )}
 
-      {/* Loading Overlay - Shows during heavy operations */}
-      {(isPending || isInitializing) && (
+      {/* Loading Overlay - Shows during CSV upload and heavy operations */}
+      {(isPending || isInitializing || isGlobalLoading) && (
         <div
           style={{
             position: 'fixed',
@@ -6064,7 +6065,7 @@ export default function App() {
               }}
             />
             <div style={{ color: '#374151', fontSize: '14px', fontWeight: 500 }}>
-              {isInitializing ? 'Loading charts...' : 'Processing...'}
+              {isGlobalLoading ? 'Loading data...' : isInitializing ? 'Rendering charts...' : 'Processing...'}
             </div>
           </div>
         </div>

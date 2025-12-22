@@ -10,6 +10,9 @@ interface ORAState {
   setDataset: (d: ParsedCSV | null) => void
   selections: Selections
   setSelections: (s: Partial<Selections>) => void
+  // Global loading state for CSV upload and heavy operations
+  isLoading: boolean
+  setIsLoading: (loading: boolean) => void
 }
 
 const initialSelections: Selections = {
@@ -49,5 +52,8 @@ export const useORAStore = create<ORAState>((set) => ({
   selections: initialSelections,
   setSelections: (s) => set((state) => ({
     selections: { ...state.selections, ...s }
-  }))
+  })),
+  // Global loading state
+  isLoading: false,
+  setIsLoading: (loading) => set({ isLoading: loading })
 }))

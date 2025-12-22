@@ -14,7 +14,7 @@ export interface CSVUploadHandle {
 
 export const CSVUpload = forwardRef<CSVUploadHandle, CSVUploadProps>(({ variant = 'compact' }, ref) => {
   const inputRef = useRef<HTMLInputElement | null>(null)
-  const { setDataset } = useORAStore()
+  const { setDataset, setIsLoading: setGlobalLoading } = useORAStore()
   const [isDragOver, setIsDragOver] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -26,21 +26,41 @@ export const CSVUpload = forwardRef<CSVUploadHandle, CSVUploadProps>(({ variant 
     }
 
     setIsLoading(true)
+    setGlobalLoading(true)  // Show global loading overlay immediately
     setError(null)
+
+    // PERF BASELINE: Start timing total upload
+    const uploadStart = performance.now()
+    console.log('[PERF] Starting CSV upload:', file.name, 'Size:', (file.size / 1024 / 1024).toFixed(2) + 'MB')
 
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       dynamicTyping: true,
       complete: (res: ParseResult<any>) => {
+        const papaParseEnd = performance.now()
+        console.log('[PERF] Papa.parse complete:', (papaParseEnd - uploadStart).toFixed(0) + 'ms', 'Rows:', res.data.length)
+
         const rows = res.data as any[]
         try {
+          const parseStart = performance.now()
           const dataset = parseCSVToDataset(rows, file.name)
+          const parseEnd = performance.now()
+          console.log('[PERF] parseCSVToDataset:', (parseEnd - parseStart).toFixed(0) + 'ms')
+
+          const storeStart = performance.now()
           setDataset(dataset)
+          const storeEnd = performance.now()
+          console.log('[PERF] setDataset (store update):', (storeEnd - storeStart).toFixed(0) + 'ms')
+
+          const totalTime = performance.now() - uploadStart
+          console.log('[PERF] ===== TOTAL UPLOAD TIME:', totalTime.toFixed(0) + 'ms =====')
+
           setError(null)
         } catch (e: any) {
           setError('Failed to parse CSV: ' + e?.message)
           console.error('Failed to parse CSV', e)
+          setGlobalLoading(false)  // Clear global loading on error
         } finally {
           setIsLoading(false)
         }
@@ -49,9 +69,10 @@ export const CSVUpload = forwardRef<CSVUploadHandle, CSVUploadProps>(({ variant 
         setError('CSV parse error: ' + err.message)
         console.error('CSV parse error', err)
         setIsLoading(false)
+        setGlobalLoading(false)  // Clear global loading on error
       }
     })
-  }, [setDataset])
+  }, [setDataset, setGlobalLoading])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
