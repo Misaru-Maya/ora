@@ -224,6 +224,9 @@ export default function App() {
   // Performance: Use transition for non-urgent updates to keep UI responsive
   const [isPending, startTransition] = useTransition()
 
+  // Loading state for initial chart rendering after CSV load
+  const [isInitializing, setIsInitializing] = useState(false)
+
   // PDF export state
   const [isExportingPdf, setIsExportingPdf] = useState(false)
   const [exportProgress, setExportProgress] = useState<{ current: number; total: number } | null>(null)
@@ -364,6 +367,21 @@ export default function App() {
       setSelections({ sortOrder: 'descending' })
     }
   }, [chartOrientation, setSelections])
+
+  // Track dataset changes to show loading state during initial chart render
+  const prevDatasetRef = useRef<typeof dataset>(null)
+  useEffect(() => {
+    if (dataset && dataset !== prevDatasetRef.current) {
+      // Dataset just loaded or changed - show loading overlay
+      setIsInitializing(true)
+      // Hide loading after a short delay to let React render the charts
+      const timer = setTimeout(() => {
+        setIsInitializing(false)
+      }, 100)
+      prevDatasetRef.current = dataset
+      return () => clearTimeout(timer)
+    }
+  }, [dataset])
 
   const currentQuestion: QuestionDef | undefined = useMemo(
     () => questions.find(q => q.qid === selections.question),
@@ -3287,11 +3305,14 @@ export default function App() {
                                   onChange={(e) => {
                                     e.stopPropagation()
                                     const newComparisonMode = !selections.comparisonMode
-                                    setSelections({
-                                      comparisonMode: newComparisonMode,
-                                      showAsterisks: newComparisonMode,
-                                      // Clear multi-filter comparison when switching to Filter mode
-                                      ...(newComparisonMode ? {} : { multiFilterCompareMode: false, comparisonSets: [] })
+                                    // Use startTransition to keep UI responsive during heavy recalculation
+                                    startTransition(() => {
+                                      setSelections({
+                                        comparisonMode: newComparisonMode,
+                                        showAsterisks: newComparisonMode,
+                                        // Clear multi-filter comparison when switching to Filter mode
+                                        ...(newComparisonMode ? {} : { multiFilterCompareMode: false, comparisonSets: [] })
+                                      })
                                     })
                                   }}
                                   style={{ opacity: 0, width: 0, height: 0 }}
@@ -6001,6 +6022,60 @@ export default function App() {
           onClose={() => setShowRegressionPanel(false)}
         />
       )}
+
+      {/* Loading Overlay - Shows during heavy operations */}
+      {(isPending || isInitializing) && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(255, 255, 255, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            backdropFilter: 'blur(2px)'
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '16px',
+              padding: '32px',
+              backgroundColor: 'white',
+              borderRadius: '16px',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.1)'
+            }}
+          >
+            {/* Animated spinner */}
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                border: '4px solid #E5E7EB',
+                borderTopColor: '#3A8518',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }}
+            />
+            <div style={{ color: '#374151', fontSize: '14px', fontWeight: 500 }}>
+              {isInitializing ? 'Loading charts...' : 'Processing...'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CSS for spinner animation */}
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 }
