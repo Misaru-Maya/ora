@@ -470,8 +470,8 @@ export default function App() {
           totalChecked++
           // Row must match at least one value from each category (AND between categories, OR within)
           const matches = Object.entries(segmentsByColumn).every(([column, values]) => {
-            // Check if this column is a consumer question
-            const consumerQuestion = dataset?.questions.find(q => q.qid === column)
+            // PERF: Use questionMap for O(1) lookup instead of O(n) find()
+            const consumerQuestion = questionMap.get(column)
 
             if (consumerQuestion) {
               if (totalChecked === 1) {
@@ -532,7 +532,7 @@ export default function App() {
     const rowsCalcEnd = performance.now()
     console.log('[PERF] rows useMemo:', (rowsCalcEnd - rowsCalcStart).toFixed(0) + 'ms', 'Result:', filtered.length, 'rows')
     return filtered
-  }, [useAllProducts, rowsRaw, selections.productGroups, selections.productColumn, selections.segments, selections.comparisonMode, dataset])
+  }, [useAllProducts, rowsRaw, selections.productGroups, selections.productColumn, selections.segments, selections.comparisonMode, dataset, questionMap])
 
   const filteredDataset = useMemo(() => {
     if (!dataset) return null
