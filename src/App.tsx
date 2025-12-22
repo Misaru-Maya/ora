@@ -975,42 +975,47 @@ export default function App() {
     )
     const isFilterMode = !(selections.comparisonMode ?? true)
 
-    // Use startTransition for heavy filter updates to keep UI responsive
-    startTransition(() => {
-      if (existingIndex >= 0) {
-        // Remove segment
-        const newSegments = [...currentSegments]
-        newSegments.splice(existingIndex, 1)
+    // Show loading immediately and wait for browser to paint before heavy work
+    setGlobalLoading(true)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        startTransition(() => {
+          if (existingIndex >= 0) {
+            // Remove segment
+            const newSegments = [...currentSegments]
+            newSegments.splice(existingIndex, 1)
 
-        // If removing brings us below 2 segments and stat sig is on, turn it off
-        if (newSegments.length < 2 && selections.statSigFilter === 'statSigOnly') {
-          setSelections({ segments: newSegments, statSigFilter: 'all' })
-        } else {
-          setSelections({ segments: newSegments })
-        }
-      } else {
-        // Add segment
-        let newSegments = [...currentSegments, { column, value }]
-
-        if (value === 'Overall') {
-          if (isFilterMode) {
-            // In Filter mode: selecting Overall resets all other segments
-            setSelections({ segments: [{ column: 'Overall', value: 'Overall' }] })
+            // If removing brings us below 2 segments and stat sig is on, turn it off
+            if (newSegments.length < 2 && selections.statSigFilter === 'statSigOnly') {
+              setSelections({ segments: newSegments, statSigFilter: 'all' })
+            } else {
+              setSelections({ segments: newSegments })
+            }
           } else {
-            // In Compare mode: add Overall alongside other segments
-            setSelections({ segments: newSegments })
+            // Add segment
+            let newSegments = [...currentSegments, { column, value }]
+
+            if (value === 'Overall') {
+              if (isFilterMode) {
+                // In Filter mode: selecting Overall resets all other segments
+                setSelections({ segments: [{ column: 'Overall', value: 'Overall' }] })
+              } else {
+                // In Compare mode: add Overall alongside other segments
+                setSelections({ segments: newSegments })
+              }
+            } else if (isFilterMode) {
+              // In Filter mode only: remove Overall when selecting other segments
+              newSegments = newSegments.filter(s => s.value !== 'Overall')
+              setSelections({ segments: newSegments })
+            } else {
+              // In Compare mode: keep Overall, allow multiple selections
+              setSelections({ segments: newSegments })
+            }
           }
-        } else if (isFilterMode) {
-          // In Filter mode only: remove Overall when selecting other segments
-          newSegments = newSegments.filter(s => s.value !== 'Overall')
-          setSelections({ segments: newSegments })
-        } else {
-          // In Compare mode: keep Overall, allow multiple selections
-          setSelections({ segments: newSegments })
-        }
-      }
+        })
+      })
     })
-  }, [selections.segments, selections.comparisonMode, selections.statSigFilter, setSelections, startTransition])
+  }, [selections.segments, selections.comparisonMode, selections.statSigFilter, setSelections, setGlobalLoading, startTransition])
 
   const isSegmentSelected = (column: string, value: string) => {
     return (selections.segments || []).some(
@@ -1022,35 +1027,47 @@ export default function App() {
     const currentSegments = selections.segments || []
     const isFilterMode = !(selections.comparisonMode ?? true)
 
-    startTransition(() => {
-      // Remove existing segments from this column
-      const otherSegments = currentSegments.filter(s => s.column !== column)
-      // Add all values from this column
-      let newSegments = [...otherSegments, ...values.map(value => ({ column, value }))]
+    // Show loading immediately and wait for browser to paint
+    setGlobalLoading(true)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        startTransition(() => {
+          // Remove existing segments from this column
+          const otherSegments = currentSegments.filter(s => s.column !== column)
+          // Add all values from this column
+          let newSegments = [...otherSegments, ...values.map(value => ({ column, value }))]
 
-      // In Filter mode only: remove Overall when selecting other segments
-      if (isFilterMode) {
-        newSegments = newSegments.filter(s => s.value !== 'Overall')
-      }
+          // In Filter mode only: remove Overall when selecting other segments
+          if (isFilterMode) {
+            newSegments = newSegments.filter(s => s.value !== 'Overall')
+          }
 
-      setSelections({ segments: newSegments })
+          setSelections({ segments: newSegments })
+        })
+      })
     })
-  }, [selections.segments, selections.comparisonMode, setSelections, startTransition])
+  }, [selections.segments, selections.comparisonMode, setSelections, setGlobalLoading, startTransition])
 
   const handleClearColumn = useCallback((column: string) => {
     const currentSegments = selections.segments || []
     // Remove all segments from this column
     const newSegments = currentSegments.filter(s => s.column !== column)
 
-    startTransition(() => {
-      // If removing brings us below 2 segments and stat sig is on, turn it off
-      if (newSegments.length < 2 && selections.statSigFilter === 'statSigOnly') {
-        setSelections({ segments: newSegments, statSigFilter: 'all' })
-      } else {
-        setSelections({ segments: newSegments })
-      }
+    // Show loading immediately and wait for browser to paint
+    setGlobalLoading(true)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        startTransition(() => {
+          // If removing brings us below 2 segments and stat sig is on, turn it off
+          if (newSegments.length < 2 && selections.statSigFilter === 'statSigOnly') {
+            setSelections({ segments: newSegments, statSigFilter: 'all' })
+          } else {
+            setSelections({ segments: newSegments })
+          }
+        })
+      })
     })
-  }, [selections.segments, selections.statSigFilter, setSelections, startTransition])
+  }, [selections.segments, selections.statSigFilter, setSelections, setGlobalLoading, startTransition])
 
   // Multi-filter comparison set management functions
   const generateSetId = () => `set_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -1382,15 +1399,25 @@ export default function App() {
     setDraggedProductIndex(null)
   }
 
-  const toggleProductGroup = (value: string) => {
+  const toggleProductGroup = useCallback((value: string) => {
     const current = new Set(selections.productGroups)
     if (current.has(value)) {
       current.delete(value)
     } else {
       current.add(value)
     }
-    setSelections({ productGroups: Array.from(current) })
-  }
+    const newProductGroups = Array.from(current)
+
+    // Show loading immediately and wait for browser to paint
+    setGlobalLoading(true)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        startTransition(() => {
+          setSelections({ productGroups: newProductGroups })
+        })
+      })
+    })
+  }, [selections.productGroups, setSelections, setGlobalLoading, startTransition])
 
   const _handleSegmentColumnChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const nextSegment = event.target.value
@@ -1435,7 +1462,7 @@ export default function App() {
     setEditingSegment(null)
   }
 
-  const handleSaveOptionLabel = (qid: string, option: string, newLabel: string) => {
+  const handleSaveOptionLabel = useCallback((qid: string, option: string, newLabel: string) => {
     if (!newLabel.trim()) return
     const currentOptionLabels = selections.optionLabels || {}
     const questionOptionLabels = currentOptionLabels[qid] || {}
@@ -1448,7 +1475,7 @@ export default function App() {
         }
       }
     })
-  }
+  }, [setSelections, selections.optionLabels])
 
   const getOptionDisplayLabel = (qid: string, option: string) => {
     return selections.optionLabels?.[qid]?.[option] || option
@@ -1461,7 +1488,7 @@ export default function App() {
     setEditingConsumerOption(null)
   }
 
-  const handleSaveQuestionLabel = (qid: string, newLabel: string) => {
+  const handleSaveQuestionLabel = useCallback((qid: string, newLabel: string) => {
     if (!newLabel.trim()) return
     devLog('Saving question label:', { qid, newLabel: newLabel.trim(), currentLabels: selections.questionLabels })
     setSelections({
@@ -1470,7 +1497,7 @@ export default function App() {
         [qid]: newLabel.trim()
       }
     })
-  }
+  }, [setSelections, selections.questionLabels])
 
   const _handleSaveSegmentColumnLabel = (column: string, newLabel: string) => {
     if (!newLabel.trim()) return
@@ -1487,8 +1514,27 @@ export default function App() {
     return selections.segmentColumnLabels?.[column] || column
   }
 
-  const handleSelectAllProducts = () => setSelections({ productGroups: [...productValues] })
-  const handleClearProducts = () => setSelections({ productGroups: [] })
+  const handleSelectAllProducts = useCallback(() => {
+    setGlobalLoading(true)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        startTransition(() => {
+          setSelections({ productGroups: [...productValues] })
+        })
+      })
+    })
+  }, [productValues, setSelections, setGlobalLoading, startTransition])
+
+  const handleClearProducts = useCallback(() => {
+    setGlobalLoading(true)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        startTransition(() => {
+          setSelections({ productGroups: [] })
+        })
+      })
+    })
+  }, [setSelections, setGlobalLoading, startTransition])
 
   // Markdown export handler - exports data in AI-readable format for ChatGPT/NotebookLM
   // Captures the exact view state including sorting, filtering, and product averages
@@ -3287,7 +3333,15 @@ export default function App() {
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                           <button
                             onClick={() => {
-                              setSelections({ segments: [{ column: 'Overall', value: 'Overall' }], productGroups: [] })
+                              // Show loading immediately and wait for browser to paint
+                              setGlobalLoading(true)
+                              requestAnimationFrame(() => {
+                                requestAnimationFrame(() => {
+                                  startTransition(() => {
+                                    setSelections({ segments: [{ column: 'Overall', value: 'Overall' }], productGroups: [] })
+                                  })
+                                })
+                              })
                             }}
                             style={{
                               padding: '6px 14px',
@@ -3318,17 +3372,20 @@ export default function App() {
                                     const newComparisonMode = !selections.comparisonMode
                                     // Show loading immediately before heavy recalculation
                                     setGlobalLoading(true)
-                                    // Use setTimeout to ensure loading shows before React starts work
-                                    setTimeout(() => {
-                                      startTransition(() => {
-                                        setSelections({
-                                          comparisonMode: newComparisonMode,
-                                          showAsterisks: newComparisonMode,
-                                          // Clear multi-filter comparison when switching to Filter mode
-                                          ...(newComparisonMode ? {} : { multiFilterCompareMode: false, comparisonSets: [] })
+                                    // Use double requestAnimationFrame to ensure browser paints loading overlay
+                                    // before starting heavy work (first rAF waits for React commit, second for paint)
+                                    requestAnimationFrame(() => {
+                                      requestAnimationFrame(() => {
+                                        startTransition(() => {
+                                          setSelections({
+                                            comparisonMode: newComparisonMode,
+                                            showAsterisks: newComparisonMode,
+                                            // Clear multi-filter comparison when switching to Filter mode
+                                            ...(newComparisonMode ? {} : { multiFilterCompareMode: false, comparisonSets: [] })
+                                          })
                                         })
                                       })
-                                    }, 10)
+                                    })
                                   }}
                                   style={{ opacity: 0, width: 0, height: 0 }}
                                 />
@@ -4872,11 +4929,19 @@ export default function App() {
                       {(selections.comparisonSets || []).length > 0 && (
                         <button
                           onClick={() => {
-                            setSelections({ comparisonSets: [], multiFilterCompareMode: false })
-                            // Also clear consumer question selections
-                            setSelectedConsumerQuestions({})
-                            setConsumerQuestionDropdownOpen({})
-                            setConsumerQuestionSearch({})
+                            // Show loading immediately and wait for browser to paint
+                            setGlobalLoading(true)
+                            requestAnimationFrame(() => {
+                              requestAnimationFrame(() => {
+                                startTransition(() => {
+                                  setSelections({ comparisonSets: [], multiFilterCompareMode: false })
+                                  // Also clear consumer question selections
+                                  setSelectedConsumerQuestions({})
+                                  setConsumerQuestionDropdownOpen({})
+                                  setConsumerQuestionSearch({})
+                                })
+                              })
+                            })
                           }}
                           style={{
                             padding: '6px 10px',

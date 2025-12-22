@@ -2861,7 +2861,7 @@ function createSeriesCacheKey(
   return `${qid}::${mode}::${segKey}::${csKey}::${pbKey}::${sortOrder}::${datasetRowCount}::${comparisonMode}`
 }
 
-export const ChartGallery: React.FC<ChartGalleryProps> = ({
+export const ChartGallery: React.FC<ChartGalleryProps> = memo(({
   questions,
   dataset,
   segmentColumn,
@@ -3105,4 +3105,4 @@ export const ChartGallery: React.FC<ChartGalleryProps> = ({
       )}
     </div>
   )
-}
+})
