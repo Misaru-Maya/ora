@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom'
 import type { SeriesDataPoint, GroupSeriesMeta } from '../dataCalculations'
 import { stripQuotes, stripSentimentPrefix, getContrastTextColor, GREEN_PALETTE, YELLOW_PALETTE, getContinuousGradientColor } from '../utils'
 
-// Performance: Disable console logs in production
-const isDev = process.env.NODE_ENV === 'development'
+// PERF: Disabled debug logging - was causing 10-20% overhead
+const isDev = false // process.env.NODE_ENV === 'development'
 const devLog = isDev ? console.log : () => {}
 const devWarn = isDev ? console.warn : () => {}
 
@@ -117,15 +117,23 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
     // Pre-compute scores for all products in a single pass
     const scores = new Map<string, number>()
 
-    // Group rows by product for efficient processing
-    const productRowsMap = new Map<string, typeof dataset.rows>()
-    for (const row of dataset.rows) {
-      const productLabel = row[productColumn]
-      if (!productLabel) continue
-      if (!productRowsMap.has(productLabel)) {
-        productRowsMap.set(productLabel, [])
+    // PERF: Use pre-computed row groups if available, otherwise compute locally
+    let productRowsMap: Map<string, Record<string, any>[]>
+    const precomputedGroups = dataset.segmentRowGroups?.get(productColumn)
+    if (precomputedGroups) {
+      productRowsMap = precomputedGroups
+      devLog('📊 Using pre-computed product groups')
+    } else {
+      // Fallback: Group rows by product for efficient processing
+      productRowsMap = new Map<string, Record<string, any>[]>()
+      for (const row of dataset.rows) {
+        const productLabel = row[productColumn]
+        if (!productLabel) continue
+        if (!productRowsMap.has(productLabel)) {
+          productRowsMap.set(productLabel, [])
+        }
+        productRowsMap.get(productLabel)!.push(row)
       }
-      productRowsMap.get(productLabel)!.push(row)
     }
 
     // Calculate score for each group

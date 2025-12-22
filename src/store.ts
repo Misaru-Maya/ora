@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import type { ParsedCSV, Selections } from './types'
 
-// Performance: Disable console logs in production
-const isDev = process.env.NODE_ENV === 'development'
+// PERF: Disabled debug logging - was causing 10-20% overhead
+const isDev = false // process.env.NODE_ENV === 'development'
 const devLog = isDev ? console.log : () => {}
 
 interface ORAState {

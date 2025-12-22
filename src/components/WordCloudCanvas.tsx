@@ -192,7 +192,8 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
     const totalResponses = texts.length
     const uniqueCount = uniqueResponses.length
 
-    console.log(`[WordCloud] Deduplicated: ${totalResponses} total → ${uniqueCount} unique responses (${Math.round((1 - uniqueCount/totalResponses) * 100)}% reduction)`)
+    // PERF: Disabled logging
+    // console.log(`[WordCloud] Deduplicated: ${totalResponses} total → ${uniqueCount} unique responses (${Math.round((1 - uniqueCount/totalResponses) * 100)}% reduction)`)
 
     // Step 2: Sample unique responses if still too many
     const MAX_UNIQUE = 2000
@@ -202,7 +203,8 @@ export const WordCloudCanvas: React.FC<WordCloudCanvasProps> = ({
       const shuffled = [...uniqueResponses].sort(() => Math.random() - 0.5)
       sampled = shuffled.slice(0, MAX_UNIQUE)
       sampleRatio = uniqueCount / MAX_UNIQUE
-      console.log(`[WordCloud] Sampled ${MAX_UNIQUE} of ${uniqueCount} unique responses`)
+      // PERF: Disabled logging
+      // console.log(`[WordCloud] Sampled ${MAX_UNIQUE} of ${uniqueCount} unique responses`)
     }
 
     // Step 3: Process each unique response and weight words by occurrence count

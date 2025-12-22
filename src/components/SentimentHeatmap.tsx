@@ -159,6 +159,26 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
     }
 
     // Regular mode: calculate per product
+    // PERF: Use pre-computed row groups if available
+    const precomputedGroups = dataset.segmentRowGroups?.get(productColumn)
+
+    if (precomputedGroups) {
+      // Use pre-computed groups for O(1) lookups
+      const allProducts = Array.from(precomputedGroups.keys())
+      return allProducts.map(productName => {
+        const productRows = precomputedGroups.get(productName) || []
+        const { advocatePercent, detractorPercent, validResponses } = calculateSentiment(productRows, sentimentColumn)
+
+        return {
+          productName,
+          advocatePercent,
+          detractorPercent,
+          totalResponses: validResponses
+        }
+      })
+    }
+
+    // Fallback: compute product groups on the fly
     const allProducts = Array.from(
       new Set(dataset.rows.map(row => stripQuotes(String(row[productColumn] ?? ''))).filter(Boolean))
     )

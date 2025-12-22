@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import type { SeriesDataPoint, GroupSeriesMeta } from '../dataCalculations'
 
-// Performance: Disable console logs in production
-const isDev = process.env.NODE_ENV === 'development'
+// PERF: Disabled debug logging - was causing 10-20% overhead
+const isDev = false // process.env.NODE_ENV === 'development'
 const devLog = isDev ? console.log : () => {}
 
 const PIE_COLORS = [

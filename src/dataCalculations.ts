@@ -2,7 +2,8 @@ import type { ParsedCSV, QuestionDef, SortOrder, SegmentDef, ComparisonSet, Prod
 import { stripQuotes } from './utils'
 
 // Performance: Disable console logs in production
-const isDev = process.env.NODE_ENV === 'development'
+// PERF: Disabled debug logging - was causing 10-20% overhead
+const isDev = false // process.env.NODE_ENV === 'development'
 const devLog = isDev ? console.log : () => {}
 
 // Custom rounding function using standard rounding (>0.5)
@@ -224,8 +225,19 @@ export function buildSeries({
     } else {
       // Regular segment column (Age, Gender, etc.)
       devLog(`[FILTER] Regular segment: ${segment.column} = ${segment.value}`)
-      filtered = rows.filter(r => stripQuotes(String(r[segment.column])) === stripQuotes(segment.value))
-      devLog(`[FILTER] Filtered ${filtered.length} rows out of ${rows.length}`)
+
+      // PERF: Use pre-computed row groups if available (O(1) lookup instead of O(n) filter)
+      const precomputedGroups = dataset.segmentRowGroups?.get(segment.column)
+      const normalizedValue = stripQuotes(segment.value)
+
+      if (precomputedGroups && precomputedGroups.has(normalizedValue)) {
+        filtered = precomputedGroups.get(normalizedValue)!
+        devLog(`[FILTER] Used pre-computed group: ${filtered.length} rows`)
+      } else {
+        // Fallback to filtering (for columns not pre-computed)
+        filtered = rows.filter(r => stripQuotes(String(r[segment.column])) === normalizedValue)
+        devLog(`[FILTER] Filtered ${filtered.length} rows out of ${rows.length}`)
+      }
     }
 
     const respondentIds = uniq(filtered.map(r => stripQuotes(String(r[respIdCol] ?? '').trim())).filter(Boolean))

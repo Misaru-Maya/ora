@@ -44,6 +44,9 @@ export interface ParsedCSV {
   questions: QuestionDef[]
   segmentColumns: string[]
   summary: DatasetSummary
+  // PERF: Pre-computed row groups for O(1) segment filtering
+  // Map<columnName, Map<value, rows[]>>
+  segmentRowGroups?: Map<string, Map<string, Record<string, any>[]>>
 }
 
 export type SortOrder = 'default' | 'descending' | 'ascending'

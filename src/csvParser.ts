@@ -7,8 +7,8 @@
 import type { ParsedCSV, QuestionDef, QuestionOptionColumn } from './types'
 import { stripQuotes } from './utils'
 
-// Performance: Disable console logs in production
-const isDev = process.env.NODE_ENV === 'development'
+// PERF: Disabled debug logging - was causing 10-20% overhead
+const isDev = false // process.env.NODE_ENV === 'development'
 const devLog = isDev ? console.log : () => {}
 const devWarn = isDev ? console.warn : () => {}
 
@@ -761,11 +761,45 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
   devLog(`[CSV Parser] Found ${rankingCount} ranking questions, ${textCount} text questions`)
 
   // Detect if this is a product test (has product/style ID columns)
-  const isProductTest = lowerCols.some(c => 
-    (c.includes('product') && c.includes('id')) || 
-    c.includes('style') || 
+  const isProductTest = lowerCols.some(c =>
+    (c.includes('product') && c.includes('id')) ||
+    c.includes('style') ||
     c.includes('item')
   )
+
+  // PERF: Pre-compute row groups for O(1) segment filtering
+  // This eliminates O(rows × products) filtering at runtime (1.1M operations → 27 lookups)
+  const segmentRowGroups = new Map<string, Map<string, Record<string, any>[]>>()
+
+  // Find columns to pre-compute: segment columns + Product Title
+  const columnsToPrecompute = new Set<string>(segmentColumns.filter(c => c !== 'Overall'))
+  const productTitleCol = columns.find(c => c.toLowerCase() === 'product title')
+  if (productTitleCol) {
+    columnsToPrecompute.add(productTitleCol)
+  }
+
+  // Pre-compute row groups for each column
+  for (const column of columnsToPrecompute) {
+    const valueGroups = new Map<string, Record<string, any>[]>()
+
+    for (const row of rows) {
+      const rawValue = row[column]
+      if (rawValue === null || rawValue === undefined || rawValue === '') continue
+
+      // Normalize value (strip quotes, trim)
+      const value = stripQuotes(String(rawValue).trim())
+      if (!value) continue
+
+      if (!valueGroups.has(value)) {
+        valueGroups.set(value, [])
+      }
+      valueGroups.get(value)!.push(row)
+    }
+
+    segmentRowGroups.set(column, valueGroups)
+  }
+
+  devLog(`[CSV Parser] Pre-computed row groups for ${columnsToPrecompute.size} columns`)
 
   return {
     rows,
@@ -778,6 +812,7 @@ export function parseCSVToDataset(rows: Record<string, any>[], fileName: string)
       columns,
       isProductTest,
       questionsDetected: questions.length
-    }
+    },
+    segmentRowGroups
   }
 }
