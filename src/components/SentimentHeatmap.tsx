@@ -955,7 +955,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
                           color: advocateColor.text,
                           padding: cellPadding,
                           textAlign: 'center',
-                          fontSize: '14px',
+                          fontSize: '17px',
                           fontWeight: advocateColor.text === '#FFFFFF' ? 'normal' : 600,
                           verticalAlign: 'middle'
                         }}
@@ -968,7 +968,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
                           color: detractorColor.text,
                           padding: cellPadding,
                           textAlign: 'center',
-                          fontSize: '14px',
+                          fontSize: '17px',
                           fontWeight: detractorColor.text === '#FFFFFF' ? 'normal' : 600,
                           verticalAlign: 'middle'
                         }}
@@ -1117,7 +1117,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
                           color: text,
                           padding: cellPadding,
                           textAlign: 'center',
-                          fontSize: '14px',
+                          fontSize: '17px',
                           fontWeight: text === '#FFFFFF' ? 'normal' : 600,
                           verticalAlign: 'middle'
                         }}
@@ -1202,7 +1202,7 @@ export const SentimentHeatmap: React.FC<SentimentHeatmapProps> = React.memo(({
                           color: text,
                           padding: cellPadding,
                           textAlign: 'center',
-                          fontSize: '14px',
+                          fontSize: '17px',
                           fontWeight: text === '#FFFFFF' ? 'normal' : 600,
                           verticalAlign: 'middle'
                         }}

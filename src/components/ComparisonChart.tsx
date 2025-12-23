@@ -381,7 +381,7 @@ const EditableYAxisTick: React.FC<any & {
         x={labelX}
         y={labelY}
         textAnchor="start"
-        fontSize={14}
+        fontSize={15}
         fill="#1f2833"
       >
         {text}
@@ -1099,7 +1099,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({
   const maxLabelWidth = calculateMaxLabelWidth()
 
   // Fixed font size for X-axis labels
-  const xAxisFontSize = 13
+  const xAxisFontSize = 15
 
   // Calculate dynamic height for X-axis based on maximum lines needed
   const calculateMaxLines = (text: string, maxWidth: number): number => {

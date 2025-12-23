@@ -1186,7 +1186,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = memo(({ data, groups, q
                         color: text,
                         padding: `${rowPaddingVertical}px 4px`,
                         textAlign: 'center',
-                        fontSize: '12px',
+                        fontSize: '14px',
                         fontWeight: text === '#FFFFFF' ? 'normal' : 600,
                         verticalAlign: 'middle'
                       }}
